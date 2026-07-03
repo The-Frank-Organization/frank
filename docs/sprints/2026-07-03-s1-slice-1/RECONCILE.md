@@ -72,3 +72,17 @@ Verified against disk: design doc exists at designs/s1-slice-1-design.md, r2 = m
 - Veto path: operator may override this ratification at any time before the plan gate; the CC trail carries it.
 
 Disposition: **PROCEED-TO-PLAN** issued (`s1-core-plan/PLAN-orchestrator-planner-20260703-153356.md`) — sequencing only; the gated PLAN lock stays in the pair-Planner seat (`DESIGN_LOCK_ID: s1-slice-1-design`, parent = the approving r2 DESIGN-REVIEW). Delegated dispatch is granted CONDITIONALLY: implementer plan-review approve + SCOPE_DIFF all-in + **the external m-7-guide + master-VP plan gate and both m-1/m-2 fidelity approves relayed into .relays/s1/** — no `DISPATCH IMPL` is live before all of those.
+
+## 2026-07-03 — m-7 guide advisory read of the design reconciled: faithful, zero must-fix; two should-fix folded to the pair
+
+Input: `master/relays/s1-guide-design-read/SITREP-planner-20260703-154742.md` (advisory, per the operator-suggested early read; locked cites re-verified by the guide that session).
+
+**Verdicts on the six asks:** C7 fold faithful to §4/§6/F11 and the right idiom (instantiates the locked presence-based-derivation pattern); R-1..R-3/O-1..O-3/F9-whole all landed, no drift; B1 narrowing consistent with §16 modulo the held-visibility qualifier (should-fix ①); §J2 set **pre-verified byte-exact** by the guide against ARCHITECTURE :110-115 (formal byte-custody stays with the m-2 fidelity review); grant narrowing forecloses nothing m-7-side (authoritative in-loop check is what matters; A2 covers it); Go stack fine, D-2 faithful.
+
+**Should-fix (fold as r3 one-paragraph edits or PLAN-carried lines — either satisfies the gate):**
+- **① held-visibility posture:** the doc commits `held` records (fixture H) but never states how the operator learns one exists or what resolves it in S1. B1 needs the locked m-2 carve-out beside it (`held` is operator-visible by locked text — m-7 :100, m-2 :76/:376 — never consumed by downstream work authority). Pick and state one compliant shape: (i) guide-recommended — a `held` record derives an ODB/outbox item via the C7 derived-work mechanism (one more derived-intent class; §6 self-exclusion survives); or (ii) stated deferral — held terminal for the intake, author gets the typed outcome, operator sees it via project()/INDEX on the operator channel, resolution flow is S2, swept by SWEEP. Silence fails the gate.
+- **② wake-push fallback invariant:** the D-3 MCP-fallback invariant list must add **server-initiated nudge push on the held per-seat connection** (m-7 §8.3); a fallback that drops push breaks L1/W1 (polling-only wake is exactly what the locked design rejects). The capability check must test for it explicitly.
+
+**Advisory sharpenings (carry into doc/PLAN, no re-architecture):** state that C7 derived-work completion executes on the single-writer commit path (loop goroutine, or recovery single-threaded before it starts); PLAN notes S2's owed-item projection generalizes the C7 mechanism (C7's scan becomes an instance of it at S2, not a parallel mechanism). Positive notes recorded (crash-point registry reuse, D-11 correctly-scoped by-construction claim, outbox pivot, binding-table fold, D-10 replay posture) — no action.
+
+Disposition: fold relay `s1-core-plan/SITREP-orchestrator-planner-20260703-155605.md` issued to the pair; ①/② join the plan-gate rubric; PLAN drafting continues unpaused.
