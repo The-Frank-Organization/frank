@@ -56,3 +56,19 @@ Input: `master/relays/s1-guide-q1/SITREP-planner-20260703-141628.md` (m-7 guide;
 3. Open envelope: ODB field set is m-6/m-3-owned; S1 types only the minimal envelope, does NOT close the schema, does NOT pre-build `model_name`.
 
 Disposition: de-provision relay `s1-core-design/SITREP-orchestrator-planner-20260703-142800.md` issued to the pair; the six constraints join the DESIGN hard-constraint set; the plan cites ⑤ (if at all) as the S4-bound §C4 carry.
+
+## 2026-07-03 — design-completion reconciled; blocker-2 narrowing RATIFIED (orchestrator); PROCEED-TO-PLAN issued
+
+Inputs: design-completion SITREP (`s1-core-design/SITREP-planner-20260703-152941.md`), approving DESIGN-REVIEW (`s1-core-design-r2-review/DESIGN-REVIEW-implementer-20260703-152445.md`, verdict approve at main@5622516), r1 must-revise (`…-151318.md`, five blockers, all folded + fold-verified in r2).
+
+Verified against disk: design doc exists at designs/s1-slice-1-design.md, r2 = main@5622516 (r1 = e8faeed); lineage shape correct for the later gated PLAN (approve parents to the r2 Template-I request, same DESIGN_DOC_ID); clean tree claims consistent.
+
+**Operator decision recorded during design:** D-1 conductor stack = **Go** (operator, 2026-07-03, inline; Python/TS/Rust rejected, comparison logged in the doc).
+
+**Blocker-2 narrowing — RATIFIED at orchestrator tier** (requested by the completion SITREP; implementer approve explicitly excluded it):
+- The narrowing: S1 renders the `grant` field (`{dispatch-impl, dispatch-merge}`) on operator/orchestrator forms ONLY (the frozen m-2 :177 rule verbatim); conditional pair-Planner delegated-dispatch rendering + the m-2 :167 lineage walk land with the full lineage engine (S3). Until S3, delegated dispatch through the conductor's rendered form is unavailable to pair Planners; it remains available via operator/orchestrator forms.
+- Basis: this is a *consequence of already-ratified sequencing*, not a new product decision — the operator-ratified charter puts the full FieldSpec registry and lineage engine in S3; the design simply refuses to smuggle a slice of S3's lineage machinery into S1. It is contract-faithful to frozen m-2 text (implementer-verified :166-177), and S1 governs no live delegated-dispatch traffic (S1's own build governance runs on file relays, not the conductor; merge is human-gated at S1 close).
+- Ratification conditions (bind the PLAN): (i) the narrowing is stated explicitly in the S1 PLAN so the m-7-guide + master-VP gate reviews it — their gate is the authoritative check above me; (ii) claim honesty — any S1 doc/surface describing grants states the S3 landing plainly; (iii) no S1 schema/format decision may foreclose the S3 conditional-render landing.
+- Veto path: operator may override this ratification at any time before the plan gate; the CC trail carries it.
+
+Disposition: **PROCEED-TO-PLAN** issued (`s1-core-plan/PLAN-orchestrator-planner-20260703-153356.md`) — sequencing only; the gated PLAN lock stays in the pair-Planner seat (`DESIGN_LOCK_ID: s1-slice-1-design`, parent = the approving r2 DESIGN-REVIEW). Delegated dispatch is granted CONDITIONALLY: implementer plan-review approve + SCOPE_DIFF all-in + **the external m-7-guide + master-VP plan gate and both m-1/m-2 fidelity approves relayed into .relays/s1/** — no `DISPATCH IMPL` is live before all of those.
