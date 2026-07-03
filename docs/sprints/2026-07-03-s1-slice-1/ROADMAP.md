@@ -10,13 +10,30 @@ Build the brutally-small end-to-end path:
 Authorizing relay: `../master/relays/s1-dispatch/PLAN-orchestrator-planner-20260703-130634.md`
 (read-only reference — the master governance trail lives in cwd-parent `master/`, not here).
 
-## Spec (read-only references — never edit; escalate spec problems to master)
+## Spec (read-only references — ABSOLUTE paths per the guide's context-brief; never edit; escalate spec problems to master)
 
-- `../master/ARCHITECTURE.md` §C4 (the engine) + §C4.3/I-PH (path hygiene)
-- `../master/domains/m-1-*/` (store API: `submit`/`project`/`read`, append-only, sole-writer) — FROZEN contract
-- `../master/domains/m-2-*/` (FieldSpec envelope) — FROZEN contract
-- `../master/domains/m-7-*/` (conductor-core) — our guide domain
-- `../master/STEP-1-KICKOFF.md`
+- Charter dispatch: `/Users/jack/Programming/harness/master/relays/s1-dispatch/PLAN-orchestrator-planner-20260703-130634.md`
+- Guide context-brief: `/Users/jack/Programming/harness/master/relays/s1-dispatch/COORD-planner-20260703-134029.md`
+- **Guide-gate checklist (build the PLAN to this):** `/Users/jack/Programming/harness/master/relays/s1-dispatch/SITREP-planner-20260703-133102.md`
+- Build strategy + hardened exit gate: `/Users/jack/Programming/harness/master/STEP-1-KICKOFF.md`
+- Engine spec: `/Users/jack/Programming/harness/master/ARCHITECTURE.md` — §C4.1 (engine), §C4.2 (18-row seam matrix), §C4.3 (claim boundary + I-PH, `:450-463`), owed Step-1 fixture ledger (`:477-482`, just above §C5)
+- m-7 conductor-core design-of-record (DESIGN-LOCKED r5 + c6/c6.1): `/Users/jack/Programming/harness/master/domains/m-7-conductor-core/design/2026-07-01-v3-conductor-core-design.md` — for S1: §2 (process model), §3 (commit pipeline), §4 (Package-A rename pivot; presence=committed), §6 (fault→`held`), §8 (interface guardrail + wake), §12 (seam matrix), §13 (fixtures F1–F11, incl. F9 no-stale-re-emission + F11 one-pivot-per-mutation), §16 (claim-sweep rules)
+- FROZEN m-1 contract (store API: `submit`/`project`/`read`, append-only, sole-writer): `/Users/jack/Programming/harness/master/domains/m-1-trust-identity/design/2026-06-28-v3-trust-identity-design.md`
+- FROZEN m-2 contract (FieldSpec envelope): `/Users/jack/Programming/harness/master/domains/m-2-forms-determinism/design/2026-06-28-v3-form-schema-design.md`
+- Sequencing: `/Users/jack/Programming/harness/ROADMAP.md` (Step-1)
+- Dissolved-linter replay corpus (v2.8.8 baseline, historical lint failures): `/Users/jack/Programming/harness/extracted/agentic-dev-team-skills-v3-export/v2.8.8-release/`
+
+**Reaching the guide:** write a relay file `FROM` your own seat, `TO: m-7.planner`, tell the operator; they carry it. The guide answers strictly from the locked design-of-record and escalates lock-amendment questions to master.
+
+## Guide-gate checklist (the PLAN is reviewed against this — from `SITREP-planner-20260703-133102.md`)
+
+1. **Scope fence** — IN list only; every OUT item absent; escalate-don't-expand stated.
+2. **Contract-fidelity wiring** — m-1/m-2 fidelity reviews sequenced in the plan *before* `DISPATCH IMPL` goes live.
+3. **Exit gate mapped to fixtures** — every hardened-gate line has a named fixture + test plan.
+4. **Byte-exact enum** — terminal `{accepted, rejected, held}` exactly; no synonyms; `bounced` is not a value token.
+5. **Pivot shape right from slice 1** — canonical-record `rename()` is the single commit pivot (fsync-before-rename; presence=committed; projections derived); outcome records reference `intake_id`. Getting this wrong forces S2 re-architecture.
+6. **Owed carries materialize-first** — typed owed-item records `{owner, source, target surface, disposition path}` for: code-layer interface-guardrail enforcement, the I-PH fixture, the ③ known-A/RAISE-ONLY guardrail-adjacent portion.
+7. **Claim honesty in code + docs** — see below; §16 claim-sweep applies to anything seat- or user-facing we write.
 
 ## Team
 
@@ -64,4 +81,6 @@ observe-as-send (Step-2) · routing execution (Step-3).
 Step-1 = provenance + transport, not verified work ("done" = `self_reported`). Only the
 serialized-loop double-accept kill (and constrained-grammar R2) are operationally live in S1;
 the rest is recorded, not enforced. Confusion-resistance is tool-mediated (removes affordance,
-not access); D5 shell-routed confusion is an accepted residual. Do not over-claim.
+not access); D5 shell-routed confusion (a same-uid shell-bearing seat can bypass) is an
+accepted residual and must be stated **beside every exclusivity-shaped claim** ("only writer",
+"sole egress", …). Do not over-claim.
