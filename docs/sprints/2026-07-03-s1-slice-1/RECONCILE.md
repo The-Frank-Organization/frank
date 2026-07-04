@@ -161,3 +161,18 @@ Inputs (copies filed in .relays/s1/s1-exit-gate/): m-7 guide ruling `SITREP-plan
 `OI-S1-F11-SWEEP = {owner: s1 (S2 slice), source: exit-gate deviation 1 + plan Task 10 "at EVERY name in crashpoint.Names()" sentence + guide condition (SITREP-planner-20260703-200827 §Deviation-1), target surface: the full F11 class×point crash sweep using the existing harness (crashpoint registry + child-SIGKILL machinery, built S1), disposition path: the S2 exit gate}`
 
 Disposition: close-fold relay `s1-core-impl/SITREP-orchestrator-planner-20260703-201802.md` to the pair — the deviation-2 fixture (spec verbatim) + the robustness note as optional ride-along; owed item recorded here (nothing for the pair to write on deviation 1). On fold-green: gate-close record citing guide relay + fold commit; then the merge question is the operator's (VP confirmatory pass optional, operator's call).
+
+## 2026-07-03 — S1 EXIT GATE **CLOSED** (orchestrator verification of the gate-close report); merge question handed to the operator
+
+Input: gate-close report `s1-core-impl/SITREP-planner-20260703-205035.md`. Verified BY ME this session at main@f0dcb85:
+- Battery: `go test -count=1 ./...` 15 packages ok (uncached), `go vet` clean — my own runs.
+- Fold scope: `git show --stat f0dcb85` = exactly `internal/gate/derived.go` + `internal/gate/derived_test.go` — the two authorized FOLD_SCOPE rows.
+- Fixture spec-match, read by me: `TestCompleteConvergesWhenGateParkExistsWithoutOutbox` (derived_test.go:51-70 — park-without-outbox → Complete → exactly one outbox item with `(source_kind=gate, source_record_ref)` asserted + park count 1) + mirror leg (:72-90). Matches the guide's pre-concurrence spec verbatim → **deviation 2 CONCURRED by pre-agreement; no second guide pass** (citation: guide relay `s1-exit-gate/SITREP-planner-20260703-200827.md` + fold commit main@f0dcb85).
+- **The bounce caught a real bug:** the mirror leg failed RED before the production fix (`Complete: record already exists`) — the pre-fold projection-file dedupe mishandled the outbox-record-present/projection-absent partial state. The guide's executable-claims standard was vindicated by evidence, not caution.
+- Ride-along folded (canonical-scan dedupe, symmetric with completePark), new fixtures pass under it.
+
+**S1 EXIT GATE: CLOSED.** All charter gate items green at E2 with four independent battery verifications on record (s1 orchestrator ×2, m-7 guide, master CTO). Owed items riding to S2: `OI-S1-F11-SWEEP` (entry 11).
+
+**Lint flag dispositioned to the operator:** the filed CTO verdict copy (`s1-exit-gate/RECONCILE-orchestrator-planner-20260703-200929.md`) trips relay-root lint (merge-claim-without-MERGE-GATE-lineage class) on acceptance prose ("first code merge" unfenced); exact-file lint = OK; git history verified free of any merge commit. Not mine to reword (CTO's FROM). Options for the operator: explicit waiver line in the authorization relay (cheapest), or ask the CTO to fence the phrase in a superseding copy.
+
+Merge-gate handoff: `s1-merge-gate/MERGE-GATE-orchestrator-planner-20260703-213114.md` TO operator. Mechanical truth stated there: no remote, single branch `main`, nothing to git-merge — the operator's gate = ratify main@f0dcb85 as the S1-closed baseline (optional tag), optional VP confirmatory pass first. On the operator's verdict: S1 CLOSES; CTO folds into master RECONCILE + dispatches S2.
