@@ -1,11 +1,16 @@
 package store_test
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
+	"github.com/jackli/frank/internal/config"
 	"github.com/jackli/frank/internal/record"
 	"github.com/jackli/frank/internal/store"
 )
@@ -133,6 +138,123 @@ func TestRebuildProjectionsRestoresFromCanonicalAndRedo(t *testing.T) {
 	assertFile(t, mailboxPath, "relay-2\n")
 }
 
+func TestInitWritesStoreRootConfigAndGenesisRecord(t *testing.T) {
+	root := t.TempDir()
+	sources := writeConfigSources(t)
+	counter := filepath.Join(t.TempDir(), "renames.log")
+	t.Setenv("FRANK_TEST_RENAME_COUNTER", counter)
+
+	if err := store.Init(root, sources); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+
+	assertFile(t, filepath.Join(root, "config", "engine.json"), defaultEngineConfig)
+	assertFile(t, filepath.Join(root, "config", "fieldspec", "registry.json"), testRegistryConfig)
+	records, err := os.ReadDir(filepath.Join(root, "records"))
+	if err != nil {
+		t.Fatalf("read records: %v", err)
+	}
+	if len(records) != 1 || records[0].Name() != "genesis.json" {
+		t.Fatalf("records = %v, want only genesis.json", records)
+	}
+	rec, err := record.Verify(mustRead(t, filepath.Join(root, "records", "genesis.json")))
+	if err != nil {
+		t.Fatalf("verify genesis: %v", err)
+	}
+	if rec.Envelope.RelayID != "genesis" ||
+		rec.Envelope.DispatchID != "genesis" ||
+		rec.Envelope.From != "system" ||
+		rec.Envelope.Role != "system" ||
+		rec.Envelope.DeliveryState != record.Accepted ||
+		rec.Envelope.SchemaVersion != 1 {
+		t.Fatalf("genesis envelope = %+v", rec.Envelope)
+	}
+	if rec.Headers["record_kind"] != "genesis" {
+		t.Fatalf("record_kind = %q, want genesis", rec.Headers["record_kind"])
+	}
+	if _, ok := rec.Headers["schema_version"]; ok {
+		t.Fatalf("schema_version header present; schema_version belongs in envelope only")
+	}
+	if rec.Headers["config_digest"] == "" ||
+		rec.Headers["address_space_seed"] == "" ||
+		rec.Headers["created_ts"] == "" {
+		t.Fatalf("genesis headers incomplete: %#v", rec.Headers)
+	}
+	if !strings.Contains(rec.Headers["address_space_seed"], "operator") {
+		t.Fatalf("address_space_seed does not carry literal operator address: %q", rec.Headers["address_space_seed"])
+	}
+	renames := string(mustRead(t, counter))
+	if got := strings.Count(renames, "records/genesis.json\n"); got != 1 {
+		t.Fatalf("genesis canonical rename count = %d, renames:\n%s", got, renames)
+	}
+}
+
+func TestInitRejectsExistingGenesisWithoutChangingStoreBytes(t *testing.T) {
+	root := t.TempDir()
+	sources := writeConfigSources(t)
+	if err := store.Init(root, sources); err != nil {
+		t.Fatalf("Init first: %v", err)
+	}
+	beforeRecords := hashTree(t, filepath.Join(root, "records"))
+	beforeConfig := hashTree(t, filepath.Join(root, "config"))
+
+	_, err := store.Open(root)
+	if err != nil {
+		t.Fatalf("Open existing store: %v", err)
+	}
+	err = store.Init(root, sources)
+	if !errors.Is(err, store.ErrGenesisExists) {
+		t.Fatalf("Init second err = %v, want ErrGenesisExists", err)
+	}
+	if after := hashTree(t, filepath.Join(root, "records")); after != beforeRecords {
+		t.Fatalf("records changed after rejected re-init:\nbefore %s\nafter  %s", beforeRecords, after)
+	}
+	if after := hashTree(t, filepath.Join(root, "config")); after != beforeConfig {
+		t.Fatalf("config changed after rejected re-init:\nbefore %s\nafter  %s", beforeConfig, after)
+	}
+}
+
+func TestValidateGenesisUsesStoreRootConfigDigest(t *testing.T) {
+	root := t.TempDir()
+	sources := writeConfigSources(t)
+	if err := store.Init(root, sources); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	st, err := store.Open(root)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	pinned := loadStorePinned(t, root)
+	if err := st.ValidateGenesis(pinned); err != nil {
+		t.Fatalf("ValidateGenesis: %v", err)
+	}
+
+	if err := os.WriteFile(sources["engine"], []byte(`{"gc_enabled":true,"segment_rotate_bytes":1}`), 0o644); err != nil {
+		t.Fatalf("mutate outside source: %v", err)
+	}
+	if err := st.ValidateGenesis(loadStorePinned(t, root)); err != nil {
+		t.Fatalf("ValidateGenesis changed after outside-source mutation: %v", err)
+	}
+
+	storeEngine := filepath.Join(root, "config", "engine.json")
+	if err := os.WriteFile(storeEngine, []byte(`{"gc_enabled":true,"segment_rotate_bytes":4194304}`), 0o644); err != nil {
+		t.Fatalf("mutate store-root config: %v", err)
+	}
+	err = st.ValidateGenesis(loadStorePinned(t, root))
+	var mismatch store.ErrDigestMismatch
+	if !errors.As(err, &mismatch) {
+		t.Fatalf("ValidateGenesis err = %v, want ErrDigestMismatch", err)
+	}
+	if mismatch.Want == "" || mismatch.Got == "" || mismatch.Want == mismatch.Got {
+		t.Fatalf("mismatch digests = %+v", mismatch)
+	}
+	for _, path := range []string{root, storeEngine, sources["engine"]} {
+		if strings.Contains(err.Error(), path) {
+			t.Fatalf("digest mismatch error leaked path %q in %q", path, err.Error())
+		}
+	}
+}
+
 func mustRead(t *testing.T, path string) []byte {
 	t.Helper()
 	data, err := os.ReadFile(path)
@@ -148,4 +270,64 @@ func assertFile(t *testing.T, path, want string) {
 	if got != want {
 		t.Fatalf("%s = %q, want %q", path, got, want)
 	}
+}
+
+const defaultEngineConfig = `{"gc_enabled":false,"segment_rotate_bytes":4194304}`
+
+const testRegistryConfig = `{"phase":["SITREP"],"authority":[],"ceremony_tier":[],"evidence_target":[],"gate_category":{},"grant":[]}`
+
+func writeConfigSources(t *testing.T) map[string]string {
+	t.Helper()
+	root := t.TempDir()
+	enginePath := filepath.Join(root, "engine.json")
+	registryPath := filepath.Join(root, "registry.json")
+	if err := os.WriteFile(enginePath, []byte(defaultEngineConfig), 0o644); err != nil {
+		t.Fatalf("write engine source: %v", err)
+	}
+	if err := os.WriteFile(registryPath, []byte(testRegistryConfig), 0o644); err != nil {
+		t.Fatalf("write registry source: %v", err)
+	}
+	return map[string]string{"engine": enginePath, "fieldspec": registryPath}
+}
+
+func loadStorePinned(t *testing.T, root string) *config.Pinned {
+	t.Helper()
+	pinned, err := config.Load(map[string]string{
+		"engine":    filepath.Join(root, "config", "engine.json"),
+		"fieldspec": filepath.Join(root, "config", "fieldspec", "registry.json"),
+	})
+	if err != nil {
+		t.Fatalf("load store pinned config: %v", err)
+	}
+	return pinned
+}
+
+func hashTree(t *testing.T, root string) string {
+	t.Helper()
+	var parts []string
+	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		sum := sha256.Sum256(data)
+		parts = append(parts, rel+"\x00"+hex.EncodeToString(sum[:]))
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("hash tree %s: %v", root, err)
+	}
+	sort.Strings(parts)
+	sum := sha256.Sum256([]byte(strings.Join(parts, "\n")))
+	return hex.EncodeToString(sum[:])
 }

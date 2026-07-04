@@ -59,6 +59,25 @@ func TestDuplicateMintRejectsWithoutSecondCredential(t *testing.T) {
 	}
 }
 
+func TestMintRejectsReservedSystemSeatWithoutBinding(t *testing.T) {
+	root := t.TempDir()
+	mgr, err := seat.Open(root)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+
+	_, err = mgr.Mint("system", "system", false)
+	if !errors.Is(err, seat.ErrReservedSeatName) {
+		t.Fatalf("Mint system err = %v, want ErrReservedSeatName", err)
+	}
+	if got := mgr.CredentialsFor("system"); got != 0 {
+		t.Fatalf("credentials for system = %d, want 0", got)
+	}
+	if _, err := os.Stat(filepath.Join(root, "binding", "seats.json")); !os.IsNotExist(err) {
+		t.Fatalf("binding table created for rejected system mint: %v", err)
+	}
+}
+
 func TestStampOverwritesPayloadIdentity(t *testing.T) {
 	meta := seat.SeatMeta{Name: "s1-core.implementer", Role: "implementer"}
 	rec := record.Record{
