@@ -119,3 +119,17 @@ Input: fold-completion SITREP (`s1-core-plan/SITREP-planner-20260703-173107.md`)
 Verified on disk: fold commit main@50b2b94 (design r5 D-3 single-credential-generation invariant, shape (b) — duplicate `mint_seat` ⇒ typed reject `ErrSeatAlreadyBound`, no second credential, binding table unchanged; plan r3 Task 5 interface + E2 lifecycle fixture; guide key-scheme parenthetical in D-7); cleanup commit main@d09278a (stale `revoke-on-remint` shorthand in §6.4 aligned to the no-remint wording — contract unchanged). No-broadening boundary held; F11/P1 watch-surfaces and OUT lines untouched per the narrow reviewer.
 
 Disposition: narrow re-review packet `s1-fidelity-m1/SITREP-orchestrator-planner-20260703-173251.md` → m-1.implementer (revised surface only at main@d09278a; the four no-finding confirmations not re-asked). On m-1's approve: all four external conditions green → pair runs SCOPE_DIFF (README row cites the fence amendment) → delegated `DISPATCH IMPL` per the standing conditions. Merge remains a separate human gate at S1 close.
+
+## 2026-07-03 — ALL FOUR EXTERNAL GATES GREEN; pair released to SCOPE_DIFF → delegated dispatch
+
+Input: m-1 narrow re-review **APPROVE** (`s1-fidelity-m1/SITREP-implementer-20260703-174333.md`) — F-M1-1 closed on the revised surface (design D-3/:185/:219 + plan Task 5 :121/:123, all E1-cited; rg-verified no stale shorthand); prior no-finding confirmations unchanged.
+
+**Final gate state (all verdict relays in .relays/s1/):**
+| gate | verdict | relay |
+|---|---|---|
+| m-7 guide | APPROVE (7/7) | s1-plan-gate/PLAN-REVIEW-planner-20260703-171032.md |
+| master VP | APPROVE | s1-plan-gate/RECONCILE-orchestrator-reviewer-20260703-170942.md |
+| m-1 fidelity | APPROVE (r2, narrow) | s1-fidelity-m1/SITREP-implementer-20260703-174333.md |
+| m-2 fidelity | APPROVE | s1-fidelity-m2/SITREP-implementer-20260703-171027.md |
+
+Disposition: green-light status relay `s1-core-plan/SITREP-orchestrator-planner-20260703-175058.md` to the pair. The pair Planner now runs the mechanical SCOPE_DIFF (README.md row citing the fence amendment `s1-core-plan/SITREP-orchestrator-planner-20260703-170259.md`) and, only on `all-in` with the full standing condition set, issues the delegated `DISPATCH IMPL` (parent = the approving PLAN-REVIEW r3 `s1-core-plan-lock-r3-implementer-review`). Locks: PLAN `s1-slice-1-plan` r3 / DESIGN `s1-slice-1-design` r5 at main@d09278a. Remaining gates AFTER impl: the S1-scoped hardened exit gate (E2 fixtures; guide watch-surfaces F11-exactly-one + P1-push-frames), SITREP to master, human merge gate at S1 close.
