@@ -52,6 +52,7 @@ func Names() []string {
 }
 
 func Hit(name string) {
+	traceHit(name)
 	target, nth := target()
 	if target == "" || target != name {
 		return
@@ -63,6 +64,21 @@ func Hit(name string) {
 	if count == nth {
 		_ = syscall.Kill(os.Getpid(), syscall.SIGKILL)
 	}
+}
+
+func traceHit(name string) {
+	path := os.Getenv("FRANK_TEST_HIT_TRACE")
+	if path == "" {
+		return
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		return
+	}
+	_, _ = f.WriteString(name + "\n")
+	_ = f.Close()
 }
 
 func target() (string, int) {

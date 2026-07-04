@@ -1,6 +1,8 @@
 package crashpoint_test
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -43,4 +45,20 @@ func TestNamesAndNoopHitWithoutEnv(t *testing.T) {
 		t.Fatalf("Names() = %v, want %v", got, want)
 	}
 	crashpoint.Hit("pre_rename")
+}
+
+func TestHitTraceAppendsNamesWithoutArmingCrashpoint(t *testing.T) {
+	trace := filepath.Join(t.TempDir(), "hits.log")
+	t.Setenv("FRANK_TEST_HIT_TRACE", trace)
+
+	crashpoint.Hit("pre_rename")
+	crashpoint.Hit("post_rename")
+
+	data, err := os.ReadFile(trace)
+	if err != nil {
+		t.Fatalf("read trace: %v", err)
+	}
+	if got, want := string(data), "pre_rename\npost_rename\n"; got != want {
+		t.Fatalf("trace = %q, want %q", got, want)
+	}
 }

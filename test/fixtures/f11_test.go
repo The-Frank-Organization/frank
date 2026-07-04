@@ -25,6 +25,7 @@ import (
 	frankrecover "github.com/jackli/frank/internal/recover"
 	"github.com/jackli/frank/internal/seat"
 	"github.com/jackli/frank/internal/store"
+	fixturedata "github.com/jackli/frank/test/fixtures"
 )
 
 func TestF11CrashpointRegistryCoversS1MutationBoundaries(t *testing.T) {
@@ -144,19 +145,7 @@ func TestF11CrashMatrixDrivesRealMutationsAndRecovery(t *testing.T) {
 }
 
 func TestS2CleanCompletionClassesExecute(t *testing.T) {
-	for _, mutation := range []string{
-		"submit-accept",
-		"submit-reject",
-		"held",
-		"operator-verdict",
-		"park",
-		"outbox-enqueue",
-		"genesis",
-		"quarantine-disposition",
-		"gc-marker",
-		"owed-item",
-		"owed-disposition",
-	} {
+	for _, mutation := range f11Classes() {
 		t.Run(mutation, func(t *testing.T) {
 			root := t.TempDir()
 			initFixtureStore(t, root)
@@ -165,6 +154,34 @@ func TestS2CleanCompletionClassesExecute(t *testing.T) {
 				t.Fatalf("runF11Mutation(%s): %v", mutation, err)
 			}
 			assertF11Converged(t, root, mutation)
+		})
+	}
+}
+
+func TestS2ApplicabilityMapRowsMatchHitTrace(t *testing.T) {
+	if os.Getenv("FRANK_F11_TRACE_CHILD") == "1" {
+		runF11TraceChild(t)
+		return
+	}
+	classMap := fixturedata.ApplicabilityMap()
+	for _, mutation := range f11Classes() {
+		t.Run(mutation, func(t *testing.T) {
+			root := t.TempDir()
+			initFixtureStore(t, root)
+			prepareF11Root(t, root, mutation)
+			trace := filepath.Join(root, "hit-trace.log")
+			cmd := exec.Command(os.Args[0], "-test.run", "^TestS2ApplicabilityMapRowsMatchHitTrace$")
+			cmd.Env = append(os.Environ(),
+				"FRANK_F11_TRACE_CHILD=1",
+				"FRANK_F11_ROOT="+root,
+				"FRANK_F11_MUTATION="+mutation,
+				"FRANK_TEST_HIT_TRACE="+trace,
+			)
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Fatalf("trace child failed: %v\n%s", err, out)
+			}
+			assertTraceMatchesApplicabilityRow(t, mutation, readHitTrace(t, trace), classMap[mutation])
 		})
 	}
 }
@@ -231,6 +248,18 @@ func runF11Child(t *testing.T) {
 	}
 }
 
+func runF11TraceChild(t *testing.T) {
+	root := os.Getenv("FRANK_F11_ROOT")
+	mutation := os.Getenv("FRANK_F11_MUTATION")
+	if root == "" || mutation == "" || os.Getenv("FRANK_TEST_HIT_TRACE") == "" {
+		t.Fatalf("missing trace child env")
+	}
+	if err := runF11Mutation(root, mutation); err != nil {
+		t.Fatalf("run mutation: %v", err)
+	}
+	assertF11Converged(t, root, mutation)
+}
+
 func runF9Child(t *testing.T) {
 	root := os.Getenv("FRANK_F9_ROOT")
 	if root == "" {
@@ -271,6 +300,22 @@ func runF9Child(t *testing.T) {
 	}
 }
 
+func f11Classes() []string {
+	return []string{
+		"submit-accept",
+		"submit-reject",
+		"held",
+		"operator-verdict",
+		"park",
+		"outbox-enqueue",
+		"genesis",
+		"quarantine-disposition",
+		"gc-marker",
+		"owed-item",
+		"owed-disposition",
+	}
+}
+
 func assertSIGKILL(t *testing.T, err error) {
 	t.Helper()
 	exitErr, ok := err.(*exec.ExitError)
@@ -284,6 +329,58 @@ func assertSIGKILL(t *testing.T, err error) {
 	if status.Signal() != syscall.SIGKILL {
 		t.Fatalf("child signal = %s, want SIGKILL", status.Signal())
 	}
+}
+
+func readHitTrace(t *testing.T, path string) map[string]bool {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read hit trace: %v", err)
+	}
+	out := map[string]bool{}
+	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+		if line != "" {
+			out[line] = true
+		}
+	}
+	return out
+}
+
+func assertTraceMatchesApplicabilityRow(t *testing.T, mutation string, fired map[string]bool, row map[string]string) {
+	t.Helper()
+	if row == nil {
+		t.Fatalf("missing applicability row for %s", mutation)
+	}
+	var firedClean, expectedUnfired, unknown []string
+	for name := range fired {
+		if row[name] == "" {
+			unknown = append(unknown, name)
+		}
+	}
+	for _, name := range crashpoint.Names() {
+		switch {
+		case fired[name] && row[name] != "crash-expected":
+			firedClean = append(firedClean, name)
+		case !fired[name] && row[name] == "crash-expected":
+			expectedUnfired = append(expectedUnfired, name)
+		}
+	}
+	if len(firedClean) > 0 || len(expectedUnfired) > 0 || len(unknown) > 0 {
+		slices.Sort(firedClean)
+		slices.Sort(expectedUnfired)
+		slices.Sort(unknown)
+		t.Fatalf("%s applicability row mismatch:\nfired but labeled clean-completion: %v\ncrash-expected but not fired: %v\nunknown fired names: %v\nfired set: %v",
+			mutation, firedClean, expectedUnfired, unknown, sortedSet(fired))
+	}
+}
+
+func sortedSet(values map[string]bool) []string {
+	out := make([]string, 0, len(values))
+	for value := range values {
+		out = append(out, value)
+	}
+	slices.Sort(out)
+	return out
 }
 
 func prepareF11Root(t *testing.T, root, mutation string) {
@@ -447,18 +544,19 @@ func commitOwedMutation(st *store.Store, kind, parent string) error {
 		return err
 	}
 	handler := engine.SubmitHandler(st, reg, seat.SeatMeta{Name: "operator", Role: "operator", IsOperator: true})
+	recordKind := strings.ReplaceAll(kind, "-", "_")
 	headers := map[string]string{
 		"PHASE":            "SITREP",
 		"AUTHORITY":        "report-only",
 		"SUBJECT":          kind,
-		"record_kind":      kind,
+		"record_kind":      recordKind,
 		"owner":            "s2",
 		"source":           "f11",
 		"target_surface":   "sweep",
 		"disposition_path": "report",
 	}
 	if kind == "owed-disposition" {
-		headers = map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "SUBJECT": kind, "record_kind": kind, "disposes_owed": parent}
+		headers = map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "SUBJECT": kind, "record_kind": recordKind, "disposes_owed": parent}
 	}
 	payload, _ := json.Marshal(record.Record{Headers: headers})
 	rec, intents, err := handler(context.Background(), intake.Cmd{IntakeID: kind + "-intake", Seat: "operator", Role: "operator", IsOperator: true, Payload: payload})
