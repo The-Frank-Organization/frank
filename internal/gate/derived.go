@@ -2,8 +2,6 @@ package gate
 
 import (
 	"encoding/json"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/jackli/frank/internal/record"
@@ -78,8 +76,15 @@ func completePark(st *store.Store, gateRecord record.Record) error {
 
 func completeOutbox(st *store.Store, rec record.Record, sourceKind string) error {
 	itemID := sourceKind + "-" + rec.Envelope.RelayID
-	if _, err := os.Stat(filepath.Join(st.Root, "outbox", itemID+".json")); err == nil {
-		return nil
+	outboxRecordID := "outbox-" + itemID
+	records, err := st.Records()
+	if err != nil {
+		return err
+	}
+	for _, existing := range records {
+		if existing.Envelope.RelayID == outboxRecordID {
+			return nil
+		}
 	}
 	item := OutboxItem{
 		ItemID:          itemID,
@@ -99,7 +104,7 @@ func completeOutbox(st *store.Store, rec record.Record, sourceKind string) error
 	}
 	_, err = st.Commit(record.Record{
 		Envelope: record.Envelope{
-			RelayID:       "outbox-" + itemID,
+			RelayID:       outboxRecordID,
 			From:          "system",
 			Role:          "system",
 			DeliveryState: record.Accepted,
