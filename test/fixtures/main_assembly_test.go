@@ -19,6 +19,7 @@ import (
 
 func TestFrankBinaryAssemblesAuthenticatedSubmitProjectRead(t *testing.T) {
 	root := t.TempDir()
+	initFixtureStore(t, root)
 	mgr, err := seat.Open(root)
 	if err != nil {
 		t.Fatalf("Open seats: %v", err)
@@ -108,6 +109,7 @@ func TestFrankBinaryAssemblesAuthenticatedSubmitProjectRead(t *testing.T) {
 
 func TestFrankBinaryReissuesRecoveryWakeForExistingMailbox(t *testing.T) {
 	root := t.TempDir()
+	initFixtureStore(t, root)
 	mgr, err := seat.Open(root)
 	if err != nil {
 		t.Fatalf("Open seats: %v", err)

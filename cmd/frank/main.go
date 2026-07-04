@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	"github.com/jackli/frank/internal/channel"
+	frankconfig "github.com/jackli/frank/internal/config"
 	"github.com/jackli/frank/internal/engine"
 	"github.com/jackli/frank/internal/fieldspec"
 	"github.com/jackli/frank/internal/gate"
@@ -63,10 +64,14 @@ func run(ctx context.Context, cfg config) error {
 		return err
 	}
 
+	pinned, err := frankconfig.Load(store.StoreRootConfigPaths(cfg.Root))
+	if err != nil {
+		return err
+	}
 	loop := engine.New(st, func(ctx context.Context, cmd intake.Cmd) (record.Record, []store.Intent, error) {
 		meta := seat.SeatMeta{Name: cmd.Seat, Role: cmd.Role, IsOperator: cmd.IsOperator}
 		return engine.SubmitHandler(st, reg, meta)(ctx, cmd)
-	})
+	}, engine.NewReady())
 	go loop.Run(ctx)
 
 	process := func(cmd intake.Cmd) error {
@@ -75,8 +80,12 @@ func run(ctx context.Context, cfg config) error {
 		}
 		return gate.Complete(st)
 	}
-	if err := frankrecover.RunWithProcessor(cfg.Root, process); err != nil {
+	result, err := frankrecover.RunWithProcessor(cfg.Root, pinned, process)
+	if err != nil {
 		return err
+	}
+	if result.Diag != nil {
+		return fmt.Errorf(result.Diag.Report())
 	}
 
 	socket := cfg.Socket

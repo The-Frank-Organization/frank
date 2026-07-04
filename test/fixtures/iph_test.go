@@ -44,7 +44,7 @@ func TestP1LoopOutcomeDoesNotLeakStorePaths(t *testing.T) {
 	}
 	loop := engine.New(st, func(context.Context, intake.Cmd) (record.Record, []store.Intent, error) {
 		return record.Record{}, nil, errors.New(filepath.Join(root, "records", "leak.json"))
-	})
+	}, engine.TestReady())
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go loop.Run(ctx)

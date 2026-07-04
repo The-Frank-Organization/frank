@@ -26,7 +26,7 @@ func TestAuthorityBearingFaultCommitsHeldAndLoopContinues(t *testing.T) {
 			Envelope: record.Envelope{RelayID: "after-fault", DeliveryState: record.Accepted, IntakeID: "i2", SchemaVersion: 1},
 			Headers:  map[string]string{"PHASE": "SITREP", "SUBJECT": "after"},
 		}, nil, nil
-	})
+	}, engine.TestReady())
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go loop.Run(ctx)
@@ -66,7 +66,7 @@ func TestFaultAuthorityClassificationUsesCommandSeatRole(t *testing.T) {
 	}
 	loop := engine.New(st, func(context.Context, intake.Cmd) (record.Record, []store.Intent, error) {
 		panic("validator fault")
-	})
+	}, engine.TestReady())
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go loop.Run(ctx)

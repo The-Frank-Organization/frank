@@ -32,7 +32,7 @@ func TestLoopProcessesFIFOAndRepliesAfterCommit(t *testing.T) {
 			},
 			Headers: map[string]string{"PHASE": "SITREP", "SUBJECT": id},
 		}, nil, nil
-	})
+	}, engine.TestReady())
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go loop.Run(ctx)

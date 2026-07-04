@@ -27,6 +27,13 @@ var names = []string{
 	"post_quarantine_evict",
 	"pre_segment_rotate",
 	"post_segment_rotate",
+	"recovery_post_phase0",
+	"recovery_post_phase1",
+	"recovery_post_phase2",
+	"recovery_post_phase3",
+	"recovery_post_phase3_5",
+	"recovery_post_phase3_6",
+	"recovery_post_phase4",
 }
 
 var (

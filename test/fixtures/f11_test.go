@@ -53,6 +53,7 @@ func TestF11CrashpointRegistryNamesAreLiveInSource(t *testing.T) {
 		filepath.Join("..", "..", "internal", "store", "quarantine.go"),
 		filepath.Join("..", "..", "internal", "store", "projections.go"),
 		filepath.Join("..", "..", "internal", "intake", "journal.go"),
+		filepath.Join("..", "..", "internal", "recover", "recover.go"),
 		filepath.Join("..", "..", "internal", "engine", "loop.go"),
 	)
 	for _, name := range crashpoint.Names() {
@@ -84,6 +85,7 @@ func TestF11CrashMatrixDrivesRealMutationsAndRecovery(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			root := t.TempDir()
+			initFixtureStore(t, root)
 			counter := filepath.Join(root, "rename-counter.log")
 			if err := os.WriteFile(counter, nil, 0o644); err != nil {
 				t.Fatalf("create counter: %v", err)
@@ -102,8 +104,12 @@ func TestF11CrashMatrixDrivesRealMutationsAndRecovery(t *testing.T) {
 				t.Fatalf("child completed without crash at %s", tc.crashpoint)
 			}
 			assertSIGKILL(t, err)
-			if err := frankrecover.Run(root); err != nil {
+			result, err := frankrecover.Run(root, loadFixturePinned(t, root))
+			if err != nil {
 				t.Fatalf("recover after crash: %v", err)
+			}
+			if result.Ready == nil || result.Diag != nil {
+				t.Fatalf("recover result = %+v, want Ready", result)
 			}
 			assertNoTornStaging(t, root)
 			assertAllRecordsVerify(t, root)
@@ -269,7 +275,7 @@ func runF11Mutation(root, mutation string) error {
 		defer cancel()
 		loop := engine.New(st, func(context.Context, intake.Cmd) (record.Record, []store.Intent, error) {
 			panic("validator fault")
-		})
+		}, engine.TestReady())
 		go loop.Run(ctx)
 		payload, _ := json.Marshal(record.Record{Headers: map[string]string{"PHASE": "PLAN", "SUBJECT": "held"}})
 		reply := make(chan engine.Outcome, 1)

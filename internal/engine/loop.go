@@ -17,10 +17,7 @@ import (
 	"github.com/jackli/frank/internal/store"
 )
 
-type Job struct {
-	Cmd     intake.Cmd
-	ReplyCh chan Outcome
-}
+type Job = intake.Job[Outcome]
 
 type Outcome struct {
 	State    string `json:"state"`
@@ -38,7 +35,10 @@ type Loop struct {
 	Timeout time.Duration
 }
 
-func New(st *store.Store, handler Handler) *Loop {
+func New(st *store.Store, handler Handler, ready *Ready) *Loop {
+	if ready == nil {
+		panic("engine.New requires Ready")
+	}
 	return &Loop{
 		In:      make(chan Job, 32),
 		Store:   st,
