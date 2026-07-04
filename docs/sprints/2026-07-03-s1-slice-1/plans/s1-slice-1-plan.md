@@ -32,6 +32,7 @@ internal/store/store.go                 # layout, pivot commit, redo journal (Ta
 internal/store/projections.go           # INDEX.md, rendered .md, mailboxes (Task 2)
 internal/intake/journal.go              # intake journal + intake-writer (Task 3)
 internal/engine/loop.go                 # FIFO + single commit-loop + fault disposition (Task 3, 6, 7, 9)
+internal/engine/submit.go               # submit pipeline handler (benign split from loop.go recorded at REVIEW-FOLD; scope note s1-core-review relay)
 internal/fieldspec/fieldspec.go         # registry load, predicate eval, render, validate (Task 4)
 internal/fieldspec/registry.json        # the MVP FieldSpec data incl. §J2 set (Task 4)
 internal/seat/binding.go                # mint, persisted binding table, credential check (Task 5)
