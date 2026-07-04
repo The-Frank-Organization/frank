@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -23,9 +24,13 @@ import (
 )
 
 type config struct {
-	Root     string
-	Socket   string
-	Registry string
+	Root           string
+	Socket         string
+	Registry       string
+	EngineConfig   string
+	Init           bool
+	OperatorSubmit string
+	Credential     string
 }
 
 func main() {
@@ -33,6 +38,10 @@ func main() {
 	storeRoot := flag.String("store", ".frank-store", "store root")
 	socket := flag.String("socket", "", "unix socket path")
 	registry := flag.String("registry", filepath.Join("internal", "fieldspec", "registry.json"), "FieldSpec registry path")
+	engineConfig := flag.String("engine-config", "", "engine config path for -init")
+	initStore := flag.Bool("init", false, "initialize a store with pinned config")
+	operatorSubmit := flag.String("operator-submit", "", "submit a payload JSON file through an authenticated socket")
+	credential := flag.String("credential", "", "credential for operator-submit")
 	flag.Parse()
 	if *root == "" {
 		*root = *storeRoot
@@ -40,13 +49,23 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	if err := run(ctx, config{Root: *root, Socket: *socket, Registry: *registry}); err != nil {
+	cfg := config{Root: *root, Socket: *socket, Registry: *registry, EngineConfig: *engineConfig, Init: *initStore, OperatorSubmit: *operatorSubmit, Credential: *credential}
+	if err := run(ctx, cfg); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
 func run(ctx context.Context, cfg config) error {
+	if cfg.Init {
+		if cfg.EngineConfig == "" {
+			return errors.New("engine-config required for init")
+		}
+		return store.Init(cfg.Root, map[string]string{"fieldspec": cfg.Registry, "engine": cfg.EngineConfig})
+	}
+	if cfg.OperatorSubmit != "" {
+		return operatorSubmit(ctx, cfg)
+	}
 	st, err := store.Open(cfg.Root)
 	if err != nil {
 		return err
@@ -59,12 +78,11 @@ func run(ctx context.Context, cfg config) error {
 	if err != nil {
 		return err
 	}
-	journal, err := intake.Open(cfg.Root)
+	pinned, err := frankconfig.Load(store.StoreRootConfigPaths(cfg.Root))
 	if err != nil {
 		return err
 	}
-
-	pinned, err := frankconfig.Load(store.StoreRootConfigPaths(cfg.Root))
+	journal, err := intake.OpenWithConfig(cfg.Root, pinned.Engine)
 	if err != nil {
 		return err
 	}
@@ -73,6 +91,11 @@ func run(ctx context.Context, cfg config) error {
 		return engine.SubmitHandler(st, reg, meta)(ctx, cmd)
 	}, engine.NewReady())
 	go loop.Run(ctx)
+	writer, err := intake.NewWriter[engine.Outcome](journal, pinned.Engine)
+	if err != nil {
+		return err
+	}
+	go writer.Run(ctx, loop.In)
 
 	process := func(cmd intake.Cmd) error {
 		if _, err := submitThroughLoop(ctx, loop, cmd); err != nil {
@@ -85,7 +108,7 @@ func run(ctx context.Context, cfg config) error {
 		return err
 	}
 	if result.Diag != nil {
-		return fmt.Errorf(result.Diag.Report())
+		return errors.New(result.Diag.Report())
 	}
 
 	socket := cfg.Socket
@@ -96,13 +119,15 @@ func run(ctx context.Context, cfg config) error {
 	server, err = channel.ServeAuthenticated(socket, mgr, func(meta seat.SeatMeta) channel.ToolSet {
 		return channel.ToolSet{
 			Submit: func(ctx context.Context, payload json.RawMessage) (json.RawMessage, error) {
-				intakeID, err := journal.Append(intake.Cmd{Seat: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator, Verb: "submit", Payload: payload})
+				reply, _, err := writer.Submit(ctx, intake.Cmd{Seat: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator, Verb: "submit", Payload: payload})
 				if err != nil {
 					return nil, err
 				}
-				out, err := submitThroughLoop(ctx, loop, intake.Cmd{IntakeID: intakeID, Seat: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator, Verb: "submit", Payload: payload})
-				if err != nil {
-					return nil, err
+				var out engine.Outcome
+				select {
+				case out = <-reply:
+				case <-ctx.Done():
+					return nil, ctx.Err()
 				}
 				if err := gate.Complete(st); err != nil {
 					return nil, err
@@ -128,6 +153,23 @@ func run(ctx context.Context, cfg config) error {
 				}
 				rec, err := st.Read(req.RelayID)
 				if err != nil {
+					var checksum store.ErrChecksum
+					if errors.As(err, &checksum) {
+						loop.EnqueueQuarantine(checksum.RelayID)
+						return json.Marshal(struct {
+							ErrorClass string `json:"error_class"`
+							RelayID    string `json:"relay_id"`
+						}{ErrorClass: "checksum-mismatch", RelayID: checksum.RelayID})
+					}
+					var quarantined store.ErrQuarantined
+					if errors.As(err, &quarantined) {
+						return json.Marshal(struct {
+							ErrorClass   string `json:"error_class"`
+							RelayID      string `json:"relay_id"`
+							IncidentID   string `json:"incident_id,omitempty"`
+							FailureClass string `json:"failure_class"`
+						}{ErrorClass: "record-quarantined", RelayID: quarantined.RelayID, IncidentID: quarantined.IncidentID, FailureClass: quarantined.FailureClass})
+					}
 					return nil, err
 				}
 				return json.Marshal(struct {
@@ -157,6 +199,31 @@ func run(ctx context.Context, cfg config) error {
 	}
 
 	<-ctx.Done()
+	return nil
+}
+
+func operatorSubmit(ctx context.Context, cfg config) error {
+	if cfg.Credential == "" {
+		return errors.New("credential required for operator-submit")
+	}
+	socket := cfg.Socket
+	if socket == "" {
+		socket = filepath.Join(cfg.Root, "frank.sock")
+	}
+	payload, err := os.ReadFile(cfg.OperatorSubmit)
+	if err != nil {
+		return err
+	}
+	client, err := channel.DialAuthenticated(ctx, socket, cfg.Credential)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = client.Close() }()
+	result, err := client.Call(ctx, "submit", payload)
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(result))
 	return nil
 }
 

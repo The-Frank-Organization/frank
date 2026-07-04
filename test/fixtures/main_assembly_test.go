@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -104,6 +105,47 @@ func TestFrankBinaryAssemblesAuthenticatedSubmitProjectRead(t *testing.T) {
 	}
 	if read.Record.Envelope.From != "seat-a" || read.Record.Envelope.Role != "implementer" {
 		t.Fatalf("read record not stamped: %+v", read.Record.Envelope)
+	}
+
+	payloadFile := filepath.Join(t.TempDir(), "operator-submit.json")
+	if err := os.WriteFile(payloadFile, payload, 0o644); err != nil {
+		t.Fatalf("write operator payload: %v", err)
+	}
+	operator := exec.CommandContext(ctx, bin, "-socket", sock, "-operator-submit", payloadFile, "-credential", cred.Value)
+	operatorOut, err := operator.CombinedOutput()
+	if err != nil {
+		t.Fatalf("operator-submit failed: %v\n%s", err, operatorOut)
+	}
+	var operatorOutcome struct {
+		State   string `json:"state"`
+		RelayID string `json:"relay_id"`
+	}
+	if err := json.Unmarshal(bytes.TrimSpace(operatorOut), &operatorOutcome); err != nil {
+		t.Fatalf("decode operator-submit output %s: %v", operatorOut, err)
+	}
+	if operatorOutcome.State != record.Accepted || operatorOutcome.RelayID == "" {
+		t.Fatalf("operator outcome = %+v", operatorOutcome)
+	}
+}
+
+func TestFrankInitTwiceRejectsExistingGenesis(t *testing.T) {
+	root := t.TempDir()
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	bin := buildFrank(t, ctx)
+	sources := writeFixtureConfigSources(t)
+
+	first := exec.CommandContext(ctx, bin, "-root", root, "-registry", sources["fieldspec"], "-engine-config", sources["engine"], "-init")
+	if out, err := first.CombinedOutput(); err != nil {
+		t.Fatalf("first init: %v\n%s", err, out)
+	}
+	second := exec.CommandContext(ctx, bin, "-root", root, "-registry", sources["fieldspec"], "-engine-config", sources["engine"], "-init")
+	out, err := second.CombinedOutput()
+	if err == nil {
+		t.Fatalf("second init unexpectedly succeeded")
+	}
+	if !strings.Contains(string(out), "genesis") {
+		t.Fatalf("second init output = %s, want genesis error", out)
 	}
 }
 
