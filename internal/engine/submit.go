@@ -41,6 +41,11 @@ func SubmitHandler(st *store.Store, reg *fieldspec.Registry, meta seat.SeatMeta)
 			cand.Body = bounce.Format(lineageBounce)
 			return cand, nil, nil
 		}
+		if violation := validateRecordKind(st, cand); violation != nil {
+			cand.Envelope.DeliveryState = record.Rejected
+			cand.Body = bounce.Format(*violation)
+			return cand, nil, nil
+		}
 		if cand.Headers["resolves_gate"] != "" {
 			cand = classifyVerdict(st, cand)
 			if cand.Envelope.DeliveryState == record.Accepted {
@@ -49,7 +54,11 @@ func SubmitHandler(st *store.Store, reg *fieldspec.Registry, meta seat.SeatMeta)
 			return cand, nil, nil
 		}
 		cand.Envelope.DeliveryState = record.Accepted
-		return cand, submitProjectionIntents(cand), nil
+		intents := submitProjectionIntents(cand)
+		if isOwedKind(cand) {
+			intents = append(intents, store.OwedProjectionIntentsForCandidate(st, cand)...)
+		}
+		return cand, intents, nil
 	}
 }
 
@@ -82,6 +91,48 @@ func submitProjectionIntents(rec record.Record) []store.Intent {
 
 func isGateCandidate(rec record.Record) bool {
 	return rec.Headers["HUMAN_GATE_REQUIRED"] == "yes" || rec.Headers["gate_category"] != ""
+}
+
+func validateRecordKind(st *store.Store, cand record.Record) *fieldspec.Violation {
+	switch cand.Headers["record_kind"] {
+	case "":
+		return nil
+	case "owed_item":
+		for _, field := range []string{"owner", "source", "target_surface", "disposition_path"} {
+			if cand.Headers[field] == "" {
+				return &fieldspec.Violation{Field: field, Class: "required", Reason: field + " required"}
+			}
+		}
+		return nil
+	case "owed_disposition":
+		target := cand.Headers["disposes_owed"]
+		if target == "" {
+			return &fieldspec.Violation{Field: "disposes_owed", Class: "required", Reason: "disposes_owed required"}
+		}
+		records, err := st.Records()
+		if err != nil {
+			return &fieldspec.Violation{Field: "record_kind", Class: "store-read-error", Reason: "store read error"}
+		}
+		var found bool
+		for _, rec := range records {
+			if rec.Headers["record_kind"] == "owed_item" && rec.Envelope.RelayID == target && rec.Envelope.DeliveryState == record.Accepted {
+				found = true
+			}
+			if rec.Headers["record_kind"] == "owed_disposition" && rec.Headers["disposes_owed"] == target && rec.Envelope.DeliveryState == record.Accepted {
+				return &fieldspec.Violation{Field: "disposes_owed", Class: "already-resolved", Reason: "owed item already disposed"}
+			}
+		}
+		if !found {
+			return &fieldspec.Violation{Field: "disposes_owed", Class: lineage.ParentUnknownRecompose, Reason: "owed item unknown"}
+		}
+		return nil
+	default:
+		return &fieldspec.Violation{Field: "record_kind", Class: "unknown", Reason: "unknown record_kind"}
+	}
+}
+
+func isOwedKind(rec record.Record) bool {
+	return rec.Headers["record_kind"] == "owed_item" || rec.Headers["record_kind"] == "owed_disposition"
 }
 
 func classifyVerdict(st *store.Store, cand record.Record) record.Record {
