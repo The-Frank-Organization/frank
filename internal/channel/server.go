@@ -34,6 +34,7 @@ type Server struct {
 	factory ToolFactory
 	done    chan struct{}
 	clients map[*serverConn]struct{}
+	pending [][]byte
 	mu      sync.Mutex
 }
 
@@ -88,6 +89,24 @@ func (s *Server) accept() {
 }
 
 func (s *Server) Push(frame []byte) error {
+	return s.broadcast(frame)
+}
+
+func (s *Server) QueuePush(frame []byte) error {
+	if !json.Valid(frame) {
+		return fmt.Errorf("invalid push frame")
+	}
+	s.mu.Lock()
+	s.pending = append(s.pending, append([]byte(nil), frame...))
+	clients := make([]*serverConn, 0, len(s.clients))
+	for c := range s.clients {
+		clients = append(clients, c)
+	}
+	s.mu.Unlock()
+	return writePushes(clients, frame)
+}
+
+func (s *Server) broadcast(frame []byte) error {
 	if !json.Valid(frame) {
 		return fmt.Errorf("invalid push frame")
 	}
@@ -97,9 +116,13 @@ func (s *Server) Push(frame []byte) error {
 		clients = append(clients, c)
 	}
 	s.mu.Unlock()
+	return writePushes(clients, frame)
+}
+
+func writePushes(clients []*serverConn, frame []byte) error {
 	for _, c := range clients {
 		if err := c.write(rpcMessage{Method: "notifications/nudge", Params: frame}); err != nil {
-			return err
+			continue
 		}
 	}
 	return nil
@@ -167,11 +190,14 @@ func (c *serverConn) handle(req rpcMessage) (json.RawMessage, string) {
 		}
 		c.tools = c.server.factory(meta)
 		c.authed = true
+		c.flushPending()
 		return mustJSON(connectResponse{Seat: meta.Name, Role: meta.Role}), ""
 	}
 	switch req.Method {
 	case "tools/list":
 		return mustJSON([]string{"submit", "project", "read"}), ""
+	case "tools/descriptions":
+		return mustJSON(toolDescriptions()), ""
 	case "tools/call":
 		var call toolCall
 		if err := json.Unmarshal(req.Params, &call); err != nil {
@@ -192,6 +218,18 @@ func (c *serverConn) handle(req rpcMessage) (json.RawMessage, string) {
 		return result, ""
 	default:
 		return nil, "unknown method"
+	}
+}
+
+func (c *serverConn) flushPending() {
+	c.server.mu.Lock()
+	pending := make([][]byte, len(c.server.pending))
+	for i, frame := range c.server.pending {
+		pending[i] = append([]byte(nil), frame...)
+	}
+	c.server.mu.Unlock()
+	for _, frame := range pending {
+		_ = c.write(rpcMessage{Method: "notifications/nudge", Params: frame})
 	}
 }
 
@@ -263,6 +301,18 @@ func (c *Client) ListTools(ctx context.Context) ([]string, error) {
 		return nil, err
 	}
 	return tools, nil
+}
+
+func (c *Client) ToolDescriptions(ctx context.Context) (map[string]string, error) {
+	resp, err := c.request(ctx, "tools/descriptions", nil)
+	if err != nil {
+		return nil, err
+	}
+	var descriptions map[string]string
+	if err := json.Unmarshal(resp.Result, &descriptions); err != nil {
+		return nil, err
+	}
+	return descriptions, nil
 }
 
 func (c *Client) Call(ctx context.Context, name string, args json.RawMessage) (json.RawMessage, error) {
@@ -394,4 +444,12 @@ func mustJSON(v any) json.RawMessage {
 
 func safeError(class string) string {
 	return bounce.Format(fieldspec.Violation{Field: "system", Class: class})
+}
+
+func toolDescriptions() map[string]string {
+	return map[string]string{
+		"submit":  "Submit a stamped governance record through the serialized loop.",
+		"project": "List committed relay IDs currently visible to this seat mailbox.",
+		"read":    "Read an immutable committed relay record by relay ID.",
+	}
 }

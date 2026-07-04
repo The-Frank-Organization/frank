@@ -14,6 +14,7 @@ import (
 	"github.com/jackli/frank/internal/channel"
 	"github.com/jackli/frank/internal/record"
 	"github.com/jackli/frank/internal/seat"
+	"github.com/jackli/frank/internal/store"
 )
 
 func TestFrankBinaryAssemblesAuthenticatedSubmitProjectRead(t *testing.T) {
@@ -105,6 +106,56 @@ func TestFrankBinaryAssemblesAuthenticatedSubmitProjectRead(t *testing.T) {
 	}
 }
 
+func TestFrankBinaryReissuesRecoveryWakeForExistingMailbox(t *testing.T) {
+	root := t.TempDir()
+	mgr, err := seat.Open(root)
+	if err != nil {
+		t.Fatalf("Open seats: %v", err)
+	}
+	cred, err := mgr.Mint("seat-a", "implementer", false)
+	if err != nil {
+		t.Fatalf("Mint: %v", err)
+	}
+	st, err := store.Open(root)
+	if err != nil {
+		t.Fatalf("Open store: %v", err)
+	}
+	if _, err := st.Commit(record.Record{
+		Envelope: record.Envelope{RelayID: "preexisting", From: "seat-b", To: "seat-a", Role: "planner", DeliveryState: record.Accepted, SchemaVersion: 1},
+		Headers:  map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "SUBJECT": "preexisting delivery"},
+	}, nil); err != nil {
+		t.Fatalf("Commit preexisting delivery: %v", err)
+	}
+
+	sock := filepath.Join(os.TempDir(), fmt.Sprintf("frank-wake-%d.sock", time.Now().UnixNano()))
+	t.Cleanup(func() { _ = os.Remove(sock) })
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	bin := buildFrank(t, ctx)
+	cmd, stderr := startFrank(t, ctx, bin, root, sock)
+	t.Cleanup(func() {
+		cancel()
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+		_ = cmd.Wait()
+	})
+	waitForSocket(t, sock)
+
+	client, err := channel.DialAuthenticated(ctx, sock, cred.Value)
+	if err != nil {
+		t.Fatalf("DialAuthenticated stderr=%s: %v", stderr.String(), err)
+	}
+	defer func() { _ = client.Close() }()
+	frame, err := client.NextPush(ctx)
+	if err != nil {
+		t.Fatalf("recovery wake was not reissued stderr=%s: %v", stderr.String(), err)
+	}
+	if !bytes.Contains(frame, []byte("recovery")) {
+		t.Fatalf("recovery wake frame = %s", frame)
+	}
+}
+
 func waitForSocket(t *testing.T, sock string) {
 	t.Helper()
 	deadline := time.Now().Add(4 * time.Second)
@@ -115,4 +166,25 @@ func waitForSocket(t *testing.T, sock string) {
 		time.Sleep(25 * time.Millisecond)
 	}
 	t.Fatalf("socket %s was not created", sock)
+}
+
+func buildFrank(t *testing.T, ctx context.Context) string {
+	t.Helper()
+	bin := filepath.Join(t.TempDir(), "frank")
+	build := exec.CommandContext(ctx, "go", "build", "-o", bin, filepath.Join("..", "..", "cmd", "frank"))
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build frank: %v\n%s", err, out)
+	}
+	return bin
+}
+
+func startFrank(t *testing.T, ctx context.Context, bin, root, sock string) (*exec.Cmd, *bytes.Buffer) {
+	t.Helper()
+	cmd := exec.CommandContext(ctx, bin, "-root", root, "-socket", sock, "-registry", filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start frank: %v", err)
+	}
+	return cmd, &stderr
 }

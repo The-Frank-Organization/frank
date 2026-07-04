@@ -83,7 +83,8 @@ func run(ctx context.Context, cfg config) error {
 	if socket == "" {
 		socket = filepath.Join(cfg.Root, "frank.sock")
 	}
-	server, err := channel.ServeAuthenticated(socket, mgr, func(meta seat.SeatMeta) channel.ToolSet {
+	var server *channel.Server
+	server, err = channel.ServeAuthenticated(socket, mgr, func(meta seat.SeatMeta) channel.ToolSet {
 		return channel.ToolSet{
 			Submit: func(ctx context.Context, payload json.RawMessage) (json.RawMessage, error) {
 				intakeID, err := journal.Append(intake.Cmd{Seat: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator, Verb: "submit", Payload: payload})
@@ -96,6 +97,9 @@ func run(ctx context.Context, cfg config) error {
 				}
 				if err := gate.Complete(st); err != nil {
 					return nil, err
+				}
+				if server != nil {
+					_ = server.Push([]byte(`{"kind":"delivery-nudge"}`))
 				}
 				return json.Marshal(out)
 			},
@@ -128,6 +132,20 @@ func run(ctx context.Context, cfg config) error {
 		return err
 	}
 	defer func() { _ = server.Close() }()
+	if seats, err := st.PendingDeliverySeats(); err != nil {
+		return err
+	} else if len(seats) > 0 {
+		frame, err := json.Marshal(struct {
+			Kind  string   `json:"kind"`
+			Seats []string `json:"seats"`
+		}{Kind: "recovery-nudge", Seats: seats})
+		if err != nil {
+			return err
+		}
+		if err := server.QueuePush(frame); err != nil {
+			return err
+		}
+	}
 
 	<-ctx.Done()
 	return nil

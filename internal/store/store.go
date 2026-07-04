@@ -152,6 +152,32 @@ func (s *Store) Project(seat string) ([]string, error) {
 	return relayIDs, f.Close()
 }
 
+func (s *Store) PendingDeliverySeats() ([]string, error) {
+	dir := filepath.Join(s.Root, "mailboxes")
+	entries, err := os.ReadDir(dir)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var seats []string
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".jsonl") {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(dir, entry.Name()))
+		if err != nil {
+			return nil, err
+		}
+		if strings.TrimSpace(string(data)) == "" {
+			continue
+		}
+		seats = append(seats, strings.TrimSuffix(entry.Name(), ".jsonl"))
+	}
+	return seats, nil
+}
+
 func (s *Store) appendRedo(relayID string, intents []Intent) error {
 	path := filepath.Join(s.Root, "journal", "redo.jsonl")
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {

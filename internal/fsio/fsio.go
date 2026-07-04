@@ -40,6 +40,9 @@ func WriteFileAtomic(root, rel string, data []byte) error {
 	if err := os.Rename(stage, final); err != nil {
 		return err
 	}
+	if err := noteRename(rel); err != nil {
+		return err
+	}
 	crashpoint.Hit("post_rename")
 	crashpoint.Hit("pre_dir_fsync")
 	if err := syncDir(filepath.Dir(final)); err != nil {
@@ -48,6 +51,26 @@ func WriteFileAtomic(root, rel string, data []byte) error {
 	crashpoint.Hit("post_dir_fsync")
 	_ = removeEmptyParents(filepath.Dir(stage), filepath.Join(root, "staging"))
 	return nil
+}
+
+func noteRename(rel string) error {
+	counter := os.Getenv("FRANK_TEST_RENAME_COUNTER")
+	if counter == "" {
+		return nil
+	}
+	f, err := os.OpenFile(counter, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		return err
+	}
+	if _, err := f.Write([]byte(rel + "\n")); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		return err
+	}
+	return f.Close()
 }
 
 func AppendFsync(f *os.File, line []byte) error {
