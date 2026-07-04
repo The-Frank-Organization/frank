@@ -11,6 +11,10 @@ import (
 	"path/filepath"
 	"sync"
 	"sync/atomic"
+
+	"github.com/jackli/frank/internal/bounce"
+	"github.com/jackli/frank/internal/fieldspec"
+	"github.com/jackli/frank/internal/seat"
 )
 
 type ToolFunc func(context.Context, json.RawMessage) (json.RawMessage, error)
@@ -21,9 +25,13 @@ type ToolSet struct {
 	Read    ToolFunc
 }
 
+type ToolFactory func(seat.SeatMeta) ToolSet
+
 type Server struct {
 	ln      net.Listener
 	tools   ToolSet
+	auth    *seat.Manager
+	factory ToolFactory
 	done    chan struct{}
 	clients map[*serverConn]struct{}
 	mu      sync.Mutex
@@ -47,6 +55,16 @@ func Serve(sockPath string, tools ToolSet) (*Server, error) {
 		clients: map[*serverConn]struct{}{},
 	}
 	go s.accept()
+	return s, nil
+}
+
+func ServeAuthenticated(sockPath string, manager *seat.Manager, factory ToolFactory) (*Server, error) {
+	s, err := Serve(sockPath, ToolSet{})
+	if err != nil {
+		return nil, err
+	}
+	s.auth = manager
+	s.factory = factory
 	return s, nil
 }
 
@@ -108,6 +126,8 @@ type serverConn struct {
 	conn   net.Conn
 	enc    *json.Encoder
 	mu     sync.Mutex
+	tools  ToolSet
+	authed bool
 }
 
 func (c *serverConn) run() {
@@ -133,6 +153,22 @@ func (c *serverConn) run() {
 }
 
 func (c *serverConn) handle(req rpcMessage) (json.RawMessage, string) {
+	if c.server.auth != nil && !c.authed {
+		if req.Method != "session/connect" {
+			return nil, "auth:required"
+		}
+		var connect connectRequest
+		if err := json.Unmarshal(req.Params, &connect); err != nil {
+			return nil, "auth:bad-request"
+		}
+		meta, ok := c.server.auth.Resolve(connect.Credential)
+		if !ok {
+			return nil, "auth:invalid-credential"
+		}
+		c.tools = c.server.factory(meta)
+		c.authed = true
+		return mustJSON(connectResponse{Seat: meta.Name, Role: meta.Role}), ""
+	}
 	switch req.Method {
 	case "tools/list":
 		return mustJSON([]string{"submit", "project", "read"}), ""
@@ -141,13 +177,17 @@ func (c *serverConn) handle(req rpcMessage) (json.RawMessage, string) {
 		if err := json.Unmarshal(req.Params, &call); err != nil {
 			return nil, "bad tool call"
 		}
-		tool, ok := c.server.tools.byName(call.Name)
+		tools := c.server.tools
+		if c.server.auth != nil {
+			tools = c.tools
+		}
+		tool, ok := tools.byName(call.Name)
 		if !ok {
 			return nil, "unknown tool"
 		}
 		result, err := tool(context.Background(), call.Args)
 		if err != nil {
-			return nil, err.Error()
+			return nil, safeError("tool-error")
 		}
 		return result, ""
 	default:
@@ -198,6 +238,18 @@ func Dial(ctx context.Context, sockPath string) (*Client, error) {
 		done:    make(chan struct{}),
 	}
 	go c.readLoop()
+	return c, nil
+}
+
+func DialAuthenticated(ctx context.Context, sockPath, credential string) (*Client, error) {
+	c, err := Dial(ctx, sockPath)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := c.request(ctx, "session/connect", mustJSON(connectRequest{Credential: credential})); err != nil {
+		_ = c.Close()
+		return nil, err
+	}
 	return c, nil
 }
 
@@ -315,6 +367,15 @@ type toolCall struct {
 	Args json.RawMessage `json:"args,omitempty"`
 }
 
+type connectRequest struct {
+	Credential string `json:"credential"`
+}
+
+type connectResponse struct {
+	Seat string `json:"seat"`
+	Role string `json:"role"`
+}
+
 type rpcMessage struct {
 	ID     int64           `json:"id,omitempty"`
 	Method string          `json:"method,omitempty"`
@@ -329,4 +390,8 @@ func mustJSON(v any) json.RawMessage {
 		panic(err)
 	}
 	return data
+}
+
+func safeError(class string) string {
+	return bounce.Format(fieldspec.Violation{Field: "system", Class: class})
 }

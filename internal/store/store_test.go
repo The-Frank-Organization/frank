@@ -49,6 +49,38 @@ func TestCommitShape(t *testing.T) {
 	assertFile(t, filepath.Join(root, "mailboxes", "seat-b.planner.jsonl"), "relay-1\n")
 }
 
+func TestCommitAutoRelayIDsDoNotCollide(t *testing.T) {
+	root := t.TempDir()
+	st, err := store.Open(root)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+
+	first, err := st.Commit(record.Record{
+		Envelope: record.Envelope{From: "seat-a", Role: "implementer", DeliveryState: record.Accepted, SchemaVersion: 1},
+		Headers:  map[string]string{"PHASE": "SITREP", "SUBJECT": "first"},
+	}, nil)
+	if err != nil {
+		t.Fatalf("first Commit: %v", err)
+	}
+	second, err := st.Commit(record.Record{
+		Envelope: record.Envelope{From: "seat-a", Role: "implementer", DeliveryState: record.Accepted, SchemaVersion: 1},
+		Headers:  map[string]string{"PHASE": "SITREP", "SUBJECT": "second"},
+	}, nil)
+	if err != nil {
+		t.Fatalf("second Commit: %v", err)
+	}
+	if first == second {
+		t.Fatalf("auto relay IDs collided: %q", first)
+	}
+	if _, err := os.Stat(filepath.Join(root, "records", first+".json")); err != nil {
+		t.Fatalf("first record missing: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "records", second+".json")); err != nil {
+		t.Fatalf("second record missing: %v", err)
+	}
+}
+
 func TestRebuildProjectionsRestoresFromCanonicalAndRedo(t *testing.T) {
 	root := t.TempDir()
 	st, err := store.Open(root)

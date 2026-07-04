@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/jackli/frank/internal/bounce"
 	"github.com/jackli/frank/internal/fieldspec"
@@ -20,6 +21,11 @@ func SubmitHandler(st *store.Store, reg *fieldspec.Registry, meta seat.SeatMeta)
 			return rejected(cmd, meta, "bad submit payload"), nil, nil
 		}
 		cand = seat.Stamp(cand, meta)
+		relayID, err := st.NewRelayID()
+		if err != nil {
+			return rejected(cmd, meta, safeReason("id-error")), nil, nil
+		}
+		cand.Envelope.RelayID = relayID
 		cand.Envelope.IntakeID = cmd.IntakeID
 		if cand.Envelope.SchemaVersion == 0 {
 			cand.Envelope.SchemaVersion = 1
@@ -35,8 +41,15 @@ func SubmitHandler(st *store.Store, reg *fieldspec.Registry, meta seat.SeatMeta)
 			cand.Body = bounce.Format(lineageBounce)
 			return cand, nil, nil
 		}
+		if cand.Headers["resolves_gate"] != "" {
+			cand = classifyVerdict(st, cand)
+			if cand.Envelope.DeliveryState == record.Accepted {
+				return cand, store.DefaultProjectionIntents(cand), nil
+			}
+			return cand, nil, nil
+		}
 		cand.Envelope.DeliveryState = record.Accepted
-		return cand, nil, nil
+		return cand, submitProjectionIntents(cand), nil
 	}
 }
 
@@ -53,6 +66,59 @@ func rejected(cmd intake.Cmd, meta seat.SeatMeta, reason string) record.Record {
 		Headers: map[string]string{"PHASE": "SITREP", "SUBJECT": "submit rejected"},
 		Body:    reason,
 	}
+}
+
+func submitProjectionIntents(rec record.Record) []store.Intent {
+	intents := store.DefaultProjectionIntents(rec)
+	if isGateCandidate(rec) {
+		intents = append(intents, store.Intent{
+			Kind:    store.IntentIndex,
+			Path:    "INDEX.md",
+			Payload: []byte(fmt.Sprintf("| %s | parked | %s |\n", rec.Envelope.RelayID, rec.Envelope.From)),
+		})
+	}
+	return intents
+}
+
+func isGateCandidate(rec record.Record) bool {
+	return rec.Headers["HUMAN_GATE_REQUIRED"] == "yes" || rec.Headers["gate_category"] != ""
+}
+
+func classifyVerdict(st *store.Store, cand record.Record) record.Record {
+	gateRef := cand.Headers["resolves_gate"]
+	parent := cand.Headers["PARENT_DISPATCH_ID"]
+	if parent != gateRef {
+		cand.Envelope.DeliveryState = record.Rejected
+		cand.Body = bounce.Format(lineage.Bounce{Edge: "PARENT_DISPATCH_ID", Kind: lineage.ParentInvalidDeadEdge})
+		return cand
+	}
+	records, err := st.Records()
+	if err != nil {
+		cand.Envelope.DeliveryState = record.Rejected
+		cand.Body = safeReason("store-read-error")
+		return cand
+	}
+	var gateFound bool
+	var wakeSeat string
+	for _, existing := range records {
+		if existing.Envelope.RelayID == gateRef && existing.Envelope.DeliveryState == record.Accepted && isGateCandidate(existing) {
+			gateFound = true
+			wakeSeat = existing.Envelope.From
+		}
+		if existing.Headers["resolves_gate"] == gateRef && existing.Envelope.DeliveryState == record.Accepted {
+			cand.Envelope.DeliveryState = record.Rejected
+			cand.Body = bounce.Format(fieldspec.Violation{Field: "resolves_gate", Class: "already-resolved"})
+			return cand
+		}
+	}
+	if !gateFound {
+		cand.Envelope.DeliveryState = record.Rejected
+		cand.Body = bounce.Format(lineage.Bounce{Edge: "PARENT_DISPATCH_ID", Kind: lineage.ParentUnknownRecompose})
+		return cand
+	}
+	cand.Envelope.To = wakeSeat
+	cand.Envelope.DeliveryState = record.Accepted
+	return cand
 }
 
 func anySlice[T any](values []T) []any {

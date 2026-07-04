@@ -54,7 +54,10 @@ func AppendFsync(f *os.File, line []byte) error {
 	if _, err := f.Write(line); err != nil {
 		return err
 	}
-	return f.Sync()
+	if err := f.Sync(); err != nil {
+		return err
+	}
+	return syncDir(filepath.Dir(f.Name()))
 }
 
 func syncDir(dir string) error {
@@ -62,8 +65,11 @@ func syncDir(dir string) error {
 	if err != nil {
 		return err
 	}
-	defer d.Close()
-	return d.Sync()
+	if err := d.Sync(); err != nil {
+		_ = d.Close()
+		return err
+	}
+	return d.Close()
 }
 
 func removeEmptyParents(dir, stop string) error {

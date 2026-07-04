@@ -4,8 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/jackli/frank/internal/bounce"
+	"github.com/jackli/frank/internal/crashpoint"
+	"github.com/jackli/frank/internal/fieldspec"
 	"github.com/jackli/frank/internal/intake"
 	"github.com/jackli/frank/internal/lineage"
 	"github.com/jackli/frank/internal/record"
@@ -19,10 +23,10 @@ type Job struct {
 }
 
 type Outcome struct {
-	State    string
-	RelayID  string
-	IntakeID string
-	Reason   string
+	State    string `json:"state"`
+	RelayID  string `json:"relay_id,omitempty"`
+	IntakeID string `json:"intake_id,omitempty"`
+	Reason   string `json:"reason,omitempty"`
 }
 
 type Handler func(context.Context, intake.Cmd) (record.Record, []store.Intent, error)
@@ -49,7 +53,18 @@ func (l *Loop) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case job := <-l.In:
-			job.ReplyCh <- l.process(ctx, job.Cmd)
+			out := l.process(ctx, job.Cmd)
+			timeout := l.Timeout
+			if timeout <= 0 {
+				timeout = 5 * time.Second
+			}
+			crashpoint.Hit("pre_outcome_reply")
+			select {
+			case job.ReplyCh <- out:
+			case <-ctx.Done():
+				return
+			case <-time.After(timeout):
+			}
 		}
 	}
 }
@@ -65,14 +80,14 @@ func (l *Loop) process(ctx context.Context, cmd intake.Cmd) (out Outcome) {
 	}
 	rec, intents, err := l.Handler(ctx, cmd)
 	if err != nil {
-		return Outcome{State: record.Rejected, IntakeID: cmd.IntakeID, Reason: err.Error()}
+		return Outcome{State: record.Rejected, IntakeID: cmd.IntakeID, Reason: safeReason("internal-error")}
 	}
 	if rec.Envelope.IntakeID == "" {
 		rec.Envelope.IntakeID = cmd.IntakeID
 	}
 	relayID, err := l.Store.Commit(rec, intents)
 	if err != nil {
-		return Outcome{State: record.Rejected, IntakeID: rec.Envelope.IntakeID, Reason: err.Error()}
+		return Outcome{State: record.Rejected, IntakeID: rec.Envelope.IntakeID, Reason: safeReason("commit-error")}
 	}
 	return Outcome{
 		State:    rec.Envelope.DeliveryState,
@@ -84,7 +99,7 @@ func (l *Loop) process(ctx context.Context, cmd intake.Cmd) (out Outcome) {
 func (l *Loop) faultOutcome(cmd intake.Cmd, reason string) Outcome {
 	var cand record.Record
 	_ = json.Unmarshal(cmd.Payload, &cand)
-	meta := seat.SeatMeta{Name: cmd.Seat, Role: cand.Envelope.Role}
+	meta := seat.SeatMeta{Name: cmd.Seat, Role: commandRole(cmd), IsOperator: cmd.IsOperator}
 	if lineage.AuthorityBearing(cand, meta) {
 		held := record.Record{
 			Envelope: record.Envelope{
@@ -100,9 +115,9 @@ func (l *Loop) faultOutcome(cmd intake.Cmd, reason string) Outcome {
 		}
 		relayID, err := l.Store.Commit(held, nil)
 		if err != nil {
-			return Outcome{State: record.Rejected, IntakeID: cmd.IntakeID, Reason: err.Error()}
+			return Outcome{State: record.Rejected, IntakeID: cmd.IntakeID, Reason: safeReason("commit-error")}
 		}
-		return Outcome{State: record.Held, RelayID: relayID, IntakeID: cmd.IntakeID, Reason: reason}
+		return Outcome{State: record.Held, RelayID: relayID, IntakeID: cmd.IntakeID, Reason: safeReason("internal-fault")}
 	}
 	rejected := record.Record{
 		Envelope: record.Envelope{
@@ -114,11 +129,25 @@ func (l *Loop) faultOutcome(cmd intake.Cmd, reason string) Outcome {
 			SchemaVersion: 1,
 		},
 		Headers: map[string]string{"PHASE": "SITREP", "SUBJECT": "candidate rejected after internal fault"},
-		Body:    reason,
+		Body:    safeReason("internal-fault"),
 	}
 	relayID, err := l.Store.Commit(rejected, nil)
 	if err != nil {
-		return Outcome{State: record.Rejected, IntakeID: cmd.IntakeID, Reason: err.Error()}
+		return Outcome{State: record.Rejected, IntakeID: cmd.IntakeID, Reason: safeReason("commit-error")}
 	}
-	return Outcome{State: record.Rejected, RelayID: relayID, IntakeID: cmd.IntakeID, Reason: reason}
+	return Outcome{State: record.Rejected, RelayID: relayID, IntakeID: cmd.IntakeID, Reason: safeReason("internal-fault")}
+}
+
+func safeReason(class string) string {
+	return bounce.Format(fieldspec.Violation{Field: "system", Class: class})
+}
+
+func commandRole(cmd intake.Cmd) string {
+	if cmd.Role != "" {
+		return cmd.Role
+	}
+	if i := strings.LastIndex(cmd.Seat, "."); i >= 0 && i+1 < len(cmd.Seat) {
+		return cmd.Seat[i+1:]
+	}
+	return ""
 }

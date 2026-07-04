@@ -26,6 +26,11 @@ func TestRenderA2EnumAndGrantVisibility(t *testing.T) {
 	if !operatorForm.OptionAllowed("grant", "dispatch-merge") {
 		t.Fatalf("operator merge-gate form did not allow dispatch-merge")
 	}
+
+	orchestratorForm, _ := reg.Render(fieldspec.SeatMeta{Name: "s1.orchestrator-planner", Role: "orchestrator-planner"}, "IMPL", "medium")
+	if !orchestratorForm.HasField("grant") || !orchestratorForm.OptionAllowed("grant", "dispatch-impl") {
+		t.Fatalf("orchestrator form missing dispatch-impl grant: %#v", orchestratorForm.Fields["grant"])
+	}
 }
 
 func TestValidateB3AndStaleDigest(t *testing.T) {

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"sync"
 	"testing"
 
 	"github.com/jackli/frank/internal/gate"
@@ -34,6 +33,19 @@ func TestCompleteCreatesGateOutboxAndIsIdempotent(t *testing.T) {
 	if len(items) != 1 || items[0].SourceKind != "gate" || items[0].SourceRecordRef != "gate-1" {
 		t.Fatalf("outbox items = %+v", items)
 	}
+	records, err := st.Records()
+	if err != nil {
+		t.Fatalf("Records: %v", err)
+	}
+	var parks int
+	for _, rec := range records {
+		if rec.Headers["parks_gate"] == "gate-1" {
+			parks++
+		}
+	}
+	if parks != 1 {
+		t.Fatalf("park records = %d, want 1", parks)
+	}
 }
 
 func TestCompleteCreatesHeldOutbox(t *testing.T) {
@@ -54,46 +66,6 @@ func TestCompleteCreatesHeldOutbox(t *testing.T) {
 	items := readOutbox(t, root)
 	if len(items) != 1 || items[0].SourceKind != "held" || items[0].SourceRecordRef != "held-1" {
 		t.Fatalf("outbox items = %+v", items)
-	}
-}
-
-func TestResolveGateIsOneShotUnderRace(t *testing.T) {
-	st, err := store.Open(t.TempDir())
-	if err != nil {
-		t.Fatalf("Open: %v", err)
-	}
-	if _, err := st.Commit(record.Record{
-		Envelope: record.Envelope{RelayID: "gate-race", From: "seat-a", Role: "implementer", DeliveryState: record.Accepted, SchemaVersion: 1},
-		Headers:  map[string]string{"PHASE": "SITREP", "SUBJECT": "gate", "HUMAN_GATE_REQUIRED": "yes"},
-	}, nil); err != nil {
-		t.Fatalf("commit gate: %v", err)
-	}
-	var wg sync.WaitGroup
-	results := make(chan string, 2)
-	for _, verdict := range []string{"v1", "v2"} {
-		wg.Add(1)
-		go func(verdict string) {
-			defer wg.Done()
-			state, err := gate.Resolve(st, "gate-race", verdict)
-			if err != nil {
-				t.Errorf("Resolve %s: %v", verdict, err)
-			}
-			results <- state
-		}(verdict)
-	}
-	wg.Wait()
-	close(results)
-	var accepted, rejected int
-	for state := range results {
-		if state == record.Accepted {
-			accepted++
-		}
-		if state == record.Rejected {
-			rejected++
-		}
-	}
-	if accepted != 1 || rejected != 1 {
-		t.Fatalf("accepted=%d rejected=%d, want 1/1", accepted, rejected)
 	}
 }
 

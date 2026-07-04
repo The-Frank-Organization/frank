@@ -7,8 +7,8 @@ import (
 
 func TestClassifyAllDisposesEveryRepresentativeFixture(t *testing.T) {
 	results := ClassifyAll()
-	if len(results) == 0 {
-		t.Fatalf("no replay results")
+	if len(results) < 20 {
+		t.Fatalf("ClassifyAll returned %d results, want real corpus enumeration", len(results))
 	}
 	for _, result := range results {
 		if result.Disposition == "" {
@@ -18,6 +18,8 @@ func TestClassifyAllDisposesEveryRepresentativeFixture(t *testing.T) {
 	assertDisposition(t, results, "bad-phase-token", "caught")
 	assertDisposition(t, results, "bare-token-shape", "obsolete-by-construction")
 	assertDisposition(t, results, "scope-diff-row-array", "uncovered-S3")
+	assertDisposition(t, results, "claude/B9-bad-enum.md", "caught")
+	assertDisposition(t, results, "fold/FD1-fold-edit-no-foldscope.md", "uncovered-S3")
 }
 
 func TestReportArtifactMatchesGenerated(t *testing.T) {

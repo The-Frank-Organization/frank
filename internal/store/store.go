@@ -2,7 +2,10 @@ package store
 
 import (
 	"bufio"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -54,12 +57,23 @@ func (s *Store) Commit(rec record.Record, intents []Intent) (string, error) {
 	defer s.mu.Unlock()
 
 	relayID := rec.Envelope.RelayID
+	var err error
 	if relayID == "" {
-		relayID = nextRelayID()
+		relayID, err = s.nextRelayIDLocked()
+		if err != nil {
+			return "", err
+		}
 		rec.Envelope.RelayID = relayID
+	} else if _, err := os.Stat(filepath.Join(s.Root, "records", relayID+".json")); err == nil {
+		return "", fmt.Errorf("record already exists")
+	} else if err != nil && !os.IsNotExist(err) {
+		return "", err
 	}
 	if rec.Envelope.SchemaVersion == 0 {
 		rec.Envelope.SchemaVersion = 1
+	}
+	if intents == nil && rec.Envelope.DeliveryState == record.Accepted && rec.Headers["PHASE"] != "" {
+		intents = DefaultProjectionIntents(rec)
 	}
 	data, err := record.Seal(rec)
 	if err != nil {
@@ -75,6 +89,12 @@ func (s *Store) Commit(rec record.Record, intents []Intent) (string, error) {
 		return "", err
 	}
 	return relayID, nil
+}
+
+func (s *Store) NewRelayID() (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.nextRelayIDLocked()
 }
 
 func (s *Store) Records() ([]record.Record, error) {
@@ -117,7 +137,6 @@ func (s *Store) Project(seat string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
 	var relayIDs []string
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
@@ -126,7 +145,11 @@ func (s *Store) Project(seat string) ([]string, error) {
 			relayIDs = append(relayIDs, line)
 		}
 	}
-	return relayIDs, scanner.Err()
+	if err := scanner.Err(); err != nil {
+		_ = f.Close()
+		return nil, err
+	}
+	return relayIDs, f.Close()
 }
 
 func (s *Store) appendRedo(relayID string, intents []Intent) error {
@@ -138,22 +161,35 @@ func (s *Store) appendRedo(relayID string, intents []Intent) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
 	crashpoint.Hit("pre_redo_fsync")
 	data, err := json.Marshal(redoEntry{RelayID: relayID, Intents: intents})
 	if err != nil {
+		_ = f.Close()
 		return err
 	}
 	data = append(data, '\n')
 	if err := fsio.AppendFsync(f, data); err != nil {
+		_ = f.Close()
 		return err
 	}
 	crashpoint.Hit("post_redo_fsync")
-	return nil
+	return f.Close()
 }
 
-func nextRelayID() string {
-	return fmt.Sprintf("relay-%d", os.Getpid())
+func (s *Store) nextRelayIDLocked() (string, error) {
+	for range 16 {
+		buf := make([]byte, 12)
+		if _, err := rand.Read(buf); err != nil {
+			return "", err
+		}
+		relayID := "relay-" + hex.EncodeToString(buf)
+		if _, err := os.Stat(filepath.Join(s.Root, "records", relayID+".json")); os.IsNotExist(err) {
+			return relayID, nil
+		} else if err != nil {
+			return "", err
+		}
+	}
+	return "", errors.New("relay id collision")
 }
 
 type redoEntry struct {
@@ -170,15 +206,19 @@ func readRedo(root string) ([]redoEntry, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
 	var entries []redoEntry
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		var entry redoEntry
 		if err := json.Unmarshal(scanner.Bytes(), &entry); err != nil {
+			_ = f.Close()
 			return nil, err
 		}
 		entries = append(entries, entry)
 	}
-	return entries, scanner.Err()
+	if err := scanner.Err(); err != nil {
+		_ = f.Close()
+		return nil, err
+	}
+	return entries, f.Close()
 }

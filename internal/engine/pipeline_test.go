@@ -34,6 +34,35 @@ func TestSubmitHandlerStampsAndAcceptsValidCandidate(t *testing.T) {
 	}
 }
 
+func TestSubmitHandlerAssignsRelayIDAndProjectionIntents(t *testing.T) {
+	st, reg := submitDeps(t)
+	handler := engine.SubmitHandler(st, reg, seat.SeatMeta{Name: "s1-core.implementer", Role: "implementer"})
+	payload := mustJSON(t, record.Record{
+		Envelope: record.Envelope{
+			RelayID:    "client-picked",
+			DispatchID: "dispatch-1",
+			From:       "victim.planner",
+			To:         "s1-core.planner",
+			Role:       "planner",
+		},
+		Headers: map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "SUBJECT": "projection"},
+		Body:    "hello",
+	})
+	rec, intents, err := handler(context.Background(), intake.Cmd{IntakeID: "i-proj", Seat: "s1-core.implementer", Role: "implementer", Payload: payload})
+	if err != nil {
+		t.Fatalf("handler: %v", err)
+	}
+	if rec.Envelope.DeliveryState != record.Accepted {
+		t.Fatalf("state = %s, want accepted", rec.Envelope.DeliveryState)
+	}
+	if rec.Envelope.RelayID == "" || rec.Envelope.RelayID == "client-picked" {
+		t.Fatalf("relay ID was not server assigned: %q", rec.Envelope.RelayID)
+	}
+	requireIntent(t, intents, store.IntentIndex)
+	requireIntent(t, intents, store.IntentRender)
+	requireIntent(t, intents, store.IntentMailbox)
+}
+
 func TestSubmitHandlerRejectsForbiddenPairGrant(t *testing.T) {
 	st, reg := submitDeps(t)
 	handler := engine.SubmitHandler(st, reg, seat.SeatMeta{Name: "s1-core.implementer", Role: "implementer"})
@@ -56,6 +85,52 @@ func TestSubmitHandlerRejectsForbiddenPairGrant(t *testing.T) {
 	if rec.Envelope.From != "s1-core.implementer" {
 		t.Fatalf("rejected record not stamped: %+v", rec.Envelope)
 	}
+}
+
+func TestOperatorVerdictOneShotRunsThroughSubmitHandler(t *testing.T) {
+	st, reg := submitDeps(t)
+	if _, err := st.Commit(record.Record{
+		Envelope: record.Envelope{RelayID: "gate-1", From: "seat-a", Role: "implementer", DeliveryState: record.Accepted, SchemaVersion: 1},
+		Headers:  map[string]string{"PHASE": "SITREP", "SUBJECT": "gate", "HUMAN_GATE_REQUIRED": "yes"},
+	}, nil); err != nil {
+		t.Fatalf("Commit gate: %v", err)
+	}
+	handler := engine.SubmitHandler(st, reg, seat.SeatMeta{Name: "operator", Role: "operator", IsOperator: true})
+
+	firstPayload := mustJSON(t, record.Record{
+		Headers: map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "SUBJECT": "verdict 1", "PARENT_DISPATCH_ID": "gate-1", "resolves_gate": "gate-1"},
+	})
+	first, _, err := handler(context.Background(), intake.Cmd{IntakeID: "v1", Seat: "operator", Role: "operator", IsOperator: true, Payload: firstPayload})
+	if err != nil {
+		t.Fatalf("first handler: %v", err)
+	}
+	if first.Envelope.DeliveryState != record.Accepted {
+		t.Fatalf("first state = %s, want accepted", first.Envelope.DeliveryState)
+	}
+	if _, err := st.Commit(first, nil); err != nil {
+		t.Fatalf("commit first: %v", err)
+	}
+
+	secondPayload := mustJSON(t, record.Record{
+		Headers: map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "SUBJECT": "verdict 2", "PARENT_DISPATCH_ID": "gate-1", "resolves_gate": "gate-1"},
+	})
+	second, _, err := handler(context.Background(), intake.Cmd{IntakeID: "v2", Seat: "operator", Role: "operator", IsOperator: true, Payload: secondPayload})
+	if err != nil {
+		t.Fatalf("second handler: %v", err)
+	}
+	if second.Envelope.DeliveryState != record.Rejected {
+		t.Fatalf("second state = %s, want rejected", second.Envelope.DeliveryState)
+	}
+}
+
+func requireIntent(t *testing.T, intents []store.Intent, kind string) {
+	t.Helper()
+	for _, intent := range intents {
+		if intent.Kind == kind {
+			return
+		}
+	}
+	t.Fatalf("missing %s intent in %#v", kind, intents)
 }
 
 func submitDeps(t *testing.T) (*store.Store, *fieldspec.Registry) {

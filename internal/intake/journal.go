@@ -18,6 +18,8 @@ import (
 type Cmd struct {
 	IntakeID    string          `json:"intake_id,omitempty"`
 	Seat        string          `json:"seat"`
+	Role        string          `json:"role,omitempty"`
+	IsOperator  bool            `json:"is_operator,omitempty"`
 	Verb        string          `json:"verb"`
 	Payload     json.RawMessage `json:"payload,omitempty"`
 	ContentHash string          `json:"content_hash,omitempty"`
@@ -59,11 +61,14 @@ func (j *Journal) Append(cmd Cmd) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
 	if err := fsio.AppendFsync(f, data); err != nil {
+		_ = f.Close()
 		return "", err
 	}
 	crashpoint.Hit("post_intake_fsync")
+	if err := f.Close(); err != nil {
+		return "", err
+	}
 	return cmd.IntakeID, nil
 }
 
@@ -75,17 +80,21 @@ func (j *Journal) ReadAll() ([]Cmd, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
 	var entries []Cmd
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		var cmd Cmd
 		if err := json.Unmarshal(scanner.Bytes(), &cmd); err != nil {
+			_ = f.Close()
 			return nil, err
 		}
 		entries = append(entries, cmd)
 	}
-	return entries, scanner.Err()
+	if err := scanner.Err(); err != nil {
+		_ = f.Close()
+		return nil, err
+	}
+	return entries, f.Close()
 }
 
 func Unconsumed(ctx context.Context, j *Journal, st *store.Store) ([]Cmd, error) {

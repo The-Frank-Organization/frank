@@ -53,7 +53,7 @@ func Load(path string) (*Registry, error) {
 
 func (r *Registry) Render(seat SeatMeta, phase, tier string) (Form, string) {
 	authority := append([]string(nil), r.Authority...)
-	if !seat.IsOperator {
+	if !canGrant(seat) {
 		authority = remove(authority, "merge-gated")
 	}
 	form := Form{Fields: map[string]Field{
@@ -67,7 +67,7 @@ func (r *Registry) Render(seat SeatMeta, phase, tier string) (Form, string) {
 		"body":                {},
 		"X-*":                 {},
 	}}
-	if seat.IsOperator {
+	if canGrant(seat) {
 		grantOptions := []string{"dispatch-impl"}
 		if phase == "MERGE-GATE" {
 			grantOptions = append(grantOptions, "dispatch-merge")
@@ -96,13 +96,17 @@ func (r *Registry) Validate(cand record.Record, seat SeatMeta, formDigest string
 	if authority != "" && !slices.Contains(r.Authority, authority) {
 		violations = append(violations, Violation{Field: "AUTHORITY", Class: "enum", Reason: "unknown AUTHORITY"})
 	}
-	if authority == "merge-gated" && !seat.IsOperator {
+	if authority == "merge-gated" && !canGrant(seat) {
 		violations = append(violations, Violation{Field: "AUTHORITY", Class: "seat-scope", Reason: "merge-gated absent from pair forms"})
 	}
-	if cand.Headers["grant"] != "" && !seat.IsOperator {
+	if cand.Headers["grant"] != "" && !canGrant(seat) {
 		violations = append(violations, Violation{Field: "grant", Class: "seat-scope", Reason: "grant absent from pair forms"})
 	}
 	return violations
+}
+
+func canGrant(seat SeatMeta) bool {
+	return seat.IsOperator || seat.Role == "operator" || seat.Role == "orchestrator-planner" || seat.Role == "orchestrator-reviewer"
 }
 
 func (r *Registry) ClassifyGateCategory(token string, knownA bool) (string, bool) {

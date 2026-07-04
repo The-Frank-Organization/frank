@@ -2,6 +2,7 @@ package seat
 
 import (
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -41,6 +42,9 @@ type binding struct {
 }
 
 func Open(root string) (*Manager, error) {
+	if err := os.MkdirAll(filepath.Join(root, "binding"), 0o700); err != nil {
+		return nil, err
+	}
 	m := &Manager{root: root, table: bindingTable{Seats: map[string]binding{}}}
 	data, err := os.ReadFile(filepath.Join(root, "binding", "seats.json"))
 	if os.IsNotExist(err) {
@@ -83,7 +87,7 @@ func (m *Manager) Resolve(credential string) (SeatMeta, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for _, binding := range m.table.Seats {
-		if binding.Credential == credential {
+		if subtle.ConstantTimeCompare([]byte(binding.Credential), []byte(credential)) == 1 {
 			return binding.Meta, true
 		}
 	}
@@ -110,7 +114,13 @@ func (m *Manager) persist() error {
 	if err != nil {
 		return err
 	}
-	return fsio.WriteFileAtomic(m.root, filepath.Join("binding", "seats.json"), data)
+	if err := os.MkdirAll(filepath.Join(m.root, "binding"), 0o700); err != nil {
+		return err
+	}
+	if err := fsio.WriteFileAtomic(m.root, filepath.Join("binding", "seats.json"), data); err != nil {
+		return err
+	}
+	return os.Chmod(filepath.Join(m.root, "binding", "seats.json"), 0o600)
 }
 
 func randomCredential() (string, error) {

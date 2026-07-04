@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 
 	"github.com/jackli/frank/internal/record"
@@ -21,8 +20,6 @@ type OutboxItem struct {
 	SchemaVersion   int    `json:"schema_version"`
 }
 
-var resolveMu sync.Mutex
-
 func Complete(st *store.Store) error {
 	records, err := st.Records()
 	if err != nil {
@@ -38,6 +35,11 @@ func Complete(st *store.Store) error {
 		default:
 			continue
 		}
+		if sourceKind == "gate" {
+			if err := completePark(st, rec); err != nil {
+				return err
+			}
+		}
 		if err := completeOutbox(st, rec, sourceKind); err != nil {
 			return err
 		}
@@ -45,39 +47,33 @@ func Complete(st *store.Store) error {
 	return nil
 }
 
-func Resolve(st *store.Store, gateRecordRef, verdictID string) (string, error) {
-	resolveMu.Lock()
-	defer resolveMu.Unlock()
-
+func completePark(st *store.Store, gateRecord record.Record) error {
+	parkID := "park-" + gateRecord.Envelope.RelayID
 	records, err := st.Records()
 	if err != nil {
-		return "", err
+		return err
 	}
-	state := record.Accepted
-	for _, rec := range records {
-		if rec.Headers["resolves_gate"] == gateRecordRef && rec.Envelope.DeliveryState == record.Accepted {
-			state = record.Rejected
-			break
+	for _, existing := range records {
+		if existing.Envelope.RelayID == parkID || existing.Headers["parks_gate"] == gateRecord.Envelope.RelayID {
+			return nil
 		}
 	}
 	_, err = st.Commit(record.Record{
 		Envelope: record.Envelope{
-			RelayID:       "verdict-" + verdictID,
-			From:          "operator",
-			Role:          "operator",
-			DeliveryState: state,
+			RelayID:       parkID,
+			From:          "system",
+			Role:          "system",
+			To:            gateRecord.Envelope.From,
+			DeliveryState: record.Accepted,
 			SchemaVersion: 1,
 		},
 		Headers: map[string]string{
-			"PHASE":         "SITREP",
-			"SUBJECT":       "operator verdict",
-			"resolves_gate": gateRecordRef,
+			"PHASE":      "SITREP",
+			"SUBJECT":    "parked gate",
+			"parks_gate": gateRecord.Envelope.RelayID,
 		},
 	}, nil)
-	if err != nil {
-		return "", err
-	}
-	return state, nil
+	return err
 }
 
 func completeOutbox(st *store.Store, rec record.Record, sourceKind string) error {

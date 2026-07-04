@@ -19,7 +19,7 @@ func TestLoopProcessesFIFOAndRepliesAfterCommit(t *testing.T) {
 	var order []string
 	loop := engine.New(st, func(context.Context, intake.Cmd) (record.Record, []store.Intent, error) {
 		order = append(order, string([]byte(orderName(len(order)))))
-		id := "relay-" + orderName(len(order))
+		id := ""
 		return record.Record{
 			Envelope: record.Envelope{
 				RelayID:       id,

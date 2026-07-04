@@ -58,3 +58,28 @@ func TestAuthorityBearingFaultCommitsHeldAndLoopContinues(t *testing.T) {
 		t.Fatalf("held records for i1 = %d, want 1", held)
 	}
 }
+
+func TestFaultAuthorityClassificationUsesCommandSeatRole(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("Open store: %v", err)
+	}
+	loop := engine.New(st, func(context.Context, intake.Cmd) (record.Record, []store.Intent, error) {
+		panic("validator fault")
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go loop.Run(ctx)
+
+	candidate := record.Record{
+		Envelope: record.Envelope{Role: "orchestrator-planner"},
+		Headers:  map[string]string{"PHASE": "AUDIT", "SUBJECT": "payload role must not classify"},
+	}
+	payload, _ := json.Marshal(candidate)
+	reply := make(chan engine.Outcome, 1)
+	loop.In <- engine.Job{Cmd: intake.Cmd{IntakeID: "i-role", Seat: "s1-core.implementer", Role: "implementer", Payload: payload}, ReplyCh: reply}
+
+	if out := <-reply; out.State != record.Rejected {
+		t.Fatalf("fault outcome = %+v, want rejected for implementer seat", out)
+	}
+}

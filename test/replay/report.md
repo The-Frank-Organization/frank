@@ -3,12 +3,255 @@
 ## caught
 
 - bad-phase-token (enum): MVP validator rejects the typed PHASE equivalent
+- claude/B9-bad-enum.md (enum): MVP validator rejects the typed enum equivalent
+- claude/C2-enum-bypass.md (enum): MVP validator rejects the typed enum equivalent
 
 ## obsolete-by-construction
 
 - bare-token-shape (literal-authority-token-shape): typed submission has no raw relay text channel for bare token placement
+- addressing/T2-token-no-to.md (literal-authority-token-shape): typed submission has no raw relay text channel for token placement
+- addressing/T3-token-to-planner.md (literal-authority-token-shape): typed submission has no raw relay text channel for token placement
+- addressing/T4-token-two-implementers.md (literal-authority-token-shape): typed submission has no raw relay text channel for token placement
+- content/E10-bare-unavailable.md (literal-authority-token-shape): typed submission has no raw relay text channel for token placement
+- identity/S4a-proxy-from.md (identity-stamping): seat identity is stamped from binding, not payload FROM
+- merge-token/MT1-valid-token-grant/IMPL-report-20260610-131000.md (literal-authority-token-shape): typed submission has no raw relay text channel for token placement
+- merge-token/MT1-valid-token-grant/MERGE-GATE-20260610-130000.md (literal-authority-token-shape): typed submission has no raw relay text channel for token placement
+- merge-token/MT2-backticked-token-inert/IMPL-report-20260610-131000.md (literal-authority-token-shape): typed submission has no raw relay text channel for token placement
+- merge-token/MT2-backticked-token-inert/MERGE-GATE-20260610-130000.md (literal-authority-token-shape): typed submission has no raw relay text channel for token placement
+- merge-token/MT3-self-granted-token.md (literal-authority-token-shape): typed submission has no raw relay text channel for token placement
+- merge-token/MT4-multi-to-grant.md (literal-authority-token-shape): typed submission has no raw relay text channel for token placement
+- merge-token/MT5-wrong-phase-token.md (literal-authority-token-shape): typed submission has no raw relay text channel for token placement
+- merge-token/MT6-outside-grant.md (literal-authority-token-shape): typed submission has no raw relay text channel for token placement
+- merge-token/MT6-token-outside-root/IMPL-report-20260610-131000.md (literal-authority-token-shape): typed submission has no raw relay text channel for token placement
+- merge-token/MT7-duplicate-authorization-decoy/IMPL-report-20260610-131000.md (literal-authority-token-shape): typed submission has no raw relay text channel for token placement
+- merge-token/MT7-duplicate-authorization-decoy/MERGE-GATE-20260610-130000.md (literal-authority-token-shape): typed submission has no raw relay text channel for token placement
+- merge-token/MT8-denied-only-no-auth/IMPL-report-20260610-131000.md (literal-authority-token-shape): typed submission has no raw relay text channel for token placement
+- merge-token/MT8-denied-only-no-auth/MERGE-GATE-20260610-130000.md (literal-authority-token-shape): typed submission has no raw relay text channel for token placement
+- merge-token/MT9-cross-dispatch-runroot/d1/IMPL-report-20260611-121000.md (literal-authority-token-shape): typed submission has no raw relay text channel for token placement
+- merge-token/MT9-cross-dispatch-runroot/d2/MERGE-GATE-20260611-110000.md (literal-authority-token-shape): typed submission has no raw relay text channel for token placement
+- probes/N3-fenced-dispatch-inert.md (literal-authority-token-shape): typed submission has no raw relay text channel for token placement
 
 ## uncovered-S3
 
 - scope-diff-row-array (row-array-structure): SCOPE_DIFF row arrays are not an MVP-visible field in S1
+- addressing/G1-casefold-lineage/IMPL-Dispatch-20260610-102000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- addressing/G1-casefold-lineage/PLAN-PairPlanner-20260610-100000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- addressing/G1-casefold-lineage/PLAN-REVIEW-Implementer-20260610-101000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- addressing/T1-valid-addressed-dispatch.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- addressing/T5-bad-address.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- addressing/T6-valid-audit-both-to.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- addressing/T7-valid-cc-context.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- addressing/T8-cc-trap-structurally-valid.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- claude/A1-valid-audit.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- claude/A2-valid-downgrade.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- claude/B2-why-before-scan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- claude/B3-yes-row-why.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- claude/B5-audit-no-final.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- claude/B6-audit-impl-authority.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- claude/B7-delegated-no-scopediff.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- claude/B8-deviation-dispatch.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- claude/C1-evasive-rows.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- claude/L1/01-PLAN-orc.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- claude/L1/02-PLAN-REVIEW-impl.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- claude/L1/03-PLAN-dispatch.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- claude/L2/PLAN-OrchestratorPlanner-20260610-090000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- claude/L2/PLAN-PairPlanner-20260610-100000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- claude/L2/PLAN-REVIEW-Implementer-20260610-093000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- claude/L3/01-PLAN-orc.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- claude/L3/02-PLAN-REVIEW-impl.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- claude/L3/03-PLAN-dispatch.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- content/E1-empty-final-git-status.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- content/E11-placeholder-field.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- content/E12-colon-rows-valid.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- content/E13-na-marker.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- content/E13-scopediff-detached-row.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- content/E14-scopediff-row-after-result.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- content/E15-dual-scopediff-decoy.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- content/E16-dual-scopediff-contiguous.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- content/E2-empty-actions-git-ref.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- content/E3-empty-scopediff-live-dispatch.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- content/E4-structured-unavailable.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- content/E5-clean-tree.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- content/E6-out-row-allin.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- content/E7-valid-scopediff-dispatch.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- content/E8-structured-none-scopediff.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- content/E9-unparseable-row.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR1-valid-design-doc-chain/01-design.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR1-valid-design-doc-chain/02-design-review.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR1-valid-design-doc-chain/03-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR10-review-parent-not-design/01-audit.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR10-review-parent-not-design/02-design.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR10-review-parent-not-design/03-design-review.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR10-review-parent-not-design/04-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR11a-stale-review-parent/01-design-v1.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR11a-stale-review-parent/02-review-v1.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR11a-stale-review-parent/03-design-v2.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR11a-stale-review-parent/04-review-v2.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR11a-stale-review-parent/05-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR11b-locks-must-revise-v1/01-design-v1.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR11b-locks-must-revise-v1/02-review-v1.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR11b-locks-must-revise-v1/03-design-v2.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR11b-locks-must-revise-v1/04-review-v2.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR11b-locks-must-revise-v1/05-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR11c-positive-control-v2/01-design-v1.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR11c-positive-control-v2/02-review-v1.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR11c-positive-control-v2/03-design-v2.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR11c-positive-control-v2/04-review-v2.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR11c-positive-control-v2/05-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR13-omit-record-kind-post-v285/01-design.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR13-omit-record-kind-post-v285/02-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR14-legacy-lock-tolerated/01-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR15-verdict-human-decision/01-design.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR15-verdict-human-decision/02-design-review.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR15-verdict-human-decision/03-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR16-F-a-same-id-orch-design/01-orch-design-dispatch.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR16-F-a-same-id-orch-design/02-pair-design.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR16-F-a-same-id-orch-design/03-design-review.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR16-F-a-same-id-orch-design/04-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR17-F-relock-latest-before-review/01-design-v1.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR17-F-relock-latest-before-review/02-review-v1.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR17-F-relock-latest-before-review/03-design-v2.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR17-F-relock-latest-before-review/04-review-v2.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR17-F-relock-latest-before-review/05-design-reemit.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR17-F-relock-latest-before-review/06-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR18-F-thread-one-id-pass/01-orch-design-dispatch.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR18-F-thread-one-id-pass/02-pair-design.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR18-F-thread-one-id-pass/03-design-review.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR18-F-thread-one-id-pass/04-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR19-F-thread-mustrevise/01-orch-design-dispatch.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR19-F-thread-mustrevise/02-pair-design.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR19-F-thread-mustrevise/03-approve-review.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR19-F-thread-mustrevise/04-must-revise-review.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR19-F-thread-mustrevise/05-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR2-edge-less-no-review/01-design.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR2-edge-less-no-review/02-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR20-F-b-no-design-parent/01-orch-design-dispatch.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR20-F-b-no-design-parent/02-pair-design-not-parent.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR20-F-b-no-design-parent/03-design-review.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR20-F-b-no-design-parent/04-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR21-F-b158-no-owner-review/01-design.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR21-F-b158-no-owner-review/02-other-owner-review.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR21-F-b158-no-owner-review/03-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR22-F-c-cross-owner-design/01-same-owner-design.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR22-F-c-cross-owner-design/02-cross-owner-design.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR22-F-c-cross-owner-design/03-design-review.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR22-F-c-cross-owner-design/04-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR3-direct-override/01-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR4-self-override/01-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR5-tiny-no-lock/01-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR6-genuine-audit-record/01-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR7a-audit-record-no-design-doc/01-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR7b-audit-record-design-doc-visible/01-design.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR7b-audit-record-design-doc-visible/02-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR8-review-not-from-implementer/01-design.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR8-review-not-from-implementer/02-design-review.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR8-review-not-from-implementer/03-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR9-verdict-not-approve/01-design.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR9-verdict-not-approve/02-design-review.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- design-review/DR9-verdict-not-approve/03-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- fold/FD1-fold-edit-no-foldscope.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- fold/FD10-detached-row-foldscope.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- fold/FD11-row-after-result-foldscope.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- fold/FD12-absence-prefixed-actions.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- fold/FD13-dual-foldscope-contiguous.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- fold/FD2-valid-fold-report.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- fold/FD3-out-row-with-edit.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- fold/FD4-empty-foldscope.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- fold/FD5-deviation-relay-out-rows-no-edit.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- fold/FD6-edit-then-waiver-shape.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- fold/FD7-fold-no-deviation-uncommitted.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- fold/FD8-scope-after-actions.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- fold/FD9-fold-no-wordlist-verbs.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- lineage/LI1-valid-parent-chain/01-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- lineage/LI1-valid-parent-chain/02-plan-review.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- lineage/LI1-valid-parent-chain/03-dispatch.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- lineage/LI2-cc-orchestrator-plan-trap/01-orch-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- lineage/LI2-cc-orchestrator-plan-trap/02-wrong-review.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- lineage/LI2-cc-orchestrator-plan-trap/03-dispatch.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- lineage/LI3-no-plan-review-parent/01-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- lineage/LI3-no-plan-review-parent/02-dispatch.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- lineage/LI4-non-addressee-impl-report/01-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- lineage/LI4-non-addressee-impl-report/02-review.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- lineage/LI4-non-addressee-impl-report/03-dispatch.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- lineage/LI4-non-addressee-impl-report/04-report.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- lineage/LI5-edgeless-delegated-cc-trap/01-orchestrator-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- lineage/LI5-edgeless-delegated-cc-trap/02-wrong-review.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- lineage/LI5-edgeless-delegated-cc-trap/03-edgeless-dispatch.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- lineage/LI6-edgeless-no-approve/01-edgeless-dispatch.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- lineage/LI7-edgeless-non-addressee-report/01-impl-report.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- lint-test/bad1.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- lint-test/bad2.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- lint-test/bad3.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- lint-test/bad3b.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- lint-test/bad4.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- lint-test/good5.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- lint-test/root/D-77/IMPL-planner-1.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- merge/BP5-blank-line-merge-evasion/IMPL-dispatch-20260610-102000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- merge/BP5-blank-line-merge-evasion/IMPL-report-20260610-103000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- merge/BP5-blank-line-merge-evasion/PLAN-REVIEW-impl-20260610-101000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- merge/BP5-blank-line-merge-evasion/PLAN-orc-20260610-100000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- merge/GA-flushleft-canonical-no-auth/IMPL-dispatch-20260610-102000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- merge/GA-flushleft-canonical-no-auth/IMPL-report-20260610-103000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- merge/GA-flushleft-canonical-no-auth/PLAN-REVIEW-impl-20260610-101000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- merge/GA-flushleft-canonical-no-auth/PLAN-orc-20260610-100000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- merge/GB-tab-ambiguous-canonical/IMPL-dispatch-20260610-102000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- merge/GB-tab-ambiguous-canonical/IMPL-report-20260610-103000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- merge/GB-tab-ambiguous-canonical/PLAN-REVIEW-impl-20260610-101000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- merge/GB-tab-ambiguous-canonical/PLAN-orc-20260610-100000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- merge/GC-2blank-ambiguous-canonical/IMPL-dispatch-20260610-102000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- merge/GC-2blank-ambiguous-canonical/IMPL-report-20260610-103000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- merge/GC-2blank-ambiguous-canonical/PLAN-REVIEW-impl-20260610-101000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- merge/GC-2blank-ambiguous-canonical/PLAN-orc-20260610-100000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- merge/GD-quoted-canonical-inert/IMPL-dispatch-20260610-102000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- merge/GD-quoted-canonical-inert/IMPL-report-20260610-103000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- merge/GD-quoted-canonical-inert/PLAN-REVIEW-impl-20260610-101000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- merge/GD-quoted-canonical-inert/PLAN-orc-20260610-100000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- merge/M1-merge-claim-no-auth/IMPL-report-20260610-110000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- merge/M2-merge-claim-with-auth/IMPL-report-20260610-110000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- merge/M2-merge-claim-with-auth/MERGE-GATE-20260610-105000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- merge/M3-honest-not-merged/IMPL-report-20260610-111000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- merge/M4-canonical-claim-no-auth/IMPL-report-20260610-112000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- merge/M5-self-auth-forgery/IMPL-report-20260610-113000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- merge/M5-self-auth-forgery/MERGE-GATE-20260610-112500.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- merge/M7-continuation-prose-claim-no-auth/IMPL-report-20260610-114000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- merge/M8-continuation-canonical-claim-no-auth/IMPL-report-20260610-114500.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- merge/organic-m2-unauthorized-merge/IMPL-dispatch-20260610-120000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- merge/organic-m2-unauthorized-merge/IMPL-report-20260610-121000.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- orch-review/A1-no-reviewer-no-waiver/01-merge.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- orch-review/A2-operator-waiver/00-waiver.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- orch-review/A2-operator-waiver/01-merge.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- orch-review/A3-self-waiver/00-self-waiver.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- orch-review/A3-self-waiver/01-merge.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- orch-review/A4-solo-no-orchestrator-relay/01-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- orch-review/EX1-operator-authority/01-merge.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- orch-review/EX2-pairplanner-impl/01-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- orch-review/EX2-pairplanner-impl/02-review.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- orch-review/EX2-pairplanner-impl/03-dispatch.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- orch-review/EX3-reviewer-boot/01-boot.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- orch-review/EX4-reconcile/01-reconcile.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- orch-review/EX5-proceed-nodeleg/01-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- orch-review/EX6-boot-to-reviewer/01-boot-reviewer.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- orch-review/OR1-audit-cc/01-audit.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- orch-review/OR10-override-impl-no-reviewer/01-impl.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- orch-review/OR11-merge-gate-no-reviewer/01-merge.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- orch-review/OR12-review-fold-no-reviewer/01-review-fold.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- orch-review/OR2-design-cc/01-design.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- orch-review/OR3-plan-delegated-cc/01-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- orch-review/OR4-override-impl-cc/01-impl.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- orch-review/OR5-merge-gate-cc/01-merge.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- orch-review/OR6-review-fold-cc/01-review-fold.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- orch-review/OR7-audit-no-reviewer/01-audit.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- orch-review/OR8-design-no-reviewer/01-design.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- orch-review/OR9-plan-delegated-no-reviewer/01-plan.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- p9/P9-blank-line-prose-after-block/01-impl-report.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- p9/P9b-claim-after-scan-blank-line.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- probes/N2-refusal-code-span.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- probes/N4-scan-result-mismatch.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- probes/N5-missing-scan-row.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- rowtruth/RT1-valid-fold-evidence.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- rowtruth/RT2-missing-fold-evidence.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- rowtruth/RT3-valid-scope-evidence.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- rowtruth/RT4-missing-scope-evidence.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- rowtruth/RT5-two-relay-out-in-flip/01-first.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
+- rowtruth/RT5-two-relay-out-in-flip/02-second.md (relay-lint-corpus): not an MVP-visible S1 typed validation class
 
