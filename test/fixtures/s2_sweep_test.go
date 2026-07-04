@@ -42,7 +42,7 @@ func TestS2ApplicabilityMapCoversEveryClassPointAndReport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read sweep report: %v", err)
 	}
-	for _, want := range []string{"submit-accept", "owed-item", "gc-marker", "pre_gc_marker", "recovery_post_phase4"} {
+	for _, want := range []string{"Executed crash-expected cells", "Clean-completion classes executed", "submit-accept", "owed-item", "gc-marker", "pre_gc_marker", "recovery_post_phase4"} {
 		if !strings.Contains(string(report), want) {
 			t.Fatalf("report missing %q", want)
 		}

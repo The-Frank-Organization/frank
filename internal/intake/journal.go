@@ -1,7 +1,7 @@
 package intake
 
 import (
-	"bufio"
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -208,7 +208,7 @@ func segmentSeqs(dir string) ([]int, error) {
 }
 
 func readSegment(path string) ([]Cmd, error) {
-	f, err := os.Open(path)
+	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
 		return nil, nil
 	}
@@ -216,24 +216,22 @@ func readSegment(path string) ([]Cmd, error) {
 		return nil, err
 	}
 	var entries []Cmd
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := scanner.Bytes()
+	lines := bytes.Split(data, []byte("\n"))
+	completeTail := bytes.HasSuffix(data, []byte("\n"))
+	for i, line := range lines {
 		if len(line) == 0 {
 			continue
 		}
 		var cmd Cmd
 		if err := json.Unmarshal(line, &cmd); err != nil {
-			_ = f.Close()
+			if i == len(lines)-1 && !completeTail {
+				break
+			}
 			return nil, err
 		}
 		entries = append(entries, cmd)
 	}
-	if err := scanner.Err(); err != nil {
-		_ = f.Close()
-		return nil, err
-	}
-	return entries, f.Close()
+	return entries, nil
 }
 
 func segmentPath(dir string, seq int) string {

@@ -60,6 +60,50 @@ func TestCommitShape(t *testing.T) {
 	}
 }
 
+func TestRebuildProjectionsIgnoresTornRedoTail(t *testing.T) {
+	root := t.TempDir()
+	st, err := store.Open(root)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	if _, err := st.Commit(record.Record{
+		Envelope: record.Envelope{
+			RelayID:       "relay-1",
+			From:          "seat-a",
+			To:            "seat-b",
+			Role:          "implementer",
+			DeliveryState: record.Accepted,
+			SchemaVersion: 1,
+		},
+		Headers: map[string]string{"PHASE": "SITREP", "SUBJECT": "ok"},
+	}, []store.Intent{{Kind: store.IntentIndex, Path: "INDEX.md", Payload: []byte("| relay-1 |\n")}}); err != nil {
+		t.Fatalf("Commit: %v", err)
+	}
+	redoPath := filepath.Join(root, "journal", "redo", "000001.jsonl")
+	f, err := os.OpenFile(redoPath, os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		t.Fatalf("open redo: %v", err)
+	}
+	if _, err := f.WriteString(`{"relay_id":"torn"`); err != nil {
+		_ = f.Close()
+		t.Fatalf("write torn redo: %v", err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("close redo: %v", err)
+	}
+	if err := os.Remove(filepath.Join(root, "projections", "INDEX.md")); err != nil {
+		t.Fatalf("remove projection: %v", err)
+	}
+
+	if err := st.RebuildProjections(); err != nil {
+		t.Fatalf("RebuildProjections: %v", err)
+	}
+	got := string(mustRead(t, filepath.Join(root, "projections", "INDEX.md")))
+	if !strings.Contains(got, "| relay-1 | SITREP | seat-a | seat-b | accepted |") {
+		t.Fatalf("rebuilt INDEX = %q, want canonical relay-1 row", got)
+	}
+}
+
 func TestCommitAutoRelayIDsDoNotCollide(t *testing.T) {
 	root := t.TempDir()
 	st, err := store.Open(root)

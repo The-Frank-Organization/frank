@@ -200,6 +200,123 @@ func TestFrankBinaryReissuesRecoveryWakeForExistingMailbox(t *testing.T) {
 	}
 }
 
+func TestFrankBinaryServesReadOnlyDiagnosticsOnDigestMismatch(t *testing.T) {
+	root := t.TempDir()
+	initFixtureStore(t, root)
+	mgr, err := seat.Open(root)
+	if err != nil {
+		t.Fatalf("Open seats: %v", err)
+	}
+	cred, err := mgr.Mint("seat-a", "implementer", false)
+	if err != nil {
+		t.Fatalf("Mint: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "config", "engine.json"), []byte(`{"gc_enabled":true,"segment_rotate_bytes":96}`), 0o644); err != nil {
+		t.Fatalf("mutate engine config: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	bin := buildFrank(t, ctx)
+	sock := filepath.Join(os.TempDir(), fmt.Sprintf("frank-diag-%d.sock", time.Now().UnixNano()))
+	t.Cleanup(func() { _ = os.Remove(sock) })
+	cmd, stderr := startFrank(t, ctx, bin, root, sock)
+	t.Cleanup(func() {
+		cancel()
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+		_ = cmd.Wait()
+	})
+	waitForSocket(t, sock)
+
+	client, err := channel.DialAuthenticated(ctx, sock, cred.Value)
+	if err != nil {
+		t.Fatalf("DialAuthenticated stderr=%s: %v", stderr.String(), err)
+	}
+	defer func() { _ = client.Close() }()
+	tools, err := client.ListTools(ctx)
+	if err != nil {
+		t.Fatalf("ListTools stderr=%s: %v", stderr.String(), err)
+	}
+	want := []string{"project", "read"}
+	if strings.Join(tools, ",") != strings.Join(want, ",") {
+		t.Fatalf("tools = %v, want %v; stderr=%s", tools, want, stderr.String())
+	}
+	if _, err := client.Call(ctx, "submit", json.RawMessage(`{}`)); err == nil {
+		t.Fatalf("submit unexpectedly available in diagnostics mode")
+	}
+}
+
+func TestFrankBinaryReadCorruptionQueuesLiveQuarantine(t *testing.T) {
+	root := t.TempDir()
+	initFixtureStore(t, root)
+	mgr, err := seat.Open(root)
+	if err != nil {
+		t.Fatalf("Open seats: %v", err)
+	}
+	cred, err := mgr.Mint("seat-a", "implementer", false)
+	if err != nil {
+		t.Fatalf("Mint: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	bin := buildFrank(t, ctx)
+	sock := filepath.Join(os.TempDir(), fmt.Sprintf("frank-k2-%d.sock", time.Now().UnixNano()))
+	t.Cleanup(func() { _ = os.Remove(sock) })
+	cmd, stderr := startFrank(t, ctx, bin, root, sock)
+	t.Cleanup(func() {
+		cancel()
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+		_ = cmd.Wait()
+	})
+	waitForSocket(t, sock)
+	client, err := channel.DialAuthenticated(ctx, sock, cred.Value)
+	if err != nil {
+		t.Fatalf("DialAuthenticated stderr=%s: %v", stderr.String(), err)
+	}
+	defer func() { _ = client.Close() }()
+	payload, _ := json.Marshal(record.Record{
+		Envelope: record.Envelope{To: "seat-a", DispatchID: "dispatch-k2"},
+		Headers:  map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "SUBJECT": "corrupt me"},
+	})
+	result, err := client.Call(ctx, "submit", payload)
+	if err != nil {
+		t.Fatalf("submit stderr=%s: %v", stderr.String(), err)
+	}
+	var out struct {
+		RelayID string `json:"relay_id"`
+	}
+	if err := json.Unmarshal(result, &out); err != nil {
+		t.Fatalf("decode submit %s: %v", result, err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "records", out.RelayID+".json"), []byte(`{"bad":true}`), 0o644); err != nil {
+		t.Fatalf("corrupt record: %v", err)
+	}
+	readArgs, _ := json.Marshal(map[string]string{"relay_id": out.RelayID})
+	first, err := client.Call(ctx, "read", readArgs)
+	if err != nil {
+		t.Fatalf("first read: %v", err)
+	}
+	if !bytes.Contains(first, []byte("checksum-mismatch")) {
+		t.Fatalf("first read = %s, want checksum-mismatch", first)
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		second, err := client.Call(ctx, "read", readArgs)
+		if err != nil {
+			t.Fatalf("second read: %v", err)
+		}
+		if bytes.Contains(second, []byte("record-quarantined")) {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("read never returned record-quarantined for %s", out.RelayID)
+}
+
 func waitForSocket(t *testing.T, sock string) {
 	t.Helper()
 	deadline := time.Now().Add(4 * time.Second)

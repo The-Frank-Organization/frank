@@ -3,6 +3,7 @@ package fixtures_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,11 +13,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackli/frank/internal/config"
 	"github.com/jackli/frank/internal/crashpoint"
 	"github.com/jackli/frank/internal/engine"
 	"github.com/jackli/frank/internal/fieldspec"
 	"github.com/jackli/frank/internal/gate"
+	frankgc "github.com/jackli/frank/internal/gc"
 	"github.com/jackli/frank/internal/intake"
+	"github.com/jackli/frank/internal/obligation"
 	"github.com/jackli/frank/internal/record"
 	frankrecover "github.com/jackli/frank/internal/recover"
 	"github.com/jackli/frank/internal/seat"
@@ -82,6 +86,23 @@ func TestF11CrashMatrixDrivesRealMutationsAndRecovery(t *testing.T) {
 		{name: "held-pre-rename", mutation: "held", crashpoint: "pre_rename"},
 		{name: "operator-verdict-pre-rename", mutation: "operator-verdict", crashpoint: "pre_rename"},
 		{name: "outbox-enqueue-pre-projection", mutation: "outbox-enqueue", crashpoint: "pre_projection_write"},
+		{name: "quarantine-pre-evict", mutation: "quarantine-disposition", crashpoint: "pre_quarantine_evict"},
+		{name: "quarantine-post-evict", mutation: "quarantine-disposition", crashpoint: "post_quarantine_evict"},
+		{name: "segment-rotate-pre", mutation: "segment-rotate", crashpoint: "pre_segment_rotate"},
+		{name: "segment-rotate-post", mutation: "segment-rotate", crashpoint: "post_segment_rotate"},
+		{name: "recovery-phase0", mutation: "genesis", crashpoint: "recovery_post_phase0"},
+		{name: "recovery-phase1", mutation: "genesis", crashpoint: "recovery_post_phase1"},
+		{name: "recovery-phase2", mutation: "genesis", crashpoint: "recovery_post_phase2"},
+		{name: "recovery-phase3", mutation: "genesis", crashpoint: "recovery_post_phase3"},
+		{name: "recovery-phase3-5", mutation: "genesis", crashpoint: "recovery_post_phase3_5"},
+		{name: "recovery-phase3-6", mutation: "genesis", crashpoint: "recovery_post_phase3_6"},
+		{name: "recovery-phase4", mutation: "genesis", crashpoint: "recovery_post_phase4"},
+		{name: "gc-pre-marker", mutation: "gc-marker", crashpoint: "pre_gc_marker"},
+		{name: "gc-post-marker", mutation: "gc-marker", crashpoint: "post_gc_marker"},
+		{name: "gc-pre-unlink", mutation: "gc-marker", crashpoint: "pre_gc_unlink"},
+		{name: "gc-post-unlink", mutation: "gc-marker", crashpoint: "post_gc_unlink"},
+		{name: "owed-item-pre-rename", mutation: "owed-item", crashpoint: "pre_rename"},
+		{name: "owed-disposition-pre-rename", mutation: "owed-disposition", crashpoint: "pre_rename"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -114,7 +135,36 @@ func TestF11CrashMatrixDrivesRealMutationsAndRecovery(t *testing.T) {
 			}
 			assertNoTornStaging(t, root)
 			assertAllRecordsVerify(t, root)
-			assertAtMostOneCanonicalRename(t, counter, tc.mutation)
+			assertF11Converged(t, root, tc.mutation)
+			if mutationHasSingleCanonicalRecord(tc.mutation) {
+				assertAtMostOneCanonicalRename(t, counter, tc.mutation)
+			}
+		})
+	}
+}
+
+func TestS2CleanCompletionClassesExecute(t *testing.T) {
+	for _, mutation := range []string{
+		"submit-accept",
+		"submit-reject",
+		"held",
+		"operator-verdict",
+		"park",
+		"outbox-enqueue",
+		"genesis",
+		"quarantine-disposition",
+		"gc-marker",
+		"owed-item",
+		"owed-disposition",
+	} {
+		t.Run(mutation, func(t *testing.T) {
+			root := t.TempDir()
+			initFixtureStore(t, root)
+			prepareF11Root(t, root, mutation)
+			if err := runF11Mutation(root, mutation); err != nil {
+				t.Fatalf("runF11Mutation(%s): %v", mutation, err)
+			}
+			assertF11Converged(t, root, mutation)
 		})
 	}
 }
@@ -126,7 +176,7 @@ func TestF9WholeAcrossRealCrashReenqueuesOnlyOutcomeLessIntake(t *testing.T) {
 	}
 	root := t.TempDir()
 	cmd := exec.Command(os.Args[0], "-test.run", "^TestF9WholeAcrossRealCrashReenqueuesOnlyOutcomeLessIntake$")
-	cmd.Env = append(os.Environ(), "FRANK_F9_CHILD=1", "FRANK_F9_ROOT="+root)
+	cmd.Env = append(os.Environ(), "FRANK_F9_CHILD=1", "FRANK_F9_ROOT="+root, "FRANK_TEST_CRASHPOINT=post_intake_fsync:5")
 	err := cmd.Run()
 	if err == nil {
 		t.Fatalf("F9 child completed without crash")
@@ -194,21 +244,31 @@ func runF9Child(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open journal: %v", err)
 	}
+	writer, err := intake.NewWriter[engine.Outcome](journal, config.EngineConfig{}, engine.TestReady())
+	if err != nil {
+		t.Fatalf("NewWriter: %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	out := make(chan intake.Job[engine.Outcome], 5)
+	go writer.Run(ctx, out)
 	for i := range 5 {
 		payload, _ := json.Marshal(record.Record{Headers: map[string]string{"PHASE": "SITREP", "SUBJECT": "cmd"}})
-		if _, err := journal.Append(intake.Cmd{Seat: "seat-a", Role: "implementer", Verb: "submit", Payload: payload, ContentHash: "f9-" + string(rune('0'+i))}); err != nil {
-			t.Fatalf("Append: %v", err)
+		_, _, err := writer.Submit(ctx, intake.Cmd{Seat: "seat-" + string(rune('a'+i)), Role: "implementer", Verb: "submit", Payload: payload, ContentHash: "f9-" + string(rune('0'+i))})
+		if err != nil {
+			t.Fatalf("Submit: %v", err)
+		}
+		job := <-out
+		if i < 2 {
+			if _, err := st.Commit(record.Record{
+				Envelope: record.Envelope{RelayID: "outcome-" + job.Cmd.IntakeID, From: job.Cmd.Seat, Role: "implementer", DeliveryState: record.Accepted, IntakeID: job.Cmd.IntakeID, SchemaVersion: 1},
+				Headers:  map[string]string{"PHASE": "SITREP", "SUBJECT": "outcome"},
+			}, nil); err != nil {
+				t.Fatalf("Commit outcome: %v", err)
+			}
+			job.ReplyCh <- engine.Outcome{State: record.Accepted, RelayID: "outcome-" + job.Cmd.IntakeID, IntakeID: job.Cmd.IntakeID}
 		}
 	}
-	for i := 1; i <= 2; i++ {
-		if _, err := st.Commit(record.Record{
-			Envelope: record.Envelope{RelayID: "outcome-intake-00000" + string(rune('0'+i)), From: "seat-a", Role: "implementer", DeliveryState: record.Accepted, IntakeID: "intake-00000" + string(rune('0'+i)), SchemaVersion: 1},
-			Headers:  map[string]string{"PHASE": "SITREP", "SUBJECT": "outcome"},
-		}, nil); err != nil {
-			t.Fatalf("Commit outcome: %v", err)
-		}
-	}
-	_ = syscall.Kill(os.Getpid(), syscall.SIGKILL)
 }
 
 func assertSIGKILL(t *testing.T, err error) {
@@ -228,7 +288,7 @@ func assertSIGKILL(t *testing.T, err error) {
 
 func prepareF11Root(t *testing.T, root, mutation string) {
 	t.Helper()
-	if mutation != "operator-verdict" && mutation != "outbox-enqueue" {
+	if mutation != "operator-verdict" && mutation != "outbox-enqueue" && mutation != "park" && mutation != "owed-disposition" {
 		return
 	}
 	st, err := store.Open(root)
@@ -243,6 +303,12 @@ func prepareF11Root(t *testing.T, root, mutation string) {
 		rec = record.Record{
 			Envelope: record.Envelope{RelayID: "held-base", From: "system", Role: "system", DeliveryState: record.Held, SchemaVersion: 1},
 			Headers:  map[string]string{"PHASE": "SITREP", "SUBJECT": "held"},
+		}
+	}
+	if mutation == "owed-disposition" {
+		rec = record.Record{
+			Envelope: record.Envelope{RelayID: "owed-base", From: "operator", Role: "operator", DeliveryState: record.Accepted, SchemaVersion: 1},
+			Headers:  map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "SUBJECT": "owed", "record_kind": "owed_item", "owner": "s2", "source": "f11", "target_surface": "sweep", "disposition_path": "report"},
 		}
 	}
 	if _, err := st.Commit(rec, nil); err != nil {
@@ -300,9 +366,107 @@ func runF11Mutation(root, mutation string) error {
 		return err
 	case "outbox-enqueue":
 		return gate.Complete(st)
-	default:
+	case "park":
+		return gate.Complete(st)
+	case "genesis":
+		pinned, err := config.Load(store.StoreRootConfigPaths(root))
+		if err != nil {
+			return err
+		}
+		_, err = frankrecover.Run(root, pinned)
+		return err
+	case "quarantine-disposition":
+		if _, err := st.Commit(record.Record{
+			Envelope: record.Envelope{RelayID: "corrupt-me", From: "seat-a", Role: "implementer", DeliveryState: record.Accepted, SchemaVersion: 1},
+			Headers:  map[string]string{"PHASE": "SITREP", "SUBJECT": "corrupt"},
+		}, nil); err != nil && !strings.Contains(err.Error(), "record already exists") {
+			return err
+		}
+		recordPath := filepath.Join(root, "records", "corrupt-me.json")
+		if err := os.WriteFile(recordPath, []byte(`{"bad":true}`), 0o644); err != nil {
+			return err
+		}
+		_, err := st.ScanQuarantine()
+		if err != nil {
+			return err
+		}
+		return st.CompleteIncidents()
+	case "segment-rotate":
+		journal, err := intake.OpenWithConfig(root, config.EngineConfig{SegmentRotateBytes: 96})
+		if err != nil {
+			return err
+		}
+		for i := 0; i < 4; i++ {
+			if _, err := journal.Append(intake.Cmd{Seat: "seat-a", Role: "implementer", Verb: "submit", Payload: json.RawMessage(`{"segment":true}`), ContentHash: "segment-" + string(rune('0'+i))}); err != nil {
+				return err
+			}
+		}
 		return nil
+	case "gc-marker":
+		journal, err := intake.OpenWithConfig(root, config.EngineConfig{SegmentRotateBytes: 96})
+		if err != nil {
+			return err
+		}
+		for i := 0; i < 4; i++ {
+			if _, err := journal.Append(intake.Cmd{Seat: "seat-a", Role: "implementer", Verb: "submit", Payload: json.RawMessage(`{"gc":true}`), ContentHash: "gc-" + string(rune('0'+i))}); err != nil {
+				return err
+			}
+		}
+		segments, err := journal.Segments()
+		if err != nil {
+			return err
+		}
+		if len(segments) < 2 {
+			return nil
+		}
+		for _, entry := range segments[0].Entries {
+			if _, err := st.Commit(record.Record{
+				Envelope: record.Envelope{RelayID: "outcome-" + entry.IntakeID, From: "seat-a", Role: "implementer", DeliveryState: record.Accepted, IntakeID: entry.IntakeID, SchemaVersion: 1},
+				Headers:  map[string]string{"PHASE": "SITREP", "SUBJECT": "outcome"},
+			}, nil); err != nil && !strings.Contains(err.Error(), "record already exists") {
+				return err
+			}
+		}
+		tables, err := obligation.BuildTables(st)
+		if err != nil {
+			return err
+		}
+		return frankgc.Pass(st, tables, config.EngineConfig{GCEnabled: true, SegmentRotateBytes: 96})
+	case "owed-item":
+		return commitOwedMutation(st, "owed-item", "")
+	case "owed-disposition":
+		return commitOwedMutation(st, "owed-disposition", "owed-base")
+	default:
+		return errors.New("unknown F11 mutation: " + mutation)
 	}
+}
+
+func commitOwedMutation(st *store.Store, kind, parent string) error {
+	reg, err := fieldspec.Load(filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
+	if err != nil {
+		return err
+	}
+	handler := engine.SubmitHandler(st, reg, seat.SeatMeta{Name: "operator", Role: "operator", IsOperator: true})
+	headers := map[string]string{
+		"PHASE":            "SITREP",
+		"AUTHORITY":        "report-only",
+		"SUBJECT":          kind,
+		"record_kind":      kind,
+		"owner":            "s2",
+		"source":           "f11",
+		"target_surface":   "sweep",
+		"disposition_path": "report",
+	}
+	if kind == "owed-disposition" {
+		headers = map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "SUBJECT": kind, "record_kind": kind, "disposes_owed": parent}
+	}
+	payload, _ := json.Marshal(record.Record{Headers: headers})
+	rec, intents, err := handler(context.Background(), intake.Cmd{IntakeID: kind + "-intake", Seat: "operator", Role: "operator", IsOperator: true, Payload: payload})
+	if err != nil {
+		return err
+	}
+	_, err = st.Commit(rec, intents)
+	return err
 }
 
 func assertNoTornStaging(t *testing.T, root string) {
@@ -335,6 +499,26 @@ func assertAllRecordsVerify(t *testing.T, root string) {
 	}
 }
 
+func assertF11Converged(t *testing.T, root, mutation string) {
+	t.Helper()
+	st, err := store.Open(root)
+	if err != nil {
+		t.Fatalf("Open store: %v", err)
+	}
+	if mutation == "gc-marker" {
+		tables, err := obligation.BuildTables(st)
+		if err != nil {
+			t.Fatalf("BuildTables: %v", err)
+		}
+		if err := frankgc.Pass(st, tables, config.EngineConfig{GCEnabled: true, SegmentRotateBytes: 96}); err != nil {
+			t.Fatalf("GC convergence pass: %v", err)
+		}
+	}
+	if _, err := st.Records(); err != nil {
+		t.Fatalf("Records did not verify after %s: %v", mutation, err)
+	}
+}
+
 func assertAtMostOneCanonicalRename(t *testing.T, counter, mutation string) {
 	t.Helper()
 	data, err := os.ReadFile(counter)
@@ -349,5 +533,14 @@ func assertAtMostOneCanonicalRename(t *testing.T, counter, mutation string) {
 	}
 	if recordRenames > 1 {
 		t.Fatalf("%s canonical record renames = %d, want <= 1; counter:\n%s", mutation, recordRenames, data)
+	}
+}
+
+func mutationHasSingleCanonicalRecord(mutation string) bool {
+	switch mutation {
+	case "submit-accept", "submit-reject", "held", "operator-verdict", "outbox-enqueue", "owed-item", "owed-disposition":
+		return true
+	default:
+		return false
 	}
 }

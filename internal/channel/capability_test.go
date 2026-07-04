@@ -141,3 +141,38 @@ func TestAuthenticatedServerRejectsUnknownCredentialAndSanitizesToolErrors(t *te
 		t.Fatalf("tool error leaked path: %q", err)
 	}
 }
+
+func TestReadOnlyToolSetListsAndServesOnlyProjectAndRead(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	sock := filepath.Join(os.TempDir(), fmt.Sprintf("frank-readonly-%d.sock", time.Now().UnixNano()))
+	t.Cleanup(func() { _ = os.Remove(sock) })
+	server, err := channel.Serve(sock, channel.ToolSet{
+		Project: func(context.Context, json.RawMessage) (json.RawMessage, error) { return json.RawMessage(`[]`), nil },
+		Read: func(context.Context, json.RawMessage) (json.RawMessage, error) {
+			return json.RawMessage(`{"ok":true}`), nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("Serve: %v", err)
+	}
+	defer func() { _ = server.Close() }()
+	client, err := channel.Dial(ctx, sock)
+	if err != nil {
+		t.Fatalf("Dial: %v", err)
+	}
+	defer func() { _ = client.Close() }()
+
+	tools, err := client.ListTools(ctx)
+	if err != nil {
+		t.Fatalf("ListTools: %v", err)
+	}
+	want := []string{"project", "read"}
+	if !reflect.DeepEqual(tools, want) {
+		t.Fatalf("tools = %v, want %v", tools, want)
+	}
+	if _, err := client.Call(ctx, "submit", json.RawMessage(`{}`)); err == nil {
+		t.Fatalf("submit unexpectedly available on read-only surface")
+	}
+}

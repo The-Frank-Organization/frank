@@ -2,6 +2,7 @@ package gc_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -70,6 +71,55 @@ func TestPassCollectsOnlyFullyDrainedNonActiveSegments(t *testing.T) {
 	marker := readGCMarker(t, st)
 	if !strings.Contains(marker.Body, filepath.Base(segments[0].Path)) {
 		t.Fatalf("marker body %q does not name collected segment %s", marker.Body, segments[0].Path)
+	}
+}
+
+func TestPassResumesCommittedMarkerWithoutDuplicateRecord(t *testing.T) {
+	root := t.TempDir()
+	st, journal := gcStoreWithSegments(t, root)
+	segments, err := journal.Segments()
+	if err != nil {
+		t.Fatalf("Segments: %v", err)
+	}
+	if len(segments) < 2 {
+		t.Fatalf("test setup did not rotate: %+v", segments)
+	}
+	for _, entry := range segments[0].Entries {
+		commitOutcome(t, st, entry.IntakeID)
+	}
+	markerID := fmt.Sprintf("gc-%06d", segments[0].Seq)
+	body, err := json.Marshal(struct {
+		Segments []string `json:"segments"`
+	}{Segments: []string{filepath.Base(segments[0].Path)}})
+	if err != nil {
+		t.Fatalf("marshal marker body: %v", err)
+	}
+	if _, err := st.Commit(record.Record{
+		Envelope: record.Envelope{
+			RelayID:       markerID,
+			From:          "system",
+			Role:          "system",
+			DeliveryState: record.Accepted,
+			SchemaVersion: 1,
+		},
+		Headers: map[string]string{"record_kind": "gc_marker"},
+		Body:    string(body),
+	}, nil); err != nil {
+		t.Fatalf("precommit marker: %v", err)
+	}
+	tables, err := obligation.BuildTables(st)
+	if err != nil {
+		t.Fatalf("BuildTables: %v", err)
+	}
+
+	if err := frankgc.Pass(st, tables, config.EngineConfig{GCEnabled: true, SegmentRotateBytes: 96}); err != nil {
+		t.Fatalf("Pass after marker commit: %v", err)
+	}
+	if _, err := os.Stat(segments[0].Path); !os.IsNotExist(err) {
+		t.Fatalf("marked segment still exists after resumed pass: %v", err)
+	}
+	if count := countGCMarkers(t, st); count != 1 {
+		t.Fatalf("gc markers = %d, want 1", count)
 	}
 }
 

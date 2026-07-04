@@ -2,6 +2,7 @@ package store
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -258,32 +259,27 @@ func readRedo(root string) ([]redoEntry, error) {
 	var entries []redoEntry
 	for _, seq := range seqs {
 		path := filepath.Join(dir, fmt.Sprintf("%06d.jsonl", seq))
-		f, err := os.Open(path)
+		data, err := os.ReadFile(path)
 		if os.IsNotExist(err) {
 			continue
 		}
 		if err != nil {
 			return nil, err
 		}
-		scanner := bufio.NewScanner(f)
-		for scanner.Scan() {
-			line := scanner.Bytes()
+		lines := bytes.Split(data, []byte("\n"))
+		completeTail := bytes.HasSuffix(data, []byte("\n"))
+		for i, line := range lines {
 			if len(line) == 0 {
 				continue
 			}
 			var entry redoEntry
 			if err := json.Unmarshal(line, &entry); err != nil {
-				_ = f.Close()
+				if i == len(lines)-1 && !completeTail {
+					break
+				}
 				return nil, err
 			}
 			entries = append(entries, entry)
-		}
-		if err := scanner.Err(); err != nil {
-			_ = f.Close()
-			return nil, err
-		}
-		if err := f.Close(); err != nil {
-			return nil, err
 		}
 	}
 	return entries, nil

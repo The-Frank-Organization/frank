@@ -3,6 +3,7 @@ package intake
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -12,6 +13,8 @@ import (
 	"github.com/jackli/frank/internal/crashpoint"
 	"github.com/jackli/frank/internal/fsio"
 )
+
+var ErrWriterNotReady = errors.New("intake writer requires ready token")
 
 type Job[T any] struct {
 	Cmd     Cmd
@@ -36,7 +39,10 @@ type writeAck struct {
 	err      error
 }
 
-func NewWriter[T any](j *Journal, cfg config.EngineConfig) (*Writer[T], error) {
+func NewWriter[T any](j *Journal, cfg config.EngineConfig, ready any) (*Writer[T], error) {
+	if ready == nil {
+		return nil, ErrWriterNotReady
+	}
 	if cfg.SegmentRotateBytes > 0 {
 		j.rotateBytes = cfg.SegmentRotateBytes
 	}

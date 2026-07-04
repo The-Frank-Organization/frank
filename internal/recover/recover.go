@@ -10,7 +10,9 @@ import (
 	"github.com/jackli/frank/internal/crashpoint"
 	"github.com/jackli/frank/internal/engine"
 	"github.com/jackli/frank/internal/gate"
+	frankgc "github.com/jackli/frank/internal/gc"
 	"github.com/jackli/frank/internal/intake"
+	"github.com/jackli/frank/internal/obligation"
 	"github.com/jackli/frank/internal/seat"
 	"github.com/jackli/frank/internal/store"
 )
@@ -84,6 +86,13 @@ func RunWithProcessor(root string, pinned *config.Pinned, process func(intake.Cm
 	crashpoint.Hit("recovery_post_phase3_5")
 
 	if err := gate.Complete(st); err != nil {
+		return nil, err
+	}
+	tables, err := obligation.BuildTables(st)
+	if err != nil {
+		return nil, err
+	}
+	if err := frankgc.Pass(st, tables, pinned.Engine); err != nil {
 		return nil, err
 	}
 	crashpoint.Hit("recovery_post_phase3_6")

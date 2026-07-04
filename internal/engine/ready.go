@@ -5,9 +5,7 @@ import (
 	"testing"
 )
 
-type Ready struct {
-	token struct{}
-}
+type Ready struct{}
 
 type Diagnostics struct {
 	class string

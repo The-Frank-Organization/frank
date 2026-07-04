@@ -3,6 +3,7 @@ package intake_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"sync"
@@ -22,7 +23,7 @@ func TestWriterConcurrentSubmitsAreGapFreeAndEmittedInJournalOrder(t *testing.T)
 	if err != nil {
 		t.Fatalf("OpenWithConfig: %v", err)
 	}
-	w, err := intake.NewWriter[writerOutcome](j, config.EngineConfig{SegmentRotateBytes: 256})
+	w, err := intake.NewWriter[writerOutcome](j, config.EngineConfig{SegmentRotateBytes: 256}, struct{}{})
 	if err != nil {
 		t.Fatalf("NewWriter: %v", err)
 	}
@@ -107,5 +108,16 @@ func TestWriterConcurrentSubmitsAreGapFreeAndEmittedInJournalOrder(t *testing.T)
 		if entry.IntakeID != emitted[i] {
 			t.Fatalf("journal[%d] = %s, emitted %s", i, entry.IntakeID, emitted[i])
 		}
+	}
+}
+
+func TestNewWriterRequiresReadyToken(t *testing.T) {
+	j, err := intake.Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	_, err = intake.NewWriter[writerOutcome](j, config.EngineConfig{}, nil)
+	if !errors.Is(err, intake.ErrWriterNotReady) {
+		t.Fatalf("NewWriter err = %v, want ErrWriterNotReady", err)
 	}
 }

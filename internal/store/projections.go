@@ -172,7 +172,7 @@ func OwedOpenProjectionIntent(records []record.Record) Intent {
 	b.WriteString("| relay_id | owner | source | target_surface | disposition_path |\n")
 	b.WriteString("|---|---|---|---|---|\n")
 	for _, row := range rows {
-		b.WriteString(fmt.Sprintf("| %s | %s | %s | %s | %s |\n", row.RelayID, row.Owner, row.Source, row.TargetSurface, row.DispositionPath))
+		fmt.Fprintf(&b, "| %s | %s | %s | %s | %s |\n", row.RelayID, row.Owner, row.Source, row.TargetSurface, row.DispositionPath)
 	}
 	return Intent{Kind: IntentRender, Path: filepath.Join("owed", "OPEN.md"), Payload: []byte(b.String())}
 }

@@ -161,6 +161,37 @@ func TestUnconsumedPreservesArrivalOrderAcrossSegments(t *testing.T) {
 	}
 }
 
+func TestReadAllIgnoresTornTrailingLine(t *testing.T) {
+	root := t.TempDir()
+	j, err := intake.Open(root)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	first, err := j.Append(intake.Cmd{Seat: "seat-a", Verb: "submit", Payload: json.RawMessage(`{"n":1}`)})
+	if err != nil {
+		t.Fatalf("Append: %v", err)
+	}
+	segmentPath := filepath.Join(root, "journal", "intake", "000001.jsonl")
+	f, err := os.OpenFile(segmentPath, os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		t.Fatalf("open segment: %v", err)
+	}
+	if _, err := f.WriteString(`{"intake_id":"intake-torn"`); err != nil {
+		_ = f.Close()
+		t.Fatalf("write torn tail: %v", err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("close torn writer: %v", err)
+	}
+	entries, err := j.ReadAll()
+	if err != nil {
+		t.Fatalf("ReadAll: %v", err)
+	}
+	if len(entries) != 1 || entries[0].IntakeID != first {
+		t.Fatalf("entries = %+v, want only %s", entries, first)
+	}
+}
+
 func formatSegmentName(seq int) string {
 	return "00000" + string(rune('0'+seq)) + ".jsonl"
 }

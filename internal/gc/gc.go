@@ -63,27 +63,33 @@ func Pass(st *store.Store, tables *obligation.Tables, cfg config.EngineConfig) e
 	for _, seg := range drained {
 		names = append(names, filepath.Base(seg.Path))
 	}
-	body, err := json.Marshal(struct {
-		Segments []string `json:"segments"`
-	}{Segments: names})
+	marked, err := markerCovers(st, names)
 	if err != nil {
 		return err
 	}
-	crashpoint.Hit("pre_gc_marker")
-	_, err = st.Commit(record.Record{
-		Envelope: record.Envelope{
-			RelayID:       fmt.Sprintf("gc-%06d", drained[0].Seq),
-			DispatchID:    "gc",
-			From:          "system",
-			Role:          "system",
-			DeliveryState: record.Accepted,
-			SchemaVersion: 1,
-		},
-		Headers: map[string]string{"record_kind": "gc_marker"},
-		Body:    string(body),
-	}, nil)
-	if err != nil {
-		return err
+	if !marked {
+		body, err := json.Marshal(struct {
+			Segments []string `json:"segments"`
+		}{Segments: names})
+		if err != nil {
+			return err
+		}
+		crashpoint.Hit("pre_gc_marker")
+		_, err = st.Commit(record.Record{
+			Envelope: record.Envelope{
+				RelayID:       fmt.Sprintf("gc-%06d", drained[0].Seq),
+				DispatchID:    "gc",
+				From:          "system",
+				Role:          "system",
+				DeliveryState: record.Accepted,
+				SchemaVersion: 1,
+			},
+			Headers: map[string]string{"record_kind": "gc_marker"},
+			Body:    string(body),
+		}, nil)
+		if err != nil {
+			return err
+		}
 	}
 	crashpoint.Hit("post_gc_marker")
 	for _, seg := range drained {
@@ -94,4 +100,35 @@ func Pass(st *store.Store, tables *obligation.Tables, cfg config.EngineConfig) e
 		crashpoint.Hit("post_gc_unlink")
 	}
 	return nil
+}
+
+func markerCovers(st *store.Store, names []string) (bool, error) {
+	if len(names) == 0 {
+		return true, nil
+	}
+	records, err := st.Records()
+	if err != nil {
+		return false, err
+	}
+	marked := map[string]bool{}
+	for _, rec := range records {
+		if rec.Headers["record_kind"] != "gc_marker" {
+			continue
+		}
+		var body struct {
+			Segments []string `json:"segments"`
+		}
+		if err := json.Unmarshal([]byte(rec.Body), &body); err != nil {
+			continue
+		}
+		for _, segment := range body.Segments {
+			marked[segment] = true
+		}
+	}
+	for _, name := range names {
+		if !marked[name] {
+			return false, nil
+		}
+	}
+	return true, nil
 }

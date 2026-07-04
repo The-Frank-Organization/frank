@@ -97,6 +97,31 @@ func TestOwedValidationRejectsUnknownKindsAndUnknownParents(t *testing.T) {
 	}
 }
 
+func TestOwedItemAcceptsNonOperatorSeat(t *testing.T) {
+	root := t.TempDir()
+	st, reg := owedDeps(t, root)
+	handler := engine.SubmitHandler(st, reg, seat.SeatMeta{Name: "s2-core.implementer", Role: "implementer"})
+	owed := submitAndCommitOwed(t, st, handler, record.Record{
+		Headers: map[string]string{
+			"PHASE":            "SITREP",
+			"AUTHORITY":        "report-only",
+			"SUBJECT":          "owed from implementer",
+			"record_kind":      "owed_item",
+			"owner":            "s2",
+			"source":           "review-fold",
+			"target_surface":   "operator-channel e2e",
+			"disposition_path": "fold report",
+		},
+	})
+	if owed.Envelope.DeliveryState != record.Accepted {
+		t.Fatalf("owed state = %s, want accepted", owed.Envelope.DeliveryState)
+	}
+	open := string(mustReadOwed(t, filepath.Join(root, "projections", "owed", "OPEN.md")))
+	if !strings.Contains(open, owed.Envelope.RelayID) {
+		t.Fatalf("OPEN.md missing non-operator owed item:\n%s", open)
+	}
+}
+
 func TestRebuildCreatesEmptyOwedProjection(t *testing.T) {
 	root := t.TempDir()
 	st, err := store.Open(root)

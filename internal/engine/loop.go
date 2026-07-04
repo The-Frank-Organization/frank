@@ -30,11 +30,12 @@ type Outcome struct {
 type Handler func(context.Context, intake.Cmd) (record.Record, []store.Intent, error)
 
 type Loop struct {
-	In         chan Job
-	Store      *store.Store
-	Handler    Handler
-	Timeout    time.Duration
-	quarantine chan string
+	In          chan Job
+	Store       *store.Store
+	Handler     Handler
+	Timeout     time.Duration
+	AfterCommit func(*store.Store) error
+	quarantine  chan string
 }
 
 func New(st *store.Store, handler Handler, ready *Ready) *Loop {
@@ -65,6 +66,9 @@ func (l *Loop) Run(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
+		case relayID := <-l.quarantine:
+			l.processQuarantine(relayID)
+			l.drainQuarantine()
 		case job := <-l.In:
 			l.drainQuarantine()
 			out := l.process(ctx, job.Cmd)
@@ -88,12 +92,16 @@ func (l *Loop) drainQuarantine() {
 	for {
 		select {
 		case relayID := <-l.quarantine:
-			_, _ = l.Store.QuarantineOne(relayID)
-			_ = obligation.CompleteAuto(l.Store)
+			l.processQuarantine(relayID)
 		default:
 			return
 		}
 	}
+}
+
+func (l *Loop) processQuarantine(relayID string) {
+	_, _ = l.Store.QuarantineOne(relayID)
+	_ = l.completeTurn()
 }
 
 func (l *Loop) process(ctx context.Context, cmd intake.Cmd) (out Outcome) {
@@ -116,11 +124,24 @@ func (l *Loop) process(ctx context.Context, cmd intake.Cmd) (out Outcome) {
 	if err != nil {
 		return Outcome{State: record.Rejected, IntakeID: rec.Envelope.IntakeID, Reason: safeReason("commit-error")}
 	}
+	if err := l.completeTurn(); err != nil {
+		return Outcome{State: record.Rejected, RelayID: relayID, IntakeID: rec.Envelope.IntakeID, Reason: safeReason("obligation-error")}
+	}
 	return Outcome{
 		State:    rec.Envelope.DeliveryState,
 		RelayID:  relayID,
 		IntakeID: rec.Envelope.IntakeID,
 	}
+}
+
+func (l *Loop) completeTurn() error {
+	if err := obligation.CompleteAuto(l.Store); err != nil {
+		return err
+	}
+	if l.AfterCommit != nil {
+		return l.AfterCommit(l.Store)
+	}
+	return nil
 }
 
 func (l *Loop) faultOutcome(cmd intake.Cmd, reason string) Outcome {
