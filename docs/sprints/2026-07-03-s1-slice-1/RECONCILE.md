@@ -133,3 +133,16 @@ Input: m-1 narrow re-review **APPROVE** (`s1-fidelity-m1/SITREP-implementer-2026
 | m-2 fidelity | APPROVE | s1-fidelity-m2/SITREP-implementer-20260703-171027.md |
 
 Disposition: green-light status relay `s1-core-plan/SITREP-orchestrator-planner-20260703-175058.md` to the pair. The pair Planner now runs the mechanical SCOPE_DIFF (README.md row citing the fence amendment `s1-core-plan/SITREP-orchestrator-planner-20260703-170259.md`) and, only on `all-in` with the full standing condition set, issues the delegated `DISPATCH IMPL` (parent = the approving PLAN-REVIEW r3 `s1-core-plan-lock-r3-implementer-review`). Locks: PLAN `s1-slice-1-plan` r3 / DESIGN `s1-slice-1-design` r5 at main@d09278a. Remaining gates AFTER impl: the S1-scoped hardened exit gate (E2 fixtures; guide watch-surfaces F11-exactly-one + P1-push-frames), SITREP to master, human merge gate at S1 close.
+
+## 2026-07-03 — S1 EXIT-GATE report reconciled; battery re-verified by orchestrator (E2); two deviations provisionally accepted pending guide concurrence; master SITREP issued
+
+Input: exit-gate report `s1-core-impl/SITREP-planner-20260703-195800.md`. Build trail: delegated IMPL (`s1-core-impl/IMPL-planner-20260703-175416.md`, conditions verified) → 17 impl commits (139aaa9..9c1839e, task-per-commit) → 5-lens adversarial panel → REVIEW-FOLD round 1 (B1-B7, M1-M7; fold @7f66057, FOLD_SCOPE pre-filed) → round 2 (RB1/RB2/RM1; fold @80c5df5) → planner-verified residue folds → plan file-list absorption @964b120.
+
+**Orchestrator verification (my own runs this session, E2):** `go test -count=1 ./...` — 15 packages ok (uncached); `go test -race -count=1` on fixtures/engine/recover — ok; `go vet ./...` — clean. The crash matrix is real child-process SIGKILL (planner-read f11_test.go:65-149: per-class kills at named crash-points, wait-status-verified, checksum + at-most-one-rename assertions; F9 whole: 5/2/3 across a real crash).
+
+**Deviation rulings (provisional — routed to the m-7 guide for concurrence, since deviation 1 sits on the guide's declared F11 watch-surface):**
+1. F11 breadth (plan says crash at EVERY crashpoint name × class; shipped = 7 representative class×point cases + registry-names-live static pin): PROVISIONALLY ACCEPT as S1-sufficient — every exit-gate-NAMED window is crash-covered (the charter gate, not the plan wording, is the acceptance authority; the full cross-product is S2-reusable machinery already built). Guide may bounce for the full sweep.
+2. C7 re-crash-during-Complete covered by composition (crash-before-completion + idempotence double-run) rather than one literal mid-Complete fixture: PROVISIONALLY ACCEPT — the composed pair proves the same property; guide may require the literal fixture.
+Neither was self-waived by the pair — correctly surfaced. Honesty checks: E3/E4 explicitly stated out-of-S1, merge explicitly not requested, verdict merge-blocked per protocol.
+
+Disposition: S1 exit-gate SITREP to master (`s1-exit-gate/SITREP-orchestrator-planner-20260703-200108.md`, TO master.orchestrator-planner + m-7.planner) — the charter deliverable — carrying the gate evidence, the two deviations + provisional rulings for guide concurrence, and the merge question routed to the operator. Gate CLOSES on guide concurrence (or the required follow-up fold); merge remains the operator's human gate.
