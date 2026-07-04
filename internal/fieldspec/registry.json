@@ -1,0 +1,47 @@
+{
+  "phase": [
+    "AUDIT",
+    "DESIGN",
+    "DESIGN-REVIEW",
+    "PLAN",
+    "PLAN-REVIEW",
+    "IMPL",
+    "REVIEW-FOLD",
+    "MERGE-GATE",
+    "LIVE-VERIFY",
+    "SITREP",
+    "RECONCILE"
+  ],
+  "authority": [
+    "read-only",
+    "design-only",
+    "plan-only",
+    "review-only",
+    "implementation",
+    "fold-in-only",
+    "merge-gated",
+    "live-verify",
+    "report-only"
+  ],
+  "ceremony_tier": ["tiny", "small", "medium", "large", "production-risk"],
+  "evidence_target": ["E1", "E2", "E3", "E4"],
+  "gate_category": {
+    "A": [
+      "merge_to_protected",
+      "irreversible_write",
+      "residual_risk_acceptance",
+      "live_verify_skip",
+      "ceremony_downgrade",
+      "authz_security",
+      "product_semantics",
+      "scope_expansion"
+    ],
+    "B": [
+      "merge_feature_to_feature",
+      "routing",
+      "sequencing",
+      "scope_within_bounds"
+    ]
+  },
+  "grant": ["dispatch-impl", "dispatch-merge"]
+}
