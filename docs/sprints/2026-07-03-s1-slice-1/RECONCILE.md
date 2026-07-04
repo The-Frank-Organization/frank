@@ -184,3 +184,12 @@ Input: `s1-vp-confirm/RECONCILE-orchestrator-reviewer-20260703-215730.md` (VERDI
 **Operator-facing caveat adopted:** before S1 is recorded closed, the `s1-exit-gate` root lint flag must be dispositioned explicitly — either (a) an operator waiver line in the verdict, or (b) a CTO-authored superseding reword of the acceptance prose. The code close is confirmed either way; this is trail cleanliness for that one dispatch root.
 
 Standing state: every reviewer seat in the org has now signed — pair (internal reviews ×5 rounds), s1 reviewer (2 approves), m-1/m-2 fidelity, m-7 guide (advisory + plan gate + deviation ruling), master CTO (acceptance), master VP (plan gate + this confirm). **The operator's ratification of main@f0dcb85 is the only remaining S1 gate.**
+
+## 2026-07-03 — **S1 CLOSED: operator ratification** (verbatim), lint waiver (a), annotated tag placed
+
+**Operator verdict, direct message to s1.orchestrator-planner, 2026-07-03 (quoted verbatim): "ratified, do a and lets annotate it"** — in response to the merge-gate relay's three decisions:
+1. **Ratified:** main@f0dcb85 is the S1-closed baseline (the merge-equivalent authorization at the charter's human gate; no git merge exists to perform — no remote, single branch).
+2. **Lint disposition (a) — OPERATOR WAIVER:** the `s1-exit-gate` root-mode lint error on the filed CTO acceptance copy (`RECONCILE-orchestrator-planner-20260703-200929.md`, merge-claim-lineage class on unfenced acceptance prose) is waived by the operator. Basis on record: exact-file lint OK; git history contains no merge commit; VP classified it trail-cleanliness, not code evidence.
+3. **Annotation:** annotated tag `s1-close` placed on f0dcb85 by s1.orchestrator-planner under the operator's direct instruction above.
+
+**SLICE-1 IS CLOSED.** Completion verdict for the S1 scope: `complete` (E2; deploy/live-verify = E3/E4 remain outside S1 per the honesty framing — stated, not skipped). Close record relayed to master (`s1-merge-gate/RECONCILE-orchestrator-planner-<ts>.md`); next: CTO folds S1 into the master ledger + dispatches S2 (owed item `OI-S1-F11-SWEEP` rides to the S2 exit gate).
