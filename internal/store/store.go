@@ -100,6 +100,35 @@ func (s *Store) Records() ([]record.Record, error) {
 	return records, nil
 }
 
+func (s *Store) Read(relayID string) (record.Record, error) {
+	data, err := os.ReadFile(filepath.Join(s.Root, "records", relayID+".json"))
+	if err != nil {
+		return record.Record{}, err
+	}
+	return record.Verify(data)
+}
+
+func (s *Store) Project(seat string) ([]string, error) {
+	path := filepath.Join(s.Root, "mailboxes", seat+".jsonl")
+	f, err := os.Open(path)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	var relayIDs []string
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line != "" {
+			relayIDs = append(relayIDs, line)
+		}
+	}
+	return relayIDs, scanner.Err()
+}
+
 func (s *Store) appendRedo(relayID string, intents []Intent) error {
 	path := filepath.Join(s.Root, "journal", "redo.jsonl")
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
