@@ -1,0 +1,24 @@
+{
+  "envelope": {
+    "relay_id": "relay-b180ef58d7713200a1276bff",
+    "dispatch_id": "oi-s1-f11-sweep",
+    "from": "operator",
+    "to": "operator",
+    "role": "operator",
+    "delivery_state": "accepted",
+    "intake_id": "intake-000001",
+    "schema_version": 1
+  },
+  "headers": {
+    "AUTHORITY": "report-only",
+    "PHASE": "SITREP",
+    "SUBJECT": "OI-S1-F11-SWEEP",
+    "disposition_path": "S2 exit gate",
+    "owner": "s1 (S2 slice)",
+    "record_kind": "owed_item",
+    "source": "docs/sprints/2026-07-03-s1-slice-1/RECONCILE.md:160-161 + master/relays/s1-exit-gate/SITREP-planner-20260703-200827.md",
+    "target_surface": "F11 full class×point sweep"
+  },
+  "body": "",
+  "checksum": "490ac26cc9784972c6cb5e5b8c0765756abb9b51f9393738f9907c2168151dfd"
+}
