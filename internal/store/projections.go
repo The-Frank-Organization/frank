@@ -56,7 +56,7 @@ func (s *Store) applyIntents(intents []Intent) error {
 			crashpoint.Hit("post_projection_write")
 		case IntentOutbox:
 			crashpoint.Hit("pre_projection_write")
-			if err := fsio.WriteFileAtomic(filepath.Join(s.Root, "outbox"), intent.Path, intent.Payload); err != nil {
+			if err := fsio.WriteFileAtomic(s.Root, filepath.Join("outbox", intent.Path), intent.Payload); err != nil {
 				return err
 			}
 			crashpoint.Hit("post_projection_write")
