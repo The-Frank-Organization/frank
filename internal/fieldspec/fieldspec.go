@@ -99,6 +99,9 @@ func (r *Registry) Validate(cand record.Record, seat SeatMeta, formDigest string
 	if authority == "merge-gated" && !seat.IsOperator {
 		violations = append(violations, Violation{Field: "AUTHORITY", Class: "seat-scope", Reason: "merge-gated absent from pair forms"})
 	}
+	if cand.Headers["grant"] != "" && !seat.IsOperator {
+		violations = append(violations, Violation{Field: "grant", Class: "seat-scope", Reason: "grant absent from pair forms"})
+	}
 	return violations
 }
 
