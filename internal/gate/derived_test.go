@@ -110,6 +110,43 @@ func TestCompleteCreatesHeldOutbox(t *testing.T) {
 	}
 }
 
+func TestRebuildRestoresOutboxFromCanonicalRecordBodyWithoutRedo(t *testing.T) {
+	root := t.TempDir()
+	st, err := store.Open(root)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	commitGateRecord(t, st, "gate-canonical")
+	if err := gate.Complete(st); err != nil {
+		t.Fatalf("Complete: %v", err)
+	}
+	outboxPath := filepath.Join(root, "outbox", "gate-gate-canonical.json")
+	want := string(mustReadGate(t, outboxPath))
+	records, err := st.Records()
+	if err != nil {
+		t.Fatalf("Records: %v", err)
+	}
+	var body string
+	for _, rec := range records {
+		if rec.Envelope.RelayID == "outbox-gate-gate-canonical" {
+			body = rec.Body
+		}
+	}
+	if body != want {
+		t.Fatalf("outbox record body = %q, want projection payload %q", body, want)
+	}
+	if err := os.RemoveAll(filepath.Join(root, "journal", "redo")); err != nil {
+		t.Fatalf("remove redo: %v", err)
+	}
+	if err := os.Remove(outboxPath); err != nil {
+		t.Fatalf("remove outbox projection: %v", err)
+	}
+	if err := st.RebuildProjections(); err != nil {
+		t.Fatalf("RebuildProjections: %v", err)
+	}
+	assertFileGate(t, outboxPath, want)
+}
+
 func commitGateRecord(t *testing.T, st *store.Store, relayID string) {
 	t.Helper()
 	if _, err := st.Commit(record.Record{
@@ -206,4 +243,21 @@ func readOutbox(t *testing.T, root string) []gate.OutboxItem {
 		items = append(items, item)
 	}
 	return items
+}
+
+func mustReadGate(t *testing.T, path string) []byte {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	return data
+}
+
+func assertFileGate(t *testing.T, path, want string) {
+	t.Helper()
+	got := string(mustReadGate(t, path))
+	if got != want {
+		t.Fatalf("%s = %q, want %q", path, got, want)
+	}
 }

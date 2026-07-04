@@ -102,6 +102,12 @@ func (s *Store) NewRelayID() (string, error) {
 }
 
 func (s *Store) Records() ([]record.Record, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.recordsLocked()
+}
+
+func (s *Store) recordsLocked() ([]record.Record, error) {
 	entries, err := os.ReadDir(filepath.Join(s.Root, "records"))
 	if err != nil {
 		return nil, err

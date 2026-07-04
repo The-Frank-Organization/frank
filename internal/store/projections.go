@@ -1,6 +1,7 @@
 package store
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -29,6 +30,15 @@ func (s *Store) RebuildProjections() error {
 			continue
 		}
 		if err := s.applyIntents(entry.Intents); err != nil {
+			return err
+		}
+	}
+	records, err := s.recordsLocked()
+	if err != nil {
+		return err
+	}
+	for _, rec := range records {
+		if err := s.applyIntents(canonicalProjectionIntents(rec)); err != nil {
 			return err
 		}
 	}
@@ -95,6 +105,21 @@ func DefaultProjectionIntents(rec record.Record) []Intent {
 	if rec.Envelope.To != "" {
 		intents = append(intents, Intent{Kind: IntentMailbox, Path: safeMailbox(rec.Envelope.To) + ".jsonl", Payload: []byte(relayID + "\n")})
 	}
+	return intents
+}
+
+func canonicalProjectionIntents(rec record.Record) []Intent {
+	intents := DefaultProjectionIntents(rec)
+	if rec.Body == "" {
+		return intents
+	}
+	var outbox struct {
+		ItemID string `json:"item_id"`
+	}
+	if err := json.Unmarshal([]byte(rec.Body), &outbox); err != nil || outbox.ItemID == "" {
+		return intents
+	}
+	intents = append(intents, Intent{Kind: IntentOutbox, Path: outbox.ItemID + ".json", Payload: []byte(rec.Body)})
 	return intents
 }
 

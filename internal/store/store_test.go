@@ -132,15 +132,19 @@ func TestRebuildProjectionsRestoresFromCanonicalAndRedo(t *testing.T) {
 	if err := os.Remove(mailboxPath); err != nil {
 		t.Fatalf("remove mailbox: %v", err)
 	}
+	if err := os.RemoveAll(filepath.Join(root, "journal", "redo")); err != nil {
+		t.Fatalf("remove redo: %v", err)
+	}
 
 	if err := st.RebuildProjections(); err != nil {
 		t.Fatalf("RebuildProjections: %v", err)
 	}
 	index := string(mustRead(t, indexPath))
-	if !strings.Contains(index, "corrupt row\n") || !strings.Contains(index, "| relay-2 | SITREP |\n") {
-		t.Fatalf("index did not preserve corrupt row and append correction: %q", index)
+	wantIndex := "| relay-2 | SITREP | seat-a.implementer | seat-b.planner | accepted |\n"
+	if !strings.Contains(index, "corrupt row\n") || !strings.Contains(index, wantIndex) {
+		t.Fatalf("index did not preserve corrupt row and append canonical correction: %q", index)
 	}
-	assertFile(t, renderPath, "rendered relay-2\n")
+	assertFile(t, renderPath, "## relay-2\n\nFROM: seat-a.implementer\nTO: seat-b.planner\nSUBJECT: hello\n\nhello body\n")
 	assertFile(t, mailboxPath, "relay-2\n")
 }
 

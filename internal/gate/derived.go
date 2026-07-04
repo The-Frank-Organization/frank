@@ -111,6 +111,7 @@ func completeOutbox(st *store.Store, rec record.Record, sourceKind string) error
 			SchemaVersion: 1,
 		},
 		Headers: map[string]string{"PHASE": "SITREP", "SUBJECT": "derived outbox item"},
+		Body:    string(data),
 	}, []store.Intent{{Kind: store.IntentOutbox, Path: itemID + ".json", Payload: data}})
 	return err
 }
