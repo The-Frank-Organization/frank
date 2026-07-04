@@ -176,3 +176,11 @@ Input: gate-close report `s1-core-impl/SITREP-planner-20260703-205035.md`. Verif
 **Lint flag dispositioned to the operator:** the filed CTO verdict copy (`s1-exit-gate/RECONCILE-orchestrator-planner-20260703-200929.md`) trips relay-root lint (merge-claim-without-MERGE-GATE-lineage class) on acceptance prose ("first code merge" unfenced); exact-file lint = OK; git history verified free of any merge commit. Not mine to reword (CTO's FROM). Options for the operator: explicit waiver line in the authorization relay (cheapest), or ask the CTO to fence the phrase in a superseding copy.
 
 Merge-gate handoff: `s1-merge-gate/MERGE-GATE-orchestrator-planner-20260703-213114.md` TO operator. Mechanical truth stated there: no remote, single branch `main`, nothing to git-merge — the operator's gate = ratify main@f0dcb85 as the S1-closed baseline (optional tag), optional VP confirmatory pass first. On the operator's verdict: S1 CLOSES; CTO folds into master RECONCILE + dispatches S2.
+
+## 2026-07-03 — VP confirmatory pass: CONFIRM; operator verdict is the sole remaining gate
+
+Input: `s1-vp-confirm/RECONCILE-orchestrator-reviewer-20260703-215730.md` (VERDICT: confirm; operator-elected pass per the CTO recommendation). The VP independently: walked the acceptance chain end-to-end (coherent, index ordering preserved); verified both deviation dispositions closed (owed item + spec-matching fixture with the red-first evidence); recomputed the battery (`go test -count=1 ./...` 15 ok + vet clean — the FIFTH independent verification); re-verified FOLD_SCOPE on f0dcb85; and confirmed the authority boundary (merge-gate addressed to operator only).
+
+**Operator-facing caveat adopted:** before S1 is recorded closed, the `s1-exit-gate` root lint flag must be dispositioned explicitly — either (a) an operator waiver line in the verdict, or (b) a CTO-authored superseding reword of the acceptance prose. The code close is confirmed either way; this is trail cleanliness for that one dispatch root.
+
+Standing state: every reviewer seat in the org has now signed — pair (internal reviews ×5 rounds), s1 reviewer (2 approves), m-1/m-2 fidelity, m-7 guide (advisory + plan gate + deviation ruling), master CTO (acceptance), master VP (plan gate + this confirm). **The operator's ratification of main@f0dcb85 is the only remaining S1 gate.**
