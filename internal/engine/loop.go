@@ -12,6 +12,7 @@ import (
 	"github.com/jackli/frank/internal/fieldspec"
 	"github.com/jackli/frank/internal/intake"
 	"github.com/jackli/frank/internal/lineage"
+	"github.com/jackli/frank/internal/obligation"
 	"github.com/jackli/frank/internal/record"
 	"github.com/jackli/frank/internal/seat"
 	"github.com/jackli/frank/internal/store"
@@ -29,10 +30,11 @@ type Outcome struct {
 type Handler func(context.Context, intake.Cmd) (record.Record, []store.Intent, error)
 
 type Loop struct {
-	In      chan Job
-	Store   *store.Store
-	Handler Handler
-	Timeout time.Duration
+	In         chan Job
+	Store      *store.Store
+	Handler    Handler
+	Timeout    time.Duration
+	quarantine chan string
 }
 
 func New(st *store.Store, handler Handler, ready *Ready) *Loop {
@@ -40,10 +42,21 @@ func New(st *store.Store, handler Handler, ready *Ready) *Loop {
 		panic("engine.New requires Ready")
 	}
 	return &Loop{
-		In:      make(chan Job, 32),
-		Store:   st,
-		Handler: handler,
-		Timeout: 5 * time.Second,
+		In:         make(chan Job, 32),
+		Store:      st,
+		Handler:    handler,
+		Timeout:    5 * time.Second,
+		quarantine: make(chan string, 32),
+	}
+}
+
+func (l *Loop) EnqueueQuarantine(relayID string) {
+	if relayID == "" {
+		return
+	}
+	select {
+	case l.quarantine <- relayID:
+	default:
 	}
 }
 
@@ -53,7 +66,9 @@ func (l *Loop) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case job := <-l.In:
+			l.drainQuarantine()
 			out := l.process(ctx, job.Cmd)
+			l.drainQuarantine()
 			timeout := l.Timeout
 			if timeout <= 0 {
 				timeout = 5 * time.Second
@@ -65,6 +80,18 @@ func (l *Loop) Run(ctx context.Context) {
 				return
 			case <-time.After(timeout):
 			}
+		}
+	}
+}
+
+func (l *Loop) drainQuarantine() {
+	for {
+		select {
+		case relayID := <-l.quarantine:
+			_, _ = l.Store.QuarantineOne(relayID)
+			_ = obligation.CompleteAuto(l.Store)
+		default:
+			return
 		}
 	}
 }
