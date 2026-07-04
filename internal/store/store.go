@@ -113,7 +113,7 @@ func (s *Store) Records() ([]record.Record, error) {
 		}
 		rec, err := record.Verify(data)
 		if err != nil {
-			return nil, err
+			return nil, ErrChecksum{RelayID: strings.TrimSuffix(entry.Name(), ".json")}
 		}
 		records = append(records, rec)
 	}
@@ -123,9 +123,18 @@ func (s *Store) Records() ([]record.Record, error) {
 func (s *Store) Read(relayID string) (record.Record, error) {
 	data, err := os.ReadFile(filepath.Join(s.Root, "records", relayID+".json"))
 	if err != nil {
+		if os.IsNotExist(err) {
+			if qerr, ok := s.quarantinedError(relayID); ok {
+				return record.Record{}, qerr
+			}
+		}
 		return record.Record{}, err
 	}
-	return record.Verify(data)
+	rec, err := record.Verify(data)
+	if err != nil {
+		return record.Record{}, ErrChecksum{RelayID: relayID}
+	}
+	return rec, nil
 }
 
 func (s *Store) Project(seat string) ([]string, error) {

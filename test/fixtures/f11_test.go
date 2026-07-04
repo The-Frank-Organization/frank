@@ -50,6 +50,7 @@ func TestF11CrashpointRegistryNamesAreLiveInSource(t *testing.T) {
 	source := readSource(t,
 		filepath.Join("..", "..", "internal", "fsio", "fsio.go"),
 		filepath.Join("..", "..", "internal", "store", "store.go"),
+		filepath.Join("..", "..", "internal", "store", "quarantine.go"),
 		filepath.Join("..", "..", "internal", "store", "projections.go"),
 		filepath.Join("..", "..", "internal", "intake", "journal.go"),
 		filepath.Join("..", "..", "internal", "engine", "loop.go"),

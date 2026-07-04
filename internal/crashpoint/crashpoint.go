@@ -23,6 +23,8 @@ var names = []string{
 	"pre_delivery_write",
 	"post_delivery_write",
 	"pre_outcome_reply",
+	"pre_quarantine_evict",
+	"post_quarantine_evict",
 }
 
 var (
