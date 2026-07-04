@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -16,6 +18,8 @@ import (
 	"github.com/jackli/frank/internal/fsio"
 	"github.com/jackli/frank/internal/record"
 )
+
+const defaultSegmentRotateBytes int64 = 4 * 1024 * 1024
 
 const (
 	IntentIndex   = "index"
@@ -188,8 +192,12 @@ func (s *Store) PendingDeliverySeats() ([]string, error) {
 }
 
 func (s *Store) appendRedo(relayID string, intents []Intent) error {
-	path := filepath.Join(s.Root, "journal", "redo.jsonl")
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	dir := filepath.Join(s.Root, "journal", "redo")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	seq, path, err := activeRedoSegment(dir)
+	if err != nil {
 		return err
 	}
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0o644)
@@ -208,7 +216,10 @@ func (s *Store) appendRedo(relayID string, intents []Intent) error {
 		return err
 	}
 	crashpoint.Hit("post_redo_fsync")
-	return f.Close()
+	if err := f.Close(); err != nil {
+		return err
+	}
+	return rotateRedoAfterAppend(dir, seq, path)
 }
 
 func (s *Store) nextRelayIDLocked() (string, error) {
@@ -233,27 +244,119 @@ type redoEntry struct {
 }
 
 func readRedo(root string) ([]redoEntry, error) {
-	path := filepath.Join(root, "journal", "redo.jsonl")
-	f, err := os.Open(path)
+	dir := filepath.Join(root, "journal", "redo")
+	seqs, err := redoSegmentSeqs(dir)
+	if err != nil {
+		return nil, err
+	}
+	var entries []redoEntry
+	for _, seq := range seqs {
+		path := filepath.Join(dir, fmt.Sprintf("%06d.jsonl", seq))
+		f, err := os.Open(path)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		scanner := bufio.NewScanner(f)
+		for scanner.Scan() {
+			line := scanner.Bytes()
+			if len(line) == 0 {
+				continue
+			}
+			var entry redoEntry
+			if err := json.Unmarshal(line, &entry); err != nil {
+				_ = f.Close()
+				return nil, err
+			}
+			entries = append(entries, entry)
+		}
+		if err := scanner.Err(); err != nil {
+			_ = f.Close()
+			return nil, err
+		}
+		if err := f.Close(); err != nil {
+			return nil, err
+		}
+	}
+	return entries, nil
+}
+
+func activeRedoSegment(dir string) (int, string, error) {
+	seqs, err := redoSegmentSeqs(dir)
+	if err != nil {
+		return 0, "", err
+	}
+	if len(seqs) == 0 {
+		return 1, filepath.Join(dir, "000001.jsonl"), nil
+	}
+	seq := seqs[len(seqs)-1]
+	path := filepath.Join(dir, fmt.Sprintf("%06d.jsonl", seq))
+	info, err := os.Stat(path)
+	if err != nil {
+		return 0, "", err
+	}
+	if info.Size() > defaultSegmentRotateBytes {
+		next := seq + 1
+		nextPath := filepath.Join(dir, fmt.Sprintf("%06d.jsonl", next))
+		if err := createEmptyRedoSegment(nextPath); err != nil {
+			return 0, "", err
+		}
+		return next, nextPath, nil
+	}
+	return seq, path, nil
+}
+
+func rotateRedoAfterAppend(dir string, seq int, path string) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	if info.Size() <= defaultSegmentRotateBytes {
+		return nil
+	}
+	nextPath := filepath.Join(dir, fmt.Sprintf("%06d.jsonl", seq+1))
+	if _, err := os.Stat(nextPath); err == nil {
+		return nil
+	} else if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	crashpoint.Hit("pre_segment_rotate")
+	if err := createEmptyRedoSegment(nextPath); err != nil {
+		return err
+	}
+	crashpoint.Hit("post_segment_rotate")
+	return nil
+}
+
+func redoSegmentSeqs(dir string) ([]int, error) {
+	entries, err := os.ReadDir(dir)
 	if os.IsNotExist(err) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	var entries []redoEntry
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		var entry redoEntry
-		if err := json.Unmarshal(scanner.Bytes(), &entry); err != nil {
-			_ = f.Close()
-			return nil, err
+	var seqs []int
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".jsonl") {
+			continue
 		}
-		entries = append(entries, entry)
+		seq, err := strconv.Atoi(strings.TrimSuffix(entry.Name(), ".jsonl"))
+		if err != nil {
+			continue
+		}
+		seqs = append(seqs, seq)
 	}
-	if err := scanner.Err(); err != nil {
-		_ = f.Close()
-		return nil, err
+	sort.Ints(seqs)
+	return seqs, nil
+}
+
+func createEmptyRedoSegment(path string) error {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0o644)
+	if err != nil {
+		return err
 	}
-	return entries, f.Close()
+	return f.Close()
 }

@@ -52,6 +52,12 @@ func TestCommitShape(t *testing.T) {
 	assertFile(t, filepath.Join(root, "projections", "INDEX.md"), "| relay-1 | SITREP |\n")
 	assertFile(t, filepath.Join(root, "projections", "relays", "dispatch-1", "SITREP-implementer-relay-1.md"), "rendered relay-1\n")
 	assertFile(t, filepath.Join(root, "mailboxes", "seat-b.planner.jsonl"), "relay-1\n")
+	if _, err := os.Stat(filepath.Join(root, "journal", "redo", "000001.jsonl")); err != nil {
+		t.Fatalf("segmented redo missing: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "journal", "redo.jsonl")); !os.IsNotExist(err) {
+		t.Fatalf("legacy redo file exists: %v", err)
+	}
 }
 
 func TestCommitAutoRelayIDsDoNotCollide(t *testing.T) {

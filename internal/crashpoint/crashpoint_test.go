@@ -25,6 +25,8 @@ func TestNamesAndNoopHitWithoutEnv(t *testing.T) {
 		"pre_outcome_reply",
 		"pre_quarantine_evict",
 		"post_quarantine_evict",
+		"pre_segment_rotate",
+		"post_segment_rotate",
 	}
 	if got := crashpoint.Names(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("Names() = %v, want %v", got, want)

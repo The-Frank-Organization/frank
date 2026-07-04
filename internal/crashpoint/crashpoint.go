@@ -25,6 +25,8 @@ var names = []string{
 	"pre_outcome_reply",
 	"pre_quarantine_evict",
 	"post_quarantine_evict",
+	"pre_segment_rotate",
+	"post_segment_rotate",
 }
 
 var (
