@@ -182,7 +182,7 @@ As dispatched (locked): writes = append-only store records (byte-exact `{accepte
 1. MCP Go SDK per-seat-socket transport capability check — first PLAN task; fallback named in D-3 (invariants stated there).
 2. *(r2: removed — blocker 5. The full frozen §J2 set is locked in D-5; PLAN names tests and code placement only.)*
 3. DI-2/DI-5 realization record (D-3) — flagged to the m-1 fidelity review as the "fork-2 infra call" proposal (DI-5 itself is Step-2/observe; only DI-2 matters in S1).
-4. m-1 §13 carries land as PLAN acceptance detail: TOCTOU-atomic submit (the loop already is), credential lifecycle minimal statement (mint/re-attach/revoke-on-remint), operator-channel isolation invariant.
+4. m-1 §13 carries land as PLAN acceptance detail: TOCTOU-atomic submit (the loop already is), credential lifecycle minimal statement (mint/re-attach; **no remint/recycle in S1** — single credential generation per seat, duplicate-mint typed-rejected, D-3 r5), operator-channel isolation invariant.
 5. **(r2)** The blocker-2 S1 narrowing (no pair-Planner grant rendering in S1) rides the design-completion SITREP for explicit orchestrator ratification.
 
 ## 7. Rejected alternatives (log)
