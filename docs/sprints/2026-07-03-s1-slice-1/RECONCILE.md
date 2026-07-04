@@ -146,3 +146,18 @@ Input: exit-gate report `s1-core-impl/SITREP-planner-20260703-195800.md`. Build 
 Neither was self-waived by the pair — correctly surfaced. Honesty checks: E3/E4 explicitly stated out-of-S1, merge explicitly not requested, verdict merge-blocked per protocol.
 
 Disposition: S1 exit-gate SITREP to master (`s1-exit-gate/SITREP-orchestrator-planner-20260703-200108.md`, TO master.orchestrator-planner + m-7.planner) — the charter deliverable — carrying the gate evidence, the two deviations + provisional rulings for guide concurrence, and the merge question routed to the operator. Gate CLOSES on guide concurrence (or the required follow-up fold); merge remains the operator's human gate.
+
+## 2026-07-03 — master rulings reconciled: deliverable ACCEPTED at master seat; deviation 1 CONCUR (owed item below); deviation 2 NARROW BOUNCE (pre-concurred ~10-line fixture); close-fold routed
+
+Inputs (copies filed in .relays/s1/s1-exit-gate/): m-7 guide ruling `SITREP-planner-20260703-200827.md`; CTO reconcile + acceptance `RECONCILE-orchestrator-planner-20260703-200929.md`. Both seats independently re-ran the suite (15 ok, uncached, each seat's own E2) — three independent verifications of the battery now on record (s1 orchestrator, guide, CTO).
+
+**Rulings adopted:**
+- **Deviation 1 (F11 breadth): CONCUR — S1-sufficient** (guide, on four code-verified grounds; CTO aligns). Condition = the typed owed-item record below. Guide bonus finding: the suspected outbox-counter hole is correct-by-construction (outbox pivot IS a records/ rename).
+- **Deviation 2 (C7 mid-Complete): NARROW BOUNCE, PRE-CONCURRED** — required fixture (deterministic, no crash machinery, `derived_test.go`): commit a gate-bearing accepted record + its park record only (no outbox item) → run `gate.Complete` → assert exactly one outbox item appears AND the park record is not duplicated; optional mirror leg (outbox present, park missing). On green + spec-match: concurred, NO second guide round-trip; gate-close record cites the guide relay + the fold commit.
+- **Non-blocking robustness note (fold at leisure):** `completeOutbox` dedupes on the projection file rather than the canonical `outbox-<item_id>` record; safe today (rebuild-before-Complete ordering + duplicate-id commit rejection) — recommend canonical-record scan (symmetric with `completePark`) or a comment pinning the ordering dependency.
+- **CTO acceptance:** charter deliverable DELIVERED + independently verified; scope discipline confirmed; the two ledgered amendments in-bounds; honesty framing held. Close path: (a) this fold; (b) optional VP confirmatory pass before merge (operator's call — confidence, not necessity); (c) operator merge decision. On close: CTO folds S1 into master RECONCILE + dispatches S2.
+
+**TYPED OWED-ITEM RECORD (deviation-1 condition — materialize-first):**
+`OI-S1-F11-SWEEP = {owner: s1 (S2 slice), source: exit-gate deviation 1 + plan Task 10 "at EVERY name in crashpoint.Names()" sentence + guide condition (SITREP-planner-20260703-200827 §Deviation-1), target surface: the full F11 class×point crash sweep using the existing harness (crashpoint registry + child-SIGKILL machinery, built S1), disposition path: the S2 exit gate}`
+
+Disposition: close-fold relay `s1-core-impl/SITREP-orchestrator-planner-20260703-201802.md` to the pair — the deviation-2 fixture (spec verbatim) + the robustness note as optional ride-along; owed item recorded here (nothing for the pair to write on deviation 1). On fold-green: gate-close record citing guide relay + fold commit; then the merge question is the operator's (VP confirmatory pass optional, operator's call).
