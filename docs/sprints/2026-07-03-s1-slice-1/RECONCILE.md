@@ -86,3 +86,18 @@ Input: `master/relays/s1-guide-design-read/SITREP-planner-20260703-154742.md` (a
 **Advisory sharpenings (carry into doc/PLAN, no re-architecture):** state that C7 derived-work completion executes on the single-writer commit path (loop goroutine, or recovery single-threaded before it starts); PLAN notes S2's owed-item projection generalizes the C7 mechanism (C7's scan becomes an instance of it at S2, not a parallel mechanism). Positive notes recorded (crash-point registry reuse, D-11 correctly-scoped by-construction claim, outbox pivot, binding-table fold, D-10 replay posture) — no action.
 
 Disposition: fold relay `s1-core-plan/SITREP-orchestrator-planner-20260703-155605.md` issued to the pair; ①/② join the plan-gate rubric; PLAN drafting continues unpaused.
+
+## 2026-07-03 — plan-completion reconciled; README fence RULED IN; the four external-gate packets issued
+
+Inputs: plan-completion SITREP (`s1-core-plan/SITREP-planner-20260703-163256.md`); approving PLAN-REVIEW (`s1-core-plan-lock-r2/PLAN-REVIEW-implementer-20260703-162820.md`, approve at main@a24bf57); r1 must-revise (`s1-core-plan-lock/PLAN-REVIEW-implementer-20260703-162202.md`, two blockers, both folded).
+
+Verified on disk: plan r2 = main@a24bf57, design r4 = main@3882763 (r3 = 061882a — the guide should-fix folds: held-visibility shape (i), wake-push invariant, single-writer sharpening; r4 = two-source ODB envelope). Delegation lineage chain intact: plan-review approve → gated PLAN r2 (`s1-core-plan-lock-r2`, DESIGN_LOCK_ID + design-doc kind) → approving DESIGN-REVIEW (`s1-core-design-r2-review-implementer`). Ratification conditions 1–3 verified landed (narrowing stated in gated PLAN text; Task 12 README/SWEEP; guide-confirmed additive S3 render).
+
+**ASK-1 ruling — root README.md IN-FENCE** (orchestrator's call per protocol). Rationale: it is the S1 honesty/claim surface serving ratification condition 2, SWEEP-covered, m-7 §16-swept. The PROCEED-TO-PLAN scope fence is amended by ruling relay `s1-core-plan/SITREP-orchestrator-planner-20260703-170259.md`; the pair cites it as SCOPE_DIFF row evidence. Fallback (move under docs/) not needed.
+
+**ASK-2 — external-gate packets issued** (three relays, operator-carried):
+- `s1-plan-gate/SITREP-orchestrator-planner-20260703-170259.md` → m-7.planner + master.orchestrator-reviewer (the formal co-gate; carries the design rev ledger r2→r3→r4, the checklist heads-up, and the narrowing statement).
+- `s1-fidelity-m1/SITREP-orchestrator-planner-20260703-170259.md` → m-1.implementer (store-API usage; DI-2 realization flagged; four specific fidelity questions).
+- `s1-fidelity-m2/SITREP-orchestrator-planner-20260703-170259.md` → m-2.implementer (FieldSpec usage; **§J2 byte-custody formally requested in-verdict**; five specific fidelity questions).
+
+Standing state: pair HOLDS. `DISPATCH IMPL` becomes issuable by the pair Planner only when all four approve relays exist in .relays/s1/ + SCOPE_DIFF all-in (README row citing the ruling) + the remaining delegation conditions. Merge remains a separate human gate at S1 close.
