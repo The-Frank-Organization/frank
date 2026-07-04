@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -30,6 +31,9 @@ type config struct {
 	Registry       string
 	EngineConfig   string
 	Init           bool
+	MintSeat       string
+	MintRole       string
+	MintOperator   bool
 	OperatorSubmit string
 	Credential     string
 }
@@ -41,6 +45,9 @@ func main() {
 	registry := flag.String("registry", filepath.Join("internal", "fieldspec", "registry.json"), "FieldSpec registry path")
 	engineConfig := flag.String("engine-config", "", "engine config path for -init")
 	initStore := flag.Bool("init", false, "initialize a store with pinned config")
+	mintSeat := flag.String("mint", "", "mint a conductor-internal credential for a seat")
+	mintRole := flag.String("role", "implementer", "role for -mint")
+	mintOperator := flag.Bool("operator", false, "mint an operator credential")
 	operatorSubmit := flag.String("operator-submit", "", "submit a payload JSON file through an authenticated socket")
 	credential := flag.String("credential", "", "credential for operator-submit")
 	flag.Parse()
@@ -50,7 +57,7 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	cfg := config{Root: *root, Socket: *socket, Registry: *registry, EngineConfig: *engineConfig, Init: *initStore, OperatorSubmit: *operatorSubmit, Credential: *credential}
+	cfg := config{Root: *root, Socket: *socket, Registry: *registry, EngineConfig: *engineConfig, Init: *initStore, MintSeat: *mintSeat, MintRole: *mintRole, MintOperator: *mintOperator, OperatorSubmit: *operatorSubmit, Credential: *credential}
 	if err := run(ctx, cfg); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -63,6 +70,9 @@ func run(ctx context.Context, cfg config) error {
 			return errors.New("engine-config required for init")
 		}
 		return store.Init(cfg.Root, map[string]string{"fieldspec": cfg.Registry, "engine": cfg.EngineConfig})
+	}
+	if cfg.MintSeat != "" {
+		return mintSeat(ctx, cfg)
 	}
 	if cfg.OperatorSubmit != "" {
 		return operatorSubmit(ctx, cfg)
@@ -239,6 +249,39 @@ func channelTools(ctx context.Context, st *store.Store, meta seat.SeatMeta, writ
 			}{Record: rec, SchemaVersion: rec.Envelope.SchemaVersion})
 		},
 	}
+}
+
+func mintSeat(ctx context.Context, cfg config) error {
+	if cfg.MintRole == "" {
+		return errors.New("role required for mint")
+	}
+	socket := cfg.Socket
+	if socket == "" {
+		socket = filepath.Join(cfg.Root, "frank.sock")
+	}
+	if socketIsLive(ctx, socket) {
+		return errors.New("conductor is serving; -mint is admin-time only")
+	}
+	mgr, err := seat.Open(cfg.Root)
+	if err != nil {
+		return err
+	}
+	cred, err := mgr.Mint(cfg.MintSeat, cfg.MintRole, cfg.MintOperator)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("credential=%s\n", cred.Value)
+	return nil
+}
+
+func socketIsLive(ctx context.Context, socket string) bool {
+	var d net.Dialer
+	conn, err := d.DialContext(ctx, "unix", socket)
+	if err != nil {
+		return false
+	}
+	_ = conn.Close()
+	return true
 }
 
 func operatorSubmit(ctx context.Context, cfg config) error {

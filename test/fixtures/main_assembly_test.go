@@ -267,6 +267,98 @@ func TestFrankBinaryOperatorChannelO3OwedSweepOpenAndDisposition(t *testing.T) {
 	}
 }
 
+func TestFrankBinaryMintSeatAdminTimeCredential(t *testing.T) {
+	root := t.TempDir()
+	initFixtureStore(t, root)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	bin := buildFrank(t, ctx)
+	run := func(args ...string) ([]byte, []byte, error) {
+		t.Helper()
+		cmd := exec.CommandContext(ctx, bin, args...)
+		var stdout, stderr bytes.Buffer
+		cmd.Stdout = &stdout
+		cmd.Stderr = &stderr
+		err := cmd.Run()
+		return stdout.Bytes(), stderr.Bytes(), err
+	}
+
+	bindingPath := filepath.Join(root, "binding", "seats.json")
+	beforeSystem := readOptionalFile(t, bindingPath)
+	stdout, stderr, err := run("-root", root, "-mint", "system")
+	if err == nil {
+		t.Fatalf("-mint system unexpectedly succeeded with stdout=%s", stdout)
+	}
+	if len(stdout) != 0 || !bytes.Contains(stderr, []byte(seat.ErrReservedSeatName.Error())) {
+		t.Fatalf("-mint system stdout=%q stderr=%q, want typed reserved-seat error only on stderr", stdout, stderr)
+	}
+	if after := readOptionalFile(t, bindingPath); !bytes.Equal(after, beforeSystem) {
+		t.Fatalf("binding table changed after rejected system mint\nbefore=%s\nafter=%s", beforeSystem, after)
+	}
+
+	stdout, stderr, err = run("-root", root, "-mint", "operator", "-role", "operator", "-operator")
+	if err != nil {
+		t.Fatalf("-mint operator failed: %v\nstdout=%s\nstderr=%s", err, stdout, stderr)
+	}
+	credential := parseCredentialStdout(t, stdout, stderr)
+	assertCredentialNotInSeatDeliverables(t, root, credential)
+	afterOperator := mustReadFile(t, bindingPath)
+
+	stdout, stderr, err = run("-root", root, "-mint", "operator", "-role", "operator", "-operator")
+	if err == nil {
+		t.Fatalf("duplicate -mint unexpectedly succeeded with stdout=%s", stdout)
+	}
+	if len(stdout) != 0 || !bytes.Contains(stderr, []byte(seat.ErrSeatAlreadyBound.Error())) {
+		t.Fatalf("duplicate -mint stdout=%q stderr=%q, want typed duplicate-seat error only on stderr", stdout, stderr)
+	}
+	if after := mustReadFile(t, bindingPath); !bytes.Equal(after, afterOperator) {
+		t.Fatalf("binding table changed after duplicate mint\nbefore=%s\nafter=%s", afterOperator, after)
+	}
+
+	sock := filepath.Join(os.TempDir(), fmt.Sprintf("frank-mint-%d.sock", time.Now().UnixNano()))
+	t.Cleanup(func() { _ = os.Remove(sock) })
+	cmd, serverStderr := startFrank(t, ctx, bin, root, sock)
+	t.Cleanup(func() {
+		cancel()
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+		_ = cmd.Wait()
+	})
+	waitForSocket(t, sock)
+	client, err := channel.DialAuthenticated(ctx, sock, credential)
+	if err != nil {
+		t.Fatalf("DialAuthenticated with minted credential stderr=%s: %v", serverStderr.String(), err)
+	}
+	defer func() { _ = client.Close() }()
+	tools, err := client.ListTools(ctx)
+	if err != nil {
+		t.Fatalf("ListTools: %v", err)
+	}
+	if got, want := strings.Join(tools, ","), "submit,project,read"; got != want {
+		t.Fatalf("full-surface tools = %v, want %s", tools, want)
+	}
+	descriptions, err := client.ToolDescriptions(ctx)
+	if err != nil {
+		t.Fatalf("ToolDescriptions: %v", err)
+	}
+	if _, ok := descriptions["mint"]; ok || strings.Contains(strings.Join(tools, ","), "mint") {
+		t.Fatalf("mint appeared in seat-facing registry: tools=%v descriptions=%v", tools, descriptions)
+	}
+
+	beforeLiveMint := mustReadFile(t, bindingPath)
+	stdout, stderr, err = run("-root", root, "-socket", sock, "-mint", "late-seat", "-role", "implementer")
+	if err == nil {
+		t.Fatalf("live -mint unexpectedly succeeded with stdout=%s", stdout)
+	}
+	if len(stdout) != 0 || !bytes.Contains(stderr, []byte("conductor is serving")) {
+		t.Fatalf("live -mint stdout=%q stderr=%q, want admin-time serving error only on stderr", stdout, stderr)
+	}
+	if after := mustReadFile(t, bindingPath); !bytes.Equal(after, beforeLiveMint) {
+		t.Fatalf("binding table changed after live mint rejection\nbefore=%s\nafter=%s", beforeLiveMint, after)
+	}
+}
+
 func TestFrankInitTwiceRejectsExistingGenesis(t *testing.T) {
 	root := t.TempDir()
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
@@ -505,4 +597,60 @@ func mustReadFile(t *testing.T, path string) []byte {
 		t.Fatalf("read %s: %v", path, err)
 	}
 	return data
+}
+
+func readOptionalFile(t *testing.T, path string) []byte {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	return data
+}
+
+func parseCredentialStdout(t *testing.T, stdout, stderr []byte) string {
+	t.Helper()
+	if len(stderr) != 0 {
+		t.Fatalf("mint wrote stderr on success: %s", stderr)
+	}
+	text := string(stdout)
+	if strings.Count(text, "credential=") != 1 || !strings.HasSuffix(text, "\n") {
+		t.Fatalf("mint stdout = %q, want one credential line", text)
+	}
+	credential := strings.TrimPrefix(strings.TrimSpace(text), "credential=")
+	if len(credential) != 64 {
+		t.Fatalf("credential length = %d, want 64", len(credential))
+	}
+	for _, ch := range credential {
+		if !strings.ContainsRune("0123456789abcdef", ch) {
+			t.Fatalf("credential contains non-hex rune %q", ch)
+		}
+	}
+	return credential
+}
+
+func assertCredentialNotInSeatDeliverables(t *testing.T, root, credential string) {
+	t.Helper()
+	for _, dir := range []string{"records", "mailboxes", "projections", "outbox"} {
+		base := filepath.Join(root, dir)
+		err := filepath.WalkDir(base, func(path string, entry os.DirEntry, err error) error {
+			if err != nil || entry.IsDir() {
+				return err
+			}
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			if bytes.Contains(data, []byte(credential)) {
+				return fmt.Errorf("credential leaked into %s", path)
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatalf("scan seat deliverables: %v", err)
+		}
+	}
 }
