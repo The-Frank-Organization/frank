@@ -1,19 +1,28 @@
 package intake
 
 import (
-	"bufio"
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
 
+	"github.com/jackli/frank/internal/config"
 	"github.com/jackli/frank/internal/crashpoint"
 	"github.com/jackli/frank/internal/fsio"
 	"github.com/jackli/frank/internal/store"
 )
+
+const DefaultSegmentRotateBytes int64 = 4 * 1024 * 1024
+
+var ErrLegacyJournal = errors.New("legacy intake journal layout unsupported")
 
 type Cmd struct {
 	IntakeID    string          `json:"intake_id,omitempty"`
@@ -26,16 +35,36 @@ type Cmd struct {
 }
 
 type Journal struct {
-	Root string
-	path string
+	Root        string
+	dir         string
+	rotateBytes int64
+}
+
+type Segment struct {
+	Seq     int
+	Path    string
+	Entries []Cmd
 }
 
 func Open(root string) (*Journal, error) {
-	path := filepath.Join(root, "journal", "intake.jsonl")
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	return OpenWithConfig(root, config.EngineConfig{SegmentRotateBytes: DefaultSegmentRotateBytes})
+}
+
+func OpenWithConfig(root string, cfg config.EngineConfig) (*Journal, error) {
+	if _, err := os.Stat(filepath.Join(root, "journal", "intake.jsonl")); err == nil {
+		return nil, ErrLegacyJournal
+	} else if err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
-	return &Journal{Root: root, path: path}, nil
+	dir := filepath.Join(root, "journal", "intake")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return nil, err
+	}
+	rotateBytes := cfg.SegmentRotateBytes
+	if rotateBytes <= 0 {
+		rotateBytes = DefaultSegmentRotateBytes
+	}
+	return &Journal{Root: root, dir: dir, rotateBytes: rotateBytes}, nil
 }
 
 func (j *Journal) Append(cmd Cmd) (string, error) {
@@ -57,7 +86,11 @@ func (j *Journal) Append(cmd Cmd) (string, error) {
 		return "", err
 	}
 	data = append(data, '\n')
-	f, err := os.OpenFile(j.path, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0o644)
+	seq, path, err := j.activeSegment()
+	if err != nil {
+		return "", err
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0o644)
 	if err != nil {
 		return "", err
 	}
@@ -69,11 +102,113 @@ func (j *Journal) Append(cmd Cmd) (string, error) {
 	if err := f.Close(); err != nil {
 		return "", err
 	}
+	if err := j.rotateAfterAppend(seq, path); err != nil {
+		return "", err
+	}
 	return cmd.IntakeID, nil
 }
 
 func (j *Journal) ReadAll() ([]Cmd, error) {
-	f, err := os.Open(j.path)
+	segments, err := j.Segments()
+	if err != nil {
+		return nil, err
+	}
+	var entries []Cmd
+	for _, segment := range segments {
+		entries = append(entries, segment.Entries...)
+	}
+	return entries, nil
+}
+
+func (j *Journal) Segments() ([]Segment, error) {
+	seqs, err := segmentSeqs(j.dir)
+	if err != nil {
+		return nil, err
+	}
+	segments := make([]Segment, 0, len(seqs))
+	for _, seq := range seqs {
+		path := segmentPath(j.dir, seq)
+		entries, err := readSegment(path)
+		if err != nil {
+			return nil, err
+		}
+		segments = append(segments, Segment{Seq: seq, Path: path, Entries: entries})
+	}
+	return segments, nil
+}
+
+func (j *Journal) activeSegment() (int, string, error) {
+	seqs, err := segmentSeqs(j.dir)
+	if err != nil {
+		return 0, "", err
+	}
+	if len(seqs) == 0 {
+		return 1, segmentPath(j.dir, 1), nil
+	}
+	seq := seqs[len(seqs)-1]
+	path := segmentPath(j.dir, seq)
+	info, err := os.Stat(path)
+	if err != nil {
+		return 0, "", err
+	}
+	if info.Size() > j.rotateBytes {
+		next := seq + 1
+		nextPath := segmentPath(j.dir, next)
+		if err := createEmptySegment(nextPath); err != nil {
+			return 0, "", err
+		}
+		return next, nextPath, nil
+	}
+	return seq, path, nil
+}
+
+func (j *Journal) rotateAfterAppend(seq int, path string) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	if info.Size() <= j.rotateBytes {
+		return nil
+	}
+	nextPath := segmentPath(j.dir, seq+1)
+	if _, err := os.Stat(nextPath); err == nil {
+		return nil
+	} else if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	crashpoint.Hit("pre_segment_rotate")
+	if err := createEmptySegment(nextPath); err != nil {
+		return err
+	}
+	crashpoint.Hit("post_segment_rotate")
+	return nil
+}
+
+func segmentSeqs(dir string) ([]int, error) {
+	entries, err := os.ReadDir(dir)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var seqs []int
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".jsonl") {
+			continue
+		}
+		seq, err := strconv.Atoi(strings.TrimSuffix(entry.Name(), ".jsonl"))
+		if err != nil {
+			continue
+		}
+		seqs = append(seqs, seq)
+	}
+	sort.Ints(seqs)
+	return seqs, nil
+}
+
+func readSegment(path string) ([]Cmd, error) {
+	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
 		return nil, nil
 	}
@@ -81,20 +216,34 @@ func (j *Journal) ReadAll() ([]Cmd, error) {
 		return nil, err
 	}
 	var entries []Cmd
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
+	lines := bytes.Split(data, []byte("\n"))
+	completeTail := bytes.HasSuffix(data, []byte("\n"))
+	for i, line := range lines {
+		if len(line) == 0 {
+			continue
+		}
 		var cmd Cmd
-		if err := json.Unmarshal(scanner.Bytes(), &cmd); err != nil {
-			_ = f.Close()
+		if err := json.Unmarshal(line, &cmd); err != nil {
+			if i == len(lines)-1 && !completeTail {
+				break
+			}
 			return nil, err
 		}
 		entries = append(entries, cmd)
 	}
-	if err := scanner.Err(); err != nil {
-		_ = f.Close()
-		return nil, err
+	return entries, nil
+}
+
+func segmentPath(dir string, seq int) string {
+	return filepath.Join(dir, fmt.Sprintf("%06d.jsonl", seq))
+}
+
+func createEmptySegment(path string) error {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0o644)
+	if err != nil {
+		return err
 	}
-	return entries, f.Close()
+	return f.Close()
 }
 
 func Unconsumed(ctx context.Context, j *Journal, st *store.Store) ([]Cmd, error) {

@@ -1,0 +1,21 @@
+{
+  "envelope": {
+    "relay_id": "relay-6fd6e11265199e20649df0c3",
+    "dispatch_id": "oi-s1-f11-sweep",
+    "from": "operator",
+    "to": "operator",
+    "role": "operator",
+    "delivery_state": "accepted",
+    "intake_id": "intake-000002",
+    "schema_version": 1
+  },
+  "headers": {
+    "AUTHORITY": "report-only",
+    "PHASE": "SITREP",
+    "SUBJECT": "OI-S1-F11-SWEEP disposition",
+    "disposes_owed": "relay-b180ef58d7713200a1276bff",
+    "record_kind": "owed_disposition"
+  },
+  "body": "Disposes OI-S1-F11-SWEEP at the S2 exit gate: the full F11 class x point sweep is discharged by executed evidence - crash-expected cells driven by child SIGKILL at every named point (incl. recovery phase boundaries, quarantine evict, segment rotation, GC marker/unlink, owed pivots) and clean-completion cells falsified by hit-trace row equality; report artifact docs/sprints/2026-07-03-s2-slice-2/results/f11-sweep-report.md; exit-gate battery 18 packages ok (uncached) at s2-core-impl@7e5d1a3.",
+  "checksum": "22f6c629859f3820a79322b2edefbc8be44447c6ff79340bc2a412fccd5dfa56"
+}

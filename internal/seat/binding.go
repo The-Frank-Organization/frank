@@ -14,7 +14,10 @@ import (
 	"github.com/jackli/frank/internal/record"
 )
 
-var ErrSeatAlreadyBound = errors.New("seat already bound")
+var (
+	ErrSeatAlreadyBound = errors.New("seat already bound")
+	ErrReservedSeatName = errors.New("reserved seat name")
+)
 
 type Cred struct {
 	Value string
@@ -65,6 +68,9 @@ func Open(root string) (*Manager, error) {
 func (m *Manager) Mint(name, role string, isOperator bool) (Cred, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if name == "system" {
+		return Cred{}, ErrReservedSeatName
+	}
 	if _, exists := m.table.Seats[name]; exists {
 		return Cred{}, ErrSeatAlreadyBound
 	}

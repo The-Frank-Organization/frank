@@ -12,15 +12,13 @@ import (
 	"github.com/jackli/frank/internal/fieldspec"
 	"github.com/jackli/frank/internal/intake"
 	"github.com/jackli/frank/internal/lineage"
+	"github.com/jackli/frank/internal/obligation"
 	"github.com/jackli/frank/internal/record"
 	"github.com/jackli/frank/internal/seat"
 	"github.com/jackli/frank/internal/store"
 )
 
-type Job struct {
-	Cmd     intake.Cmd
-	ReplyCh chan Outcome
-}
+type Job = intake.Job[Outcome]
 
 type Outcome struct {
 	State    string `json:"state"`
@@ -32,18 +30,34 @@ type Outcome struct {
 type Handler func(context.Context, intake.Cmd) (record.Record, []store.Intent, error)
 
 type Loop struct {
-	In      chan Job
-	Store   *store.Store
-	Handler Handler
-	Timeout time.Duration
+	In          chan Job
+	Store       *store.Store
+	Handler     Handler
+	Timeout     time.Duration
+	AfterCommit func(*store.Store) error
+	quarantine  chan string
 }
 
-func New(st *store.Store, handler Handler) *Loop {
+func New(st *store.Store, handler Handler, ready *Ready) *Loop {
+	if ready == nil {
+		panic("engine.New requires Ready")
+	}
 	return &Loop{
-		In:      make(chan Job, 32),
-		Store:   st,
-		Handler: handler,
-		Timeout: 5 * time.Second,
+		In:         make(chan Job, 32),
+		Store:      st,
+		Handler:    handler,
+		Timeout:    5 * time.Second,
+		quarantine: make(chan string, 32),
+	}
+}
+
+func (l *Loop) EnqueueQuarantine(relayID string) {
+	if relayID == "" {
+		return
+	}
+	select {
+	case l.quarantine <- relayID:
+	default:
 	}
 }
 
@@ -52,8 +66,13 @@ func (l *Loop) Run(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
+		case relayID := <-l.quarantine:
+			l.processQuarantine(relayID)
+			l.drainQuarantine()
 		case job := <-l.In:
+			l.drainQuarantine()
 			out := l.process(ctx, job.Cmd)
+			l.drainQuarantine()
 			timeout := l.Timeout
 			if timeout <= 0 {
 				timeout = 5 * time.Second
@@ -67,6 +86,22 @@ func (l *Loop) Run(ctx context.Context) {
 			}
 		}
 	}
+}
+
+func (l *Loop) drainQuarantine() {
+	for {
+		select {
+		case relayID := <-l.quarantine:
+			l.processQuarantine(relayID)
+		default:
+			return
+		}
+	}
+}
+
+func (l *Loop) processQuarantine(relayID string) {
+	_, _ = l.Store.QuarantineOne(relayID)
+	_ = l.completeTurn()
 }
 
 func (l *Loop) process(ctx context.Context, cmd intake.Cmd) (out Outcome) {
@@ -89,11 +124,24 @@ func (l *Loop) process(ctx context.Context, cmd intake.Cmd) (out Outcome) {
 	if err != nil {
 		return Outcome{State: record.Rejected, IntakeID: rec.Envelope.IntakeID, Reason: safeReason("commit-error")}
 	}
+	if err := l.completeTurn(); err != nil {
+		return Outcome{State: record.Rejected, RelayID: relayID, IntakeID: rec.Envelope.IntakeID, Reason: safeReason("obligation-error")}
+	}
 	return Outcome{
 		State:    rec.Envelope.DeliveryState,
 		RelayID:  relayID,
 		IntakeID: rec.Envelope.IntakeID,
 	}
+}
+
+func (l *Loop) completeTurn() error {
+	if err := obligation.CompleteAuto(l.Store); err != nil {
+		return err
+	}
+	if l.AfterCommit != nil {
+		return l.AfterCommit(l.Store)
+	}
+	return nil
 }
 
 func (l *Loop) faultOutcome(cmd intake.Cmd, reason string) Outcome {

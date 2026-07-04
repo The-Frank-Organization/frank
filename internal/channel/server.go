@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 
 	"github.com/jackli/frank/internal/bounce"
+	"github.com/jackli/frank/internal/engine"
 	"github.com/jackli/frank/internal/fieldspec"
 	"github.com/jackli/frank/internal/seat"
 )
@@ -26,6 +27,17 @@ type ToolSet struct {
 }
 
 type ToolFactory func(seat.SeatMeta) ToolSet
+
+func FullSurface(ready *engine.Ready, tools ToolSet) ToolSet {
+	if ready == nil {
+		return ToolSet{}
+	}
+	return tools
+}
+
+func ReadOnlySurface(_ *engine.Diagnostics, tools ToolSet) ToolSet {
+	return ToolSet{Project: tools.Project, Read: tools.Read}
+}
 
 type Server struct {
 	ln      net.Listener
@@ -195,7 +207,7 @@ func (c *serverConn) handle(req rpcMessage) (json.RawMessage, string) {
 	}
 	switch req.Method {
 	case "tools/list":
-		return mustJSON([]string{"submit", "project", "read"}), ""
+		return mustJSON(c.activeTools().names()), ""
 	case "tools/descriptions":
 		return mustJSON(toolDescriptions()), ""
 	case "tools/call":
@@ -203,11 +215,7 @@ func (c *serverConn) handle(req rpcMessage) (json.RawMessage, string) {
 		if err := json.Unmarshal(req.Params, &call); err != nil {
 			return nil, "bad tool call"
 		}
-		tools := c.server.tools
-		if c.server.auth != nil {
-			tools = c.tools
-		}
-		tool, ok := tools.byName(call.Name)
+		tool, ok := c.activeTools().byName(call.Name)
 		if !ok {
 			return nil, "unknown tool"
 		}
@@ -219,6 +227,13 @@ func (c *serverConn) handle(req rpcMessage) (json.RawMessage, string) {
 	default:
 		return nil, "unknown method"
 	}
+}
+
+func (c *serverConn) activeTools() ToolSet {
+	if c.server.auth != nil {
+		return c.tools
+	}
+	return c.server.tools
 }
 
 func (c *serverConn) flushPending() {
@@ -250,6 +265,20 @@ func (t ToolSet) byName(name string) (ToolFunc, bool) {
 	default:
 		return nil, false
 	}
+}
+
+func (t ToolSet) names() []string {
+	var names []string
+	if t.Submit != nil {
+		names = append(names, "submit")
+	}
+	if t.Project != nil {
+		names = append(names, "project")
+	}
+	if t.Read != nil {
+		names = append(names, "read")
+	}
+	return names
 }
 
 type Client struct {
