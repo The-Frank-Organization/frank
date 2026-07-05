@@ -2,7 +2,7 @@
 
 **DESIGN_DOC_ID:** `s3-slice-3-design`
 **Owner:** s3-form — design-lead `s3-form.planner` · adversarial design-reviewer `s3-form.implementer`
-**Status:** r1 PROVISIONAL — pre-grill draft per the DESIGN dispatch (`.relays/s3/s3-form-design/DESIGN-orchestrator-planner-20260704-170903.md`, GRILL_REQUIRED: yes). Provisional sections are marked **[P-GUIDE]** (pending `s3-guide-q1`), **[P-M7]** (pending `s3-consult-m7` fold), **[P-SCOPE]** (pending `s3-scope-q1` ruling), **[P-GRILL]** (grill agenda floor). No lock, no DESIGN-REVIEW-consumed-toward-PLAN, and no PROCEED-TO-PLAN until the GRILL_LOCK exists and pending-thread deltas are folded.
+**Status:** r2 — operator grill RUN 2026-07-04, **GRILL_LOCK folded at §8** (`s3-grill-s3-form`): Q1 typed-header carrier = canonical JSON-in-string (operator); Q2 disposition-table = generated pair (operator); S2-store fate = stated consequence (planner judgment, operator-deferred); the [P-GRILL] tags resolve accordingly. Still provisional: **[P-GUIDE]** (`s3-guide-q1` answer not yet on disk) and the **[P-M7]**/**[P-SCOPE]** drafted assumptions (thread replies on file TO the slice orchestrator; they enter via the orchestrator's fold). Per the dispatch: no design lock, no DESIGN-REVIEW-consumed-toward-PLAN, no PROCEED-TO-PLAN until those deltas fold. (r1 = pre-grill draft, main@c149b71.)
 **Date:** 2026-07-04 · **Tier:** medium · **Evidence:** E1 (locked-spec + code cites) / E2 (battery + oracle runs from the reconciled audits)
 **Basis:** reconciled paired audits (RECONCILE.md 2026-07-04 third entry; planner `s3-form-audit/AUDIT-planner-20260704-170105.md` + implementer `…-162725.md`); the twelve dispatch constraints (each landed below — §3 is the landing map).
 **Locked inputs (never designed here):** the m-2 design-of-record (§3/§4/§5/§6/§8/§9/§10/§11/§12/§17/§18); ARCH §C4 (+ §C4.3 claim boundary, the owed-carry ledger); the m-7 engine design (§2/§6/§7/§8); the m-1 store contract (verbs, homes, stamping); the S1 r5 + S2 r4 closed designs. Line refs `m-2 :N` / `m-7 :N` / `relay-lint.py:N` as in the audits.
@@ -156,4 +156,37 @@ With `gate_referenceable` first-class (D-1) and load-time grammar rejection (D-3
 
 `Headers map[string]any` / parallel structured-header section (D-2) · JSON-Schema as the registry carrier (re-litigates the locked m-2 §4 carrier decision — not ours to reopen; the bespoke FieldSpec IS the locked choice) · eval-time-only R2 checking (load-time rejection is strictly stronger and matches "rejected by the grammar", AC14) · keeping `isAGateCategory` as a verified copy (two sources for one byte-exact set is the audit's named probe — dies) · narrowing the S1 authority-superset to the precise taxonomy in one step (never-narrower rule; superset stays the floor) · a fourth `uncovered`-style replay bucket (the gate vocabulary is closed at caught-or-genuinely-obsolete; the observe-context label is an adjudication annotation, not a bucket) · per-submit store rescans retained (F-P1) · building the §7 config-change record unbidden (P-SCOPE; scope is master's) · a backward/downgrade migrator (scope expansion — escalate if ever wanted).
 
-## 8. GRILL_LOCK — [PLACEHOLDER: to be run with the operator pre-lock; agenda floor = the dispatch's; fence = no c1–c6/S1/S2 lock re-opening; resolved-by-guide/consult/master rows enter as resolved. GRILL_LOCK_ID will fold into DESIGN_LOCK_ID.]
+## 8. GRILL_LOCK
+
+```text
+GRILL_LOCK_ID: s3-grill-s3-form
+GRILL_REQUIRED: yes
+GRILL_SOURCE:
+- plan/design/audit relay read: s3-form-design dispatch (…-170903, GRILL_REQUIRED: yes, agenda floor + fence); reconciled s3-form audits (RECONCILE.md third entry); the twelve constraints
+- code/docs inspected: frank/ at 042fcd9..c149b71 (record/store/fieldspec/engine/lineage/channel + test/replay); m-2 §4/§5/§9/§10/§11; ARCH §C4 + §J2; relay-lint.py assertion inventory; the v2.8.8 oracle (146/146, own run)
+- questions answered from codebase: no hardcoded field list survives the registry rebuild (D-1/D-5); the S1 authority-superset stays the floor (never-narrower); the digest mechanism exists dead-pathed (promote, not rebuild)
+- questions asked operator: typed-header carrier (Q1); disposition-table artifact form (Q2)
+
+Resolved decisions:
+- Typed-header carrier — canonical JSON-in-string inside the existing Headers map[string]string; one canonical marshaler (sorted keys) beside the registry; zero record-shape movement, additive/minor under the §9 compat contract, no forced migrator — source operator (grill 2026-07-04, Q1: "Canonical JSON-in-string (Recommended)" selected)
+- Disposition-table artifact — generated pair: machine dispositions.json consumed by the replay harness + generated human table at docs/sprints/2026-07-04-s3-slice-3/results/disposition-table.md; honesty legs = table-matches-inventory (every relay-lint.py assertion anchor rowed, :840-873 included) + report-matches-generated — source operator (grill Q2: "Generated pair + repo doc (Recommended)" selected)
+- S2-store fate — STATED CONSEQUENCE under planner judgment (operator ruled it a non-decision: "this doesn't matter..... use your best judgement and move on", 2026-07-04): the real S2 store ($HOME/frank-s2-store) freezes at its pinned S2 config, readable forever (phase-0 walls any config swap by design); S3 gate evidence runs on fresh stores; upgrading that store becomes the first customer of the §7 config-change record if/when master mandates it — nothing forecloses it
+- Registry member shape / version home / form-serving grain — RESOLVED-BY-CONSULT rows (m-7 reply on file at ../master/relays/s3-consult-m7/SITREP-planner-20260704-171546.md, TO the slice orchestrator; enters this design via the orchestrator's fold, not re-asked here; the §5 drafted assumptions stand provisional until that fold)
+- §7 config-change record scope — RESOLVED-BY-MASTER row (ruling on file at ../master/relays/s3-scope-q1/RECONCILE-orchestrator-planner-20260704-171608.md, TO the slice orchestrator; same fold path; drafted fresh-store posture stands provisional until folded)
+
+Pending (grill fence honored — not operator questions, not re-asked):
+- replay adjudication vocabulary, GRILL_REQUIRED row values, R2 fixture grain — s3-guide-q1 answer not yet on disk; the P-GUIDE rows stand provisional
+
+Rejected alternatives:
+- Headers map[string]any carrier — breaking record-schema change; forces the major bump + a real migrator day-one (operator-rejected via Q1)
+- parallel StructuredHeaders section — two homes for one layer (operator-rejected via Q1)
+- hand-maintained single .md table / test-artifact-only table — either unexecutable or outside the gate-evidence tree (operator-rejected via Q2)
+- upgrading the S2 store inside S3 — drags the config-change-record scope in through the side door (planner-rejected as part of the stated-consequence row)
+
+Still operator-owned:
+- S3-close sign-off (charter; exercised separately)
+- the s3-scope-q1 ruling is master's/operator's (fold path above)
+
+Design-lock impact:
+- DESIGN_LOCK_ID for this doc must reference GRILL_LOCK_ID s3-grill-s3-form; per the dispatch, no design lock / no DESIGN-REVIEW-consumed-toward-PLAN / no PROCEED-TO-PLAN until the pending-thread deltas (P-GUIDE + the P-M7/P-SCOPE folds) land
+```
