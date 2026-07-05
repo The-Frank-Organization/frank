@@ -6,6 +6,7 @@ func ApplicabilityMap() map[string]map[string]string {
 	classes := []string{
 		"submit-accept",
 		"submit-reject",
+		"config-change",
 		"held",
 		"operator-verdict",
 		"park",
@@ -38,6 +39,7 @@ func ApplicabilityMap() map[string]map[string]string {
 	}
 	mark("submit-accept", commit, projection, delivery)
 	mark("submit-reject", commit)
+	mark("config-change", commit, projection)
 	mark("held", commit, []string{"pre_outcome_reply"})
 	mark("operator-verdict", commit, projection, delivery)
 	mark("park", commit, projection, delivery)
