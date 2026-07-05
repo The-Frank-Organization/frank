@@ -92,7 +92,7 @@ func (s *MCPServer) handle(frame []byte) (mcpResponse, bool) {
 	case "ping":
 		return mcpResponse{JSONRPC: "2.0", ID: req.ID, Result: json.RawMessage(`{}`)}, true
 	case "tools/list":
-		return mcpResponse{JSONRPC: "2.0", ID: req.ID, Result: mustJSON(map[string]any{"tools": mcpTools()})}, true
+		return mcpResponse{JSONRPC: "2.0", ID: req.ID, Result: mustJSON(s.toolsListResult())}, true
 	case "tools/call":
 		result := s.handleToolCall(req.Params)
 		return mcpResponse{JSONRPC: "2.0", ID: req.ID, Result: mustJSON(result)}, true
@@ -128,6 +128,13 @@ func (s *MCPServer) handleToolCall(params json.RawMessage) mcpToolResult {
 	if len(args) == 0 || string(args) == "null" {
 		args = nil
 	}
+	if call.Name == "submit" {
+		payload, err := SubmitPayloadFromArguments(args)
+		if err != nil {
+			return errorToolResult(errProtocol)
+		}
+		args = payload
+	}
 	client, class := s.ensureClient()
 	if class != "" {
 		return errorToolResult(class)
@@ -138,6 +145,17 @@ func (s *MCPServer) handleToolCall(params json.RawMessage) mcpToolResult {
 		return errorToolResult(scrubError(err))
 	}
 	return textToolResult(string(result), false)
+}
+
+func (s *MCPServer) toolsListResult() map[string]any {
+	var submitSchema map[string]any
+	if client, class := s.ensureClient(); class == "" {
+		describe, err := client.DescribeTools(s.opts.Context, channel.DescribeRequest{Phase: "SITREP", Tier: "medium"})
+		if err == nil && describe.SubmitSchema != nil {
+			submitSchema = SchemaFromForm(*describe.SubmitSchema, describe.FormDigest)
+		}
+	}
+	return map[string]any{"tools": mcpTools(submitSchema)}
 }
 
 func (s *MCPServer) ensureClient() (*channel.Client, string) {
@@ -187,16 +205,19 @@ func errorToolResult(class string) mcpToolResult {
 	return textToolResult(string(payload), true)
 }
 
-func mcpTools() []mcpTool {
+func mcpTools(submitSchema map[string]any) []mcpTool {
 	honesty := "transport/provenance only; content claims are not verified by this tool"
+	if submitSchema == nil {
+		submitSchema = map[string]any{
+			"type":                 "object",
+			"additionalProperties": true,
+		}
+	}
 	return []mcpTool{
 		{
 			Name:        "submit",
 			Description: "Files a governance relay (" + honesty + ").",
-			InputSchema: map[string]any{
-				"type":                 "object",
-				"additionalProperties": true,
-			},
+			InputSchema: submitSchema,
 		},
 		{
 			Name:        "project",

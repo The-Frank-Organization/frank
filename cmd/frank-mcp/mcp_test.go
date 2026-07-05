@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/jackli/frank/internal/channel"
+	"github.com/jackli/frank/internal/fieldspec"
+	"github.com/jackli/frank/internal/record"
 	"github.com/jackli/frank/internal/seat"
 )
 
@@ -143,6 +145,165 @@ func TestToolsCallProxiesRealAuthenticatedChannel(t *testing.T) {
 	if !strings.Contains(readText, `"relay_id":"relay-1"`) {
 		t.Fatalf("read text = %s", readText)
 	}
+}
+
+func TestSubmitArgumentsRoundTripStructuredStringCarrier(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	root := t.TempDir()
+	mgr, err := seat.Open(root)
+	if err != nil {
+		t.Fatalf("seat.Open: %v", err)
+	}
+	cred, err := mgr.Mint("seat-a", "implementer", false)
+	if err != nil {
+		t.Fatalf("Mint: %v", err)
+	}
+	reg, err := fieldspec.Load(filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
+	if err != nil {
+		t.Fatalf("Load registry: %v", err)
+	}
+	meta := fieldspec.SeatMeta{Name: "seat-a", Role: "implementer"}
+	form, digest := reg.Render(fieldspec.RenderEnv{}, meta, "SITREP", "medium", fieldspec.ClosedGrantState)
+	sock := filepath.Join(os.TempDir(), fmt.Sprintf("frank-mcp-schema-%d.sock", time.Now().UnixNano()))
+	t.Cleanup(func() { _ = os.Remove(sock) })
+	srv, err := channel.ServeAuthenticated(sock, mgr, func(seat.SeatMeta) channel.ToolSet {
+		return channel.ToolSet{
+			Describe: func(context.Context, json.RawMessage) (json.RawMessage, error) {
+				return mustJSON(channel.DescriptionResponse{
+					Tools:        []string{"submit", "project", "read"},
+					SubmitSchema: &form,
+					FormDigest:   digest,
+				}), nil
+			},
+			Submit: func(_ context.Context, args json.RawMessage) (json.RawMessage, error) {
+				var payload fieldspec.SubmitPayload
+				if err := json.Unmarshal(args, &payload); err != nil {
+					return nil, err
+				}
+				violations := reg.Validate(payload.Record, meta, payload.FormDigest, fieldspec.RenderEnv{}, fieldspec.ClosedGrantState)
+				if len(violations) > 0 {
+					return mustJSON(map[string]any{"state": record.Rejected, "violations": violations}), nil
+				}
+				return mustJSON(map[string]any{"state": record.Accepted, "headers": payload.Headers, "to": payload.Envelope.To}), nil
+			},
+		}
+	})
+	if err != nil {
+		t.Fatalf("ServeAuthenticated: %v", err)
+	}
+	defer func() { _ = srv.Close() }()
+
+	canonical := `[{"path":"README.md","status":"in"}]`
+	acceptedArgs := map[string]any{
+		"headers": map[string]string{
+			"PHASE":         "SITREP",
+			"AUTHORITY":     "report-only",
+			"CEREMONY_TIER": "medium",
+			"SUBJECT":       "structured carrier",
+			"SCOPE_DIFF":    canonical,
+		},
+		"to":          "seat-a",
+		"dispatch_id": "schema-roundtrip",
+		"body":        "body",
+		"form_digest": digest,
+	}
+	acceptedInput := mcpCall("submit", 1, acceptedArgs)
+	stdout, stderr := runMCPGolden(t, Options{SocketPath: sock, Credential: cred.Value, Context: ctx}, acceptedInput)
+	if stderr != "" {
+		t.Fatalf("stderr = %s", stderr)
+	}
+	text := decodeRPCOutput(t, stdout)[0]["result"].(map[string]any)["content"].([]any)[0].(map[string]any)["text"].(string)
+	var accepted struct {
+		State   string            `json:"state"`
+		Headers map[string]string `json:"headers"`
+		To      string            `json:"to"`
+	}
+	if err := json.Unmarshal([]byte(text), &accepted); err != nil {
+		t.Fatalf("decode accepted text %s: %v", text, err)
+	}
+	if accepted.State != record.Accepted || accepted.Headers["SCOPE_DIFF"] != canonical || accepted.To != "seat-a" {
+		t.Fatalf("accepted submit = %+v", accepted)
+	}
+
+	badArgs := acceptedArgs
+	badHeaders := map[string]string{
+		"PHASE":         "SITREP",
+		"AUTHORITY":     "report-only",
+		"CEREMONY_TIER": "medium",
+		"SUBJECT":       "structured carrier",
+		"SCOPE_DIFF":    `[{"path": "README.md","status":"in"}]`,
+	}
+	badArgs["headers"] = badHeaders
+	badInput := mcpCall("submit", 2, badArgs)
+	stdout, _ = runMCPGolden(t, Options{SocketPath: sock, Credential: cred.Value, Context: ctx}, badInput)
+	text = decodeRPCOutput(t, stdout)[0]["result"].(map[string]any)["content"].([]any)[0].(map[string]any)["text"].(string)
+	if !strings.Contains(text, `"state":"rejected"`) ||
+		!strings.Contains(text, `"Field":"SCOPE_DIFF"`) ||
+		!strings.Contains(text, `"Class":"canonical-encoding"`) {
+		t.Fatalf("non-canonical submit text = %s", text)
+	}
+}
+
+func TestToolsListUsesRenderedSubmitSchemaWhenReachable(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	root := t.TempDir()
+	mgr, err := seat.Open(root)
+	if err != nil {
+		t.Fatalf("seat.Open: %v", err)
+	}
+	cred, err := mgr.Mint("seat-a", "implementer", false)
+	if err != nil {
+		t.Fatalf("Mint: %v", err)
+	}
+	form := fieldspec.Form{Fields: map[string]fieldspec.Field{
+		"AUTHORITY": {Type: "enum", Options: []string{"read-only", "report-only"}},
+	}}
+	sock := filepath.Join(os.TempDir(), fmt.Sprintf("frank-mcp-list-%d.sock", time.Now().UnixNano()))
+	t.Cleanup(func() { _ = os.Remove(sock) })
+	srv, err := channel.ServeAuthenticated(sock, mgr, func(seat.SeatMeta) channel.ToolSet {
+		return channel.ToolSet{
+			Describe: func(context.Context, json.RawMessage) (json.RawMessage, error) {
+				return mustJSON(channel.DescriptionResponse{
+					Tools:        []string{"submit", "project", "read"},
+					SubmitSchema: &form,
+					FormDigest:   "render-digest",
+				}), nil
+			},
+			Submit: func(context.Context, json.RawMessage) (json.RawMessage, error) {
+				return json.RawMessage(`{"state":"accepted"}`), nil
+			},
+			Project: func(context.Context, json.RawMessage) (json.RawMessage, error) { return json.RawMessage(`[]`), nil },
+			Read:    func(context.Context, json.RawMessage) (json.RawMessage, error) { return json.RawMessage(`{}`), nil },
+		}
+	})
+	if err != nil {
+		t.Fatalf("ServeAuthenticated: %v", err)
+	}
+	defer func() { _ = srv.Close() }()
+
+	stdout, stderr := runMCPGolden(t, Options{SocketPath: sock, Credential: cred.Value, Context: ctx}, `{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`+"\n")
+	if stderr != "" {
+		t.Fatalf("stderr = %s", stderr)
+	}
+	data := stdout
+	if !strings.Contains(data, `"const":"render-digest"`) || !strings.Contains(data, `"AUTHORITY"`) {
+		t.Fatalf("tools/list did not include rendered submit schema: %s", data)
+	}
+}
+
+func mcpCall(name string, id int, args map[string]any) string {
+	payload, _ := json.Marshal(map[string]any{
+		"jsonrpc": "2.0",
+		"id":      id,
+		"method":  "tools/call",
+		"params": map[string]any{
+			"name":      name,
+			"arguments": args,
+		},
+	})
+	return string(payload) + "\n"
 }
 
 func runMCPGolden(t *testing.T, opts Options, stdin string) (string, string) {
