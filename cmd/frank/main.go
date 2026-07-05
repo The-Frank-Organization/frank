@@ -19,6 +19,7 @@ import (
 	frankgc "github.com/jackli/frank/internal/gc"
 	"github.com/jackli/frank/internal/intake"
 	"github.com/jackli/frank/internal/lineage"
+	"github.com/jackli/frank/internal/migrate"
 	"github.com/jackli/frank/internal/obligation"
 	"github.com/jackli/frank/internal/record"
 	frankrecover "github.com/jackli/frank/internal/recover"
@@ -244,7 +245,7 @@ func channelTools(ctx context.Context, st *store.Store, reg *fieldspec.Registry,
 			if err := json.Unmarshal(payload, &req); err != nil {
 				return nil, err
 			}
-			rec, err := st.Read(req.RelayID)
+			view, err := (migrate.Reader{Store: st, Registry: migrate.New()}).Read(req.RelayID)
 			if err != nil {
 				var checksum store.ErrChecksum
 				if errors.As(err, &checksum) {
@@ -270,7 +271,8 @@ func channelTools(ctx context.Context, st *store.Store, reg *fieldspec.Registry,
 			return json.Marshal(struct {
 				Record        record.Record `json:"record"`
 				SchemaVersion int           `json:"schema_version"`
-			}{Record: rec, SchemaVersion: rec.Envelope.SchemaVersion})
+				SourceVersion int           `json:"source_schema_version"`
+			}{Record: view.Record, SchemaVersion: view.Record.Envelope.SchemaVersion, SourceVersion: view.SourceVersion})
 		},
 	}
 }

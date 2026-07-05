@@ -35,6 +35,23 @@ func TestSubmitHandlerStampsAndAcceptsValidCandidate(t *testing.T) {
 	}
 }
 
+func TestSubmitHandlerStampsCurrentSchemaVersion(t *testing.T) {
+	st, reg := submitDeps(t)
+	meta := seat.SeatMeta{Name: "s1-core.implementer", Role: "implementer"}
+	handler := engine.SubmitHandler(st, reg, meta)
+	payload := submitPayload(t, reg, meta, record.Record{
+		Envelope: record.Envelope{SchemaVersion: 99},
+		Headers:  map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "SUBJECT": "schema"},
+	})
+	rec, _, err := handler(context.Background(), intake.Cmd{IntakeID: "schema", Seat: meta.Name, Role: meta.Role, Payload: payload})
+	if err != nil {
+		t.Fatalf("handler: %v", err)
+	}
+	if rec.Envelope.SchemaVersion != 1 {
+		t.Fatalf("schema version = %d, want current", rec.Envelope.SchemaVersion)
+	}
+}
+
 func TestSubmitHandlerAssignsRelayIDAndProjectionIntents(t *testing.T) {
 	st, reg := submitDeps(t)
 	meta := seat.SeatMeta{Name: "s1-core.implementer", Role: "implementer"}

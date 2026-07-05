@@ -8,6 +8,7 @@ import (
 	"github.com/jackli/frank/internal/fieldspec"
 	"github.com/jackli/frank/internal/intake"
 	"github.com/jackli/frank/internal/lineage"
+	"github.com/jackli/frank/internal/migrate"
 	"github.com/jackli/frank/internal/record"
 	"github.com/jackli/frank/internal/seat"
 	"github.com/jackli/frank/internal/store"
@@ -31,9 +32,7 @@ func SubmitHandlerWithRender(st *store.Store, reg *fieldspec.Registry, meta seat
 		}
 		cand.Envelope.RelayID = relayID
 		cand.Envelope.IntakeID = cmd.IntakeID
-		if cand.Envelope.SchemaVersion == 0 {
-			cand.Envelope.SchemaVersion = 1
-		}
+		cand.Envelope.SchemaVersion = migrate.Current
 		tab := firstSubmitTable(existing)
 		if tab == nil {
 			var err error
