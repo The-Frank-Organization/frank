@@ -310,6 +310,9 @@ func channelTools(ctx context.Context, st *store.Store, reg *fieldspec.Registry,
 				}
 				return nil, err
 			}
+			if view.Record.Headers["record_kind"] == "config_change" && !operatorSeat(meta) {
+				return json.Marshal(redactedConfigChangeRead(view.Record))
+			}
 			return json.Marshal(struct {
 				Record        record.Record `json:"record"`
 				SchemaVersion int           `json:"schema_version"`
@@ -317,6 +320,40 @@ func channelTools(ctx context.Context, st *store.Store, reg *fieldspec.Registry,
 			}{Record: view.Record, SchemaVersion: view.Record.Envelope.SchemaVersion, SourceVersion: view.SourceVersion})
 		},
 	}
+}
+
+type configChangeRedactedEnvelope struct {
+	From          string `json:"from"`
+	Role          string `json:"role"`
+	SchemaVersion int    `json:"schema_version"`
+}
+
+type configChangeRedactedView struct {
+	RelayID    string                       `json:"relay_id"`
+	Envelope   configChangeRedactedEnvelope `json:"envelope"`
+	RecordKind string                       `json:"record_kind"`
+	Member     string                       `json:"member"`
+	NewDigest  string                       `json:"new_digest"`
+	Redacted   string                       `json:"redacted"`
+}
+
+func redactedConfigChangeRead(rec record.Record) configChangeRedactedView {
+	return configChangeRedactedView{
+		RelayID: rec.Envelope.RelayID,
+		Envelope: configChangeRedactedEnvelope{
+			From:          rec.Envelope.From,
+			Role:          rec.Envelope.Role,
+			SchemaVersion: rec.Envelope.SchemaVersion,
+		},
+		RecordKind: rec.Headers["record_kind"],
+		Member:     rec.Headers["member"],
+		NewDigest:  rec.Headers["new_digest"],
+		Redacted:   "config-member-bytes",
+	}
+}
+
+func operatorSeat(meta seat.SeatMeta) bool {
+	return meta.IsOperator || meta.Name == "operator" || meta.Role == "operator"
 }
 
 func seatToolDescriptions() map[string]string {
