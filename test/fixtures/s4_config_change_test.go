@@ -207,6 +207,79 @@ func TestPayloadDigestIsClaimNotAuthority(t *testing.T) {
 	}
 }
 
+func TestRestartWithNewRegistryBouncesStaleForm(t *testing.T) {
+	h := newS4ShimHarness(t)
+	operatorCred, err := h.mgr.Mint("operator", "operator", true)
+	if err != nil {
+		t.Fatalf("Mint operator: %v", err)
+	}
+	h.start(t)
+
+	operator := h.dial(t, operatorCred)
+	before, err := operator.DescribeTools(h.ctx, channel.DescribeRequest{Phase: "SITREP", Tier: "medium"})
+	if err != nil {
+		t.Fatalf("DescribeTools before: %v", err)
+	}
+	body := mutatedRegistryBody(t, h.root)
+	h.submit(t, operator, configChangeRelay(t, h.root, body))
+	_ = operator.Close()
+	h.stop(t)
+	h.start(t)
+
+	operator = h.dial(t, operatorCred)
+	defer func() { _ = operator.Close() }()
+	stale := record.Record{
+		Headers: map[string]string{
+			"PHASE":         "SITREP",
+			"AUTHORITY":     "report-only",
+			"CEREMONY_TIER": "medium",
+			"SUBJECT":       "stale form",
+		},
+		Body: "stale",
+	}
+	payload := mustJSONBytes(t, fieldspec.SubmitPayload{Record: stale, FormDigest: before.FormDigest})
+	result, err := operator.Call(h.ctx, "submit", payload)
+	if err != nil {
+		t.Fatalf("submit stale form: %v", err)
+	}
+	var staleOutcome struct {
+		State   string `json:"state"`
+		RelayID string `json:"relay_id"`
+	}
+	if err := json.Unmarshal(result, &staleOutcome); err != nil {
+		t.Fatalf("decode stale outcome %s: %v", result, err)
+	}
+	if staleOutcome.State != record.Rejected || staleOutcome.RelayID == "" {
+		t.Fatalf("stale outcome = %+v, want rejected relay", staleOutcome)
+	}
+	read := readRelayRaw(t, h.ctx, operator, staleOutcome.RelayID)
+	if !bytes.Contains(read, []byte("form_digest")) || !bytes.Contains(read, []byte("re-render")) {
+		t.Fatalf("stale form read = %s, want form_digest re-render bounce", read)
+	}
+
+	after, err := operator.DescribeTools(h.ctx, channel.DescribeRequest{Phase: "SITREP", Tier: "medium"})
+	if err != nil {
+		t.Fatalf("DescribeTools after: %v", err)
+	}
+	if after.FormDigest == before.FormDigest {
+		t.Fatalf("restart form digest did not change")
+	}
+	payload = mustJSONBytes(t, fieldspec.SubmitPayload{Record: stale, FormDigest: after.FormDigest})
+	result, err = operator.Call(h.ctx, "submit", payload)
+	if err != nil {
+		t.Fatalf("submit fresh form: %v", err)
+	}
+	var freshOutcome struct {
+		State string `json:"state"`
+	}
+	if err := json.Unmarshal(result, &freshOutcome); err != nil {
+		t.Fatalf("decode fresh outcome %s: %v", result, err)
+	}
+	if freshOutcome.State != record.Accepted {
+		t.Fatalf("fresh outcome = %+v, want accepted", freshOutcome)
+	}
+}
+
 func mutatedRegistryBody(t *testing.T, root string) []byte {
 	t.Helper()
 	data := mustReadFile(t, filepath.Join(root, "config", "fieldspec", "registry.json"))

@@ -158,6 +158,20 @@ func (h *s4ShimHarness) start(t *testing.T) {
 	waitForSocket(t, h.sock)
 }
 
+func (h *s4ShimHarness) stop(t *testing.T) {
+	t.Helper()
+	if h.cmd == nil {
+		return
+	}
+	if h.cmd.Process != nil {
+		_ = h.cmd.Process.Kill()
+	}
+	_ = h.cmd.Wait()
+	h.cmd = nil
+	h.stderr = nil
+	_ = os.Remove(h.sock)
+}
+
 func (h *s4ShimHarness) dial(t *testing.T, cred seat.Cred) *channel.Client {
 	t.Helper()
 	client, err := channel.DialAuthenticated(h.ctx, h.sock, cred.Value)

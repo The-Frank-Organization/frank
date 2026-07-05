@@ -61,6 +61,51 @@ func TestConfigChangeCommitMaterializesMember(t *testing.T) {
 	}
 }
 
+func TestChainWalkLatestWins(t *testing.T) {
+	root := t.TempDir()
+	if err := store.Init(root, writeConfigSources(t)); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	st, err := store.Open(root)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	first := `{"phase":["SITREP","PLAN"],"authority":[],"ceremony_tier":[],"evidence_target":[],"gate_category":{},"grant":[]}`
+	firstDigest := digestWithMember(t, root, "fieldspec", []byte(first))
+	firstRec := configChangeRecord("config-change-first", first, firstDigest)
+	if _, err := st.Commit(firstRec, store.ConfigChangeIntents(firstRec)); err != nil {
+		t.Fatalf("commit first config_change: %v", err)
+	}
+	second := `{"phase":["SITREP","PLAN","IMPL"],"authority":[],"ceremony_tier":[],"evidence_target":[],"gate_category":{},"grant":[]}`
+	secondDigest := digestWithMember(t, root, "fieldspec", []byte(second))
+	secondRec := configChangeRecord("config-change-second", second, secondDigest)
+	if _, err := st.Commit(secondRec, store.ConfigChangeIntents(secondRec)); err != nil {
+		t.Fatalf("commit second config_change: %v", err)
+	}
+
+	got, err := st.ExpectedConfigDigest()
+	if err != nil {
+		t.Fatalf("ExpectedConfigDigest: %v", err)
+	}
+	if got != secondDigest {
+		t.Fatalf("ExpectedConfigDigest = %s, want latest %s", got, secondDigest)
+	}
+}
+
+func configChangeRecord(relayID, body, digest string) record.Record {
+	return record.Record{
+		Envelope: record.Envelope{RelayID: relayID, From: "operator", Role: "operator", DeliveryState: record.Accepted, SchemaVersion: 1},
+		Headers: map[string]string{
+			"PHASE":       "SITREP",
+			"SUBJECT":     "registry update",
+			"record_kind": "config_change",
+			"member":      "fieldspec",
+			"new_digest":  digest,
+		},
+		Body: body,
+	}
+}
+
 func digestWithMember(t *testing.T, root, member string, body []byte) string {
 	t.Helper()
 	pinned, err := config.Load(store.StoreRootConfigPaths(root))

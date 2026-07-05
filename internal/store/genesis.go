@@ -102,19 +102,87 @@ func (s *Store) Genesis() (record.Record, error) {
 }
 
 func (s *Store) ValidateGenesis(pinned *config.Pinned) error {
-	if pinned == nil {
-		return errors.New("missing pinned config")
-	}
-	genesis, err := s.Genesis()
+	expected, err := s.ExpectedConfigDigest()
 	if err != nil {
 		return err
 	}
-	want := genesis.Headers["config_digest"]
-	got := pinned.Digest
-	if want == "" || want != got {
-		return ErrDigestMismatch{Want: want, Got: got}
+	got, loadErr := s.currentConfigDigest()
+	if loadErr == nil && expected != "" && got == expected {
+		return nil
 	}
-	return nil
+	if err := s.rematerializeLatestConfigChange(); err == nil {
+		got, loadErr = s.currentConfigDigest()
+		if loadErr == nil && expected != "" && got == expected {
+			return nil
+		}
+	}
+	if loadErr != nil {
+		got = "unreadable"
+	}
+	return ErrDigestMismatch{Want: expected, Got: got}
+}
+
+func (s *Store) ExpectedConfigDigest() (string, error) {
+	genesis, err := s.Genesis()
+	if err != nil {
+		return "", err
+	}
+	expected := genesis.Headers["config_digest"]
+	chain, err := s.acceptedConfigChanges()
+	if err != nil {
+		return "", err
+	}
+	for _, rec := range chain {
+		if digest := rec.Headers["new_digest"]; digest != "" {
+			expected = digest
+		}
+	}
+	return expected, nil
+}
+
+func (s *Store) currentConfigDigest() (string, error) {
+	pinned, err := config.Load(StoreRootConfigPaths(s.Root))
+	if err != nil {
+		return "", err
+	}
+	return pinned.Digest, nil
+}
+
+func (s *Store) rematerializeLatestConfigChange() error {
+	chain, err := s.acceptedConfigChanges()
+	if err != nil {
+		return err
+	}
+	if len(chain) == 0 {
+		return errors.New("no config_change chain")
+	}
+	return s.applyIntents(ConfigChangeIntents(chain[len(chain)-1]))
+}
+
+func (s *Store) acceptedConfigChanges() ([]record.Record, error) {
+	entries, err := readRedo(s.Root)
+	if err != nil {
+		return nil, err
+	}
+	var chain []record.Record
+	for _, entry := range entries {
+		rec, err := s.Read(entry.RelayID)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			var checksum ErrChecksum
+			var quarantined ErrQuarantined
+			if errors.As(err, &checksum) || errors.As(err, &quarantined) {
+				continue
+			}
+			return nil, err
+		}
+		if rec.Envelope.DeliveryState == record.Accepted && rec.Headers["record_kind"] == "config_change" {
+			chain = append(chain, rec)
+		}
+	}
+	return chain, nil
 }
 
 func configTarget(name string) (string, error) {
