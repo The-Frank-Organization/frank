@@ -35,13 +35,17 @@ type TurnContext struct {
 }
 
 func AuthorityBearing(cand record.Record, meta seat.SeatMeta) bool {
+	return (&Engine{}).AuthorityBearing(cand, meta)
+}
+
+func (e *Engine) AuthorityBearing(cand record.Record, meta seat.SeatMeta) bool {
 	if cand.Headers["grant"] != "" {
 		return true
 	}
 	if cand.Headers["HUMAN_GATE_REQUIRED"] == "yes" {
 		return true
 	}
-	if isAGateCategory(cand.Headers["gate_category"]) {
+	if e.gateCategoryAuthorityBearing(cand.Headers["gate_category"]) {
 		return true
 	}
 	if slices.Contains([]string{"PLAN", "IMPL", "REVIEW-FOLD", "MERGE-GATE", "LIVE-VERIFY"}, cand.Headers["PHASE"]) {
@@ -56,12 +60,22 @@ func AuthorityBearing(cand record.Record, meta seat.SeatMeta) bool {
 	return false
 }
 
+func (e *Engine) gateCategoryAuthorityBearing(value string) bool {
+	if value == "" {
+		return false
+	}
+	if e.Reg == nil {
+		return true
+	}
+	return e.Reg.GateCategoryAuthorityBearing(value)
+}
+
 func Check(cand record.Record, t *tables.T) *Bounce {
 	return (&Engine{T: t}).Check(cand, seat.SeatMeta{Name: cand.Envelope.From, Role: cand.Envelope.Role})
 }
 
 func (e *Engine) Check(cand record.Record, meta seat.SeatMeta) *Bounce {
-	if !AuthorityBearing(cand, seat.SeatMeta{Name: cand.Envelope.From, Role: cand.Envelope.Role}) {
+	if !e.AuthorityBearing(cand, meta) {
 		return nil
 	}
 	if bounce := e.checkParentSubstrate(cand); bounce != nil {
@@ -262,17 +276,4 @@ func approving(rec record.Record) bool {
 		}
 	}
 	return false
-}
-
-func isAGateCategory(value string) bool {
-	return value == "other" || slices.Contains([]string{
-		"merge_to_protected",
-		"irreversible_write",
-		"residual_risk_acceptance",
-		"live_verify_skip",
-		"ceremony_downgrade",
-		"authz_security",
-		"product_semantics",
-		"scope_expansion",
-	}, value)
 }

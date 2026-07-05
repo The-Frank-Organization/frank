@@ -158,6 +158,16 @@ func (r *Registry) ClassifyGateCategory(token string, knownA bool) (string, bool
 	return "A", true
 }
 
+func (r *Registry) GateCategoryAuthorityBearing(token string) bool {
+	if token == "" {
+		return false
+	}
+	if token == "other" {
+		return true
+	}
+	return slices.Contains(r.GateCategory["A"], token)
+}
+
 type SubmitPayload struct {
 	record.Record
 	FormDigest string `json:"form_digest,omitempty"`

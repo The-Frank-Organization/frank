@@ -3,6 +3,7 @@ package lineage_test
 import (
 	"testing"
 
+	"github.com/jackli/frank/internal/fieldspec"
 	"github.com/jackli/frank/internal/lineage"
 	"github.com/jackli/frank/internal/record"
 	"github.com/jackli/frank/internal/seat"
@@ -26,6 +27,25 @@ func TestAuthorityBearingPessimisticSuperset(t *testing.T) {
 	}
 	if lineage.AuthorityBearing(record.Record{Headers: map[string]string{"PHASE": "SITREP"}}, seat.SeatMeta{Name: "s1-core.implementer", Role: "implementer"}) {
 		t.Fatalf("plain pair SITREP was authority-bearing")
+	}
+}
+
+func TestAuthorityBearingGateCategoryUsesRegistry(t *testing.T) {
+	meta := seat.SeatMeta{Name: "s3-form.implementer", Role: "implementer"}
+	eng := lineage.Engine{Reg: &fieldspec.Registry{GateCategory: map[string][]string{
+		"A": {"registry-only-a"},
+		"B": {"registry-only-b"},
+	}}}
+
+	for _, token := range []string{"registry-only-a", "other"} {
+		if !eng.AuthorityBearing(record.Record{Headers: map[string]string{"gate_category": token}}, meta) {
+			t.Fatalf("%s was not authority-bearing", token)
+		}
+	}
+	for _, token := range []string{"registry-only-b", "authz_security", "unknown"} {
+		if eng.AuthorityBearing(record.Record{Headers: map[string]string{"gate_category": token}}, meta) {
+			t.Fatalf("%s unexpectedly authority-bearing", token)
+		}
 	}
 }
 
