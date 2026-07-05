@@ -84,10 +84,6 @@ func run(ctx context.Context, cfg config) error {
 	if err != nil {
 		return err
 	}
-	reg, err := fieldspec.Load(cfg.Registry)
-	if err != nil {
-		return err
-	}
 	mgr, err := seat.Open(cfg.Root)
 	if err != nil {
 		return err
@@ -96,6 +92,7 @@ func run(ctx context.Context, cfg config) error {
 	if err != nil {
 		return err
 	}
+	reg := pinned.Registry
 	journal, err := intake.OpenWithConfig(cfg.Root, pinned.Engine)
 	if err != nil {
 		return err
