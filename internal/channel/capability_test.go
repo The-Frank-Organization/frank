@@ -76,17 +76,6 @@ func TestCapability(t *testing.T) {
 		t.Fatalf("submit result = %s", result)
 	}
 
-	if err := serverA.Push([]byte(`{"method":"notifications/nudge"}`)); err != nil {
-		t.Fatalf("push: %v", err)
-	}
-	frame, err := clientA.NextPush(ctx)
-	if err != nil {
-		t.Fatalf("next push: %v", err)
-	}
-	if string(frame) != `{"method":"notifications/nudge"}` {
-		t.Fatalf("push frame = %s", frame)
-	}
-
 	if err := clientB.CallExpectNoTool(ctx, "seat-a-only"); err == nil {
 		t.Fatalf("seat B unexpectedly reached a non-shared tool")
 	}

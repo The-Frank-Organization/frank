@@ -30,6 +30,7 @@ type ToolSet struct {
 }
 
 type ToolFactory func(seat.SeatMeta) ToolSet
+type AuthPushFunc func(seat.SeatMeta) [][]byte
 
 const defaultFrameLimit = 1 << 20
 
@@ -39,11 +40,18 @@ type Option func(*options)
 
 type options struct {
 	frameLimit int
+	authPushes AuthPushFunc
 }
 
 func WithFrameLimit(limit int) Option {
 	return func(o *options) {
 		o.frameLimit = normalizeFrameLimit(limit)
+	}
+}
+
+func WithAuthPushes(fn AuthPushFunc) Option {
+	return func(o *options) {
+		o.authPushes = fn
 	}
 }
 
@@ -87,16 +95,16 @@ type DescriptionResponse struct {
 }
 
 type Server struct {
-	ln      net.Listener
-	tools   ToolSet
-	auth    *seat.Manager
-	factory ToolFactory
-	done    chan struct{}
-	clients map[*serverConn]struct{}
-	active  map[[32]byte]*serverConn
-	pending [][]byte
-	limit   int
-	mu      sync.Mutex
+	ln         net.Listener
+	tools      ToolSet
+	auth       *seat.Manager
+	factory    ToolFactory
+	done       chan struct{}
+	clients    map[*serverConn]struct{}
+	active     map[[32]byte]*serverConn
+	limit      int
+	authPushes AuthPushFunc
+	mu         sync.Mutex
 }
 
 func Serve(sockPath string, tools ToolSet, opts ...Option) (*Server, error) {
@@ -112,12 +120,13 @@ func Serve(sockPath string, tools ToolSet, opts ...Option) (*Server, error) {
 		return nil, err
 	}
 	s := &Server{
-		ln:      ln,
-		tools:   tools,
-		done:    make(chan struct{}),
-		clients: map[*serverConn]struct{}{},
-		active:  map[[32]byte]*serverConn{},
-		limit:   applied.frameLimit,
+		ln:         ln,
+		tools:      tools,
+		done:       make(chan struct{}),
+		clients:    map[*serverConn]struct{}{},
+		active:     map[[32]byte]*serverConn{},
+		limit:      applied.frameLimit,
+		authPushes: applied.authPushes,
 	}
 	go s.accept()
 	return s, nil
@@ -152,32 +161,16 @@ func (s *Server) accept() {
 	}
 }
 
-func (s *Server) Push(frame []byte) error {
-	return s.broadcast(frame)
-}
-
-func (s *Server) QueuePush(frame []byte) error {
-	if !json.Valid(frame) {
-		return fmt.Errorf("invalid push frame")
-	}
-	s.mu.Lock()
-	s.pending = append(s.pending, append([]byte(nil), frame...))
-	clients := make([]*serverConn, 0, len(s.clients))
-	for c := range s.clients {
-		clients = append(clients, c)
-	}
-	s.mu.Unlock()
-	return writePushes(clients, frame)
-}
-
-func (s *Server) broadcast(frame []byte) error {
+func (s *Server) PushTo(seatName string, frame []byte) error {
 	if !json.Valid(frame) {
 		return fmt.Errorf("invalid push frame")
 	}
 	s.mu.Lock()
 	clients := make([]*serverConn, 0, len(s.clients))
 	for c := range s.clients {
-		clients = append(clients, c)
+		if c.authed && c.seat == seatName {
+			clients = append(clients, c)
+		}
 	}
 	s.mu.Unlock()
 	return writePushes(clients, frame)
@@ -215,6 +208,7 @@ type serverConn struct {
 	mu       sync.Mutex
 	tools    ToolSet
 	authed   bool
+	seat     string
 	credHash [32]byte
 }
 
@@ -274,9 +268,14 @@ func (c *serverConn) handle(req rpcMessage) (json.RawMessage, string) {
 		c.credHash = credHash
 		c.tools = tools
 		c.authed = true
+		c.seat = meta.Name
 		c.server.active[credHash] = c
 		c.server.mu.Unlock()
-		c.flushPending()
+		for _, frame := range c.authPushes(meta) {
+			if json.Valid(frame) {
+				_ = c.write(rpcMessage{Method: "notifications/nudge", Params: frame})
+			}
+		}
 		return mustJSON(connectResponse{Seat: meta.Name, Role: meta.Role}), ""
 	}
 	switch req.Method {
@@ -318,16 +317,11 @@ func (c *serverConn) activeTools() ToolSet {
 	return c.server.tools
 }
 
-func (c *serverConn) flushPending() {
-	c.server.mu.Lock()
-	pending := make([][]byte, len(c.server.pending))
-	for i, frame := range c.server.pending {
-		pending[i] = append([]byte(nil), frame...)
+func (c *serverConn) authPushes(meta seat.SeatMeta) [][]byte {
+	if c.server.authPushes == nil {
+		return nil
 	}
-	c.server.mu.Unlock()
-	for _, frame := range pending {
-		_ = c.write(rpcMessage{Method: "notifications/nudge", Params: frame})
-	}
+	return c.server.authPushes(meta)
 }
 
 func (c *serverConn) write(msg rpcMessage) error {

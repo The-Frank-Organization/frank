@@ -112,6 +112,36 @@ func TestKillHostEscapeHatch(t *testing.T) {
 	eventuallyDialAuthenticated(t, ctx, sock, credA.Value)
 }
 
+func TestPushToAuthenticatedSeatOnly(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	sock, server, credA, credB := serveLifecycleServer(t)
+	first, err := channel.DialAuthenticated(ctx, sock, credA.Value)
+	if err != nil {
+		t.Fatalf("first DialAuthenticated: %v", err)
+	}
+	defer func() { _ = first.Close() }()
+	second, err := channel.DialAuthenticated(ctx, sock, credB.Value)
+	if err != nil {
+		t.Fatalf("second DialAuthenticated: %v", err)
+	}
+	defer func() { _ = second.Close() }()
+
+	frame := []byte(`{"kind":"delivery-nudge","relay_id":"relay-b"}`)
+	if err := server.PushTo("seat-b", frame); err != nil {
+		t.Fatalf("PushTo: %v", err)
+	}
+	got, err := second.NextPush(ctx)
+	if err != nil {
+		t.Fatalf("seat-b NextPush: %v", err)
+	}
+	if string(got) != string(frame) {
+		t.Fatalf("seat-b push = %s, want %s", got, frame)
+	}
+	expectNoLifecyclePush(t, first)
+}
+
 func TestCredentialHolderHelper(t *testing.T) {
 	if os.Getenv("FRANK_TEST_CREDENTIAL_HOLDER") != "1" {
 		return
@@ -125,6 +155,15 @@ func TestCredentialHolderHelper(t *testing.T) {
 	}
 	defer func() { _ = client.Close() }()
 	<-ctx.Done()
+}
+
+func expectNoLifecyclePush(t *testing.T, client *channel.Client) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	if frame, err := client.NextPush(ctx); err == nil {
+		t.Fatalf("unexpected push: %s", frame)
+	}
 }
 
 func serveLifecycleServer(t *testing.T) (string, *channel.Server, seat.Cred, seat.Cred) {

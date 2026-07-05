@@ -106,10 +106,43 @@ func DefaultProjectionIntents(rec record.Record) []Intent {
 		{Kind: IntentIndex, Path: "INDEX.md", Payload: []byte(fmt.Sprintf("| %s | %s | %s | %s | %s |\n", relayID, rec.Headers["PHASE"], rec.Envelope.From, rec.Envelope.To, rec.Envelope.DeliveryState))},
 		{Kind: IntentRender, Path: renderPath, Payload: render},
 	}
-	if rec.Envelope.To != "" {
-		intents = append(intents, Intent{Kind: IntentMailbox, Path: safeMailbox(rec.Envelope.To) + ".jsonl", Payload: []byte(relayID + "\n")})
+	for _, recipient := range DeliveryRecipients(rec) {
+		intents = append(intents, Intent{Kind: IntentMailbox, Path: safeMailbox(recipient) + ".jsonl", Payload: []byte(relayID + "\n")})
 	}
 	return intents
+}
+
+func DeliveryRecipients(rec record.Record) []string {
+	seen := map[string]bool{}
+	var recipients []string
+	add := func(value string) {
+		value = strings.TrimSpace(value)
+		if value == "" || seen[value] {
+			return
+		}
+		seen[value] = true
+		recipients = append(recipients, value)
+	}
+	add(rec.Envelope.To)
+	for _, value := range addressList(rec.Headers["TO"]) {
+		add(value)
+	}
+	for _, value := range addressList(rec.Headers["CC"]) {
+		add(value)
+	}
+	return recipients
+}
+
+func addressList(raw string) []string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+	var values []string
+	if err := json.Unmarshal([]byte(raw), &values); err == nil {
+		return values
+	}
+	return strings.Split(raw, ",")
 }
 
 func canonicalProjectionIntents(rec record.Record) []Intent {

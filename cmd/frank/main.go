@@ -182,40 +182,55 @@ func run(ctx context.Context, cfg config) error {
 		go writer.Run(ctx, loop.In)
 	}
 	server, err = channel.ServeAuthenticated(socket, mgr, func(meta seat.SeatMeta) channel.ToolSet {
-		tools := channelTools(ctx, st, reg, pinned.Digest, liveTables, meta, writer, loop, func() {
-			if server != nil {
-				_ = server.Push([]byte(`{"kind":"delivery-nudge"}`))
+		tools := channelTools(ctx, st, reg, pinned.Digest, liveTables, meta, writer, loop, func(out engine.Outcome) {
+			if server == nil || out.State != record.Accepted || out.RelayID == "" {
+				return
+			}
+			rec, err := st.Read(out.RelayID)
+			if err != nil {
+				return
+			}
+			frame := deliveryNudgeFrame(out.RelayID)
+			for _, recipient := range store.DeliveryRecipients(rec) {
+				_ = server.PushTo(recipient, frame)
 			}
 		})
 		if result.Diag != nil {
 			return channel.ReadOnlySurface(result.Diag, tools)
 		}
 		return channel.FullSurface(result.Ready, tools)
-	})
+	}, channel.WithAuthPushes(func(meta seat.SeatMeta) [][]byte {
+		pending, err := st.PendingDeliveryFor(meta.Name)
+		if err != nil || !pending {
+			return nil
+		}
+		return [][]byte{recoveryNudgeFrame()}
+	}))
 	if err != nil {
 		return err
 	}
 	defer func() { _ = server.Close() }()
-	if seats, err := st.PendingDeliverySeats(); err != nil {
-		return err
-	} else if len(seats) > 0 {
-		frame, err := json.Marshal(struct {
-			Kind  string   `json:"kind"`
-			Seats []string `json:"seats"`
-		}{Kind: "recovery-nudge", Seats: seats})
-		if err != nil {
-			return err
-		}
-		if err := server.QueuePush(frame); err != nil {
-			return err
-		}
-	}
 
 	<-ctx.Done()
 	return nil
 }
 
-func channelTools(ctx context.Context, st *store.Store, reg *fieldspec.Registry, configDigest string, liveTables *tables.Live, meta seat.SeatMeta, writer *intake.Writer[engine.Outcome], loop *engine.Loop, nudge func()) channel.ToolSet {
+func deliveryNudgeFrame(relayID string) []byte {
+	frame, _ := json.Marshal(struct {
+		Kind    string `json:"kind"`
+		RelayID string `json:"relay_id"`
+	}{Kind: "delivery-nudge", RelayID: relayID})
+	return frame
+}
+
+func recoveryNudgeFrame() []byte {
+	frame, _ := json.Marshal(struct {
+		Kind string `json:"kind"`
+	}{Kind: "recovery-nudge"})
+	return frame
+}
+
+func channelTools(ctx context.Context, st *store.Store, reg *fieldspec.Registry, configDigest string, liveTables *tables.Live, meta seat.SeatMeta, writer *intake.Writer[engine.Outcome], loop *engine.Loop, nudge func(engine.Outcome)) channel.ToolSet {
 	return channel.ToolSet{
 		Describe: func(_ context.Context, payload json.RawMessage) (json.RawMessage, error) {
 			var req channel.DescribeRequest
@@ -255,7 +270,7 @@ func channelTools(ctx context.Context, st *store.Store, reg *fieldspec.Registry,
 			case <-ctx.Done():
 				return nil, ctx.Err()
 			}
-			nudge()
+			nudge(out)
 			return json.Marshal(out)
 		},
 		Project: func(context.Context, json.RawMessage) (json.RawMessage, error) {

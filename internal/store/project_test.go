@@ -40,3 +40,45 @@ func TestProjectScopesMailboxAndReadReturnsCommittedRecord(t *testing.T) {
 		t.Fatalf("read record = %+v", rec)
 	}
 }
+
+func TestPendingDeliveryForUsesDurableRecipientMailboxes(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	if pending, err := st.PendingDeliveryFor("seat-b"); err != nil || pending {
+		t.Fatalf("PendingDeliveryFor empty = %v, %v; want false, nil", pending, err)
+	}
+
+	if _, err := st.Commit(record.Record{
+		Envelope: record.Envelope{RelayID: "relay-recipients", DispatchID: "d", From: "seat-a", To: "seat-b", Role: "implementer", DeliveryState: record.Accepted, SchemaVersion: 1},
+		Headers:  map[string]string{"PHASE": "SITREP", "SUBJECT": "recipient", "CC": `["seat-c"]`},
+	}, nil); err != nil {
+		t.Fatalf("commit recipients: %v", err)
+	}
+
+	for _, seat := range []string{"seat-b", "seat-c"} {
+		pending, err := st.PendingDeliveryFor(seat)
+		if err != nil {
+			t.Fatalf("PendingDeliveryFor %s: %v", seat, err)
+		}
+		if !pending {
+			t.Fatalf("PendingDeliveryFor %s = false, want true", seat)
+		}
+		project, err := st.Project(seat)
+		if err != nil {
+			t.Fatalf("Project %s: %v", seat, err)
+		}
+		if len(project) != 1 || project[0] != "relay-recipients" {
+			t.Fatalf("Project %s = %v, want [relay-recipients]", seat, project)
+		}
+	}
+
+	pending, err := st.PendingDeliveryFor("seat-a")
+	if err != nil {
+		t.Fatalf("PendingDeliveryFor sender: %v", err)
+	}
+	if pending {
+		t.Fatalf("sender has pending delivery")
+	}
+}

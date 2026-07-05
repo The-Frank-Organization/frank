@@ -149,7 +149,7 @@ func (s *Store) Read(relayID string) (record.Record, error) {
 }
 
 func (s *Store) Project(seat string) ([]string, error) {
-	path := filepath.Join(s.Root, "mailboxes", seat+".jsonl")
+	path := filepath.Join(s.Root, "mailboxes", safeMailbox(seat)+".jsonl")
 	f, err := os.Open(path)
 	if os.IsNotExist(err) {
 		return nil, nil
@@ -170,6 +170,17 @@ func (s *Store) Project(seat string) ([]string, error) {
 		return nil, err
 	}
 	return relayIDs, f.Close()
+}
+
+func (s *Store) PendingDeliveryFor(seat string) (bool, error) {
+	data, err := os.ReadFile(filepath.Join(s.Root, "mailboxes", safeMailbox(seat)+".jsonl"))
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return strings.TrimSpace(string(data)) != "", nil
 }
 
 func (s *Store) PendingDeliverySeats() ([]string, error) {
