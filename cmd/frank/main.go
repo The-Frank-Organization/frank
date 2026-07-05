@@ -18,6 +18,7 @@ import (
 	"github.com/jackli/frank/internal/fieldspec"
 	frankgc "github.com/jackli/frank/internal/gc"
 	"github.com/jackli/frank/internal/intake"
+	"github.com/jackli/frank/internal/lineage"
 	"github.com/jackli/frank/internal/obligation"
 	"github.com/jackli/frank/internal/record"
 	frankrecover "github.com/jackli/frank/internal/recover"
@@ -104,7 +105,8 @@ func run(ctx context.Context, cfg config) error {
 	}
 	handler := func(ctx context.Context, cmd intake.Cmd) (record.Record, []store.Intent, error) {
 		meta := seat.SeatMeta{Name: cmd.Seat, Role: cmd.Role, IsOperator: cmd.IsOperator}
-		return engine.SubmitHandler(st, reg, meta, liveTables)(ctx, cmd)
+		env := fieldspec.RenderEnv{ConfigDigest: pinned.Digest, ParentCandidates: lineage.ActiveLineageCandidates(liveTables, lineage.TurnContext{})}
+		return engine.SubmitHandlerWithRender(st, reg, meta, env, liveTables)(ctx, cmd)
 	}
 	completeTurn := func(st *store.Store) error {
 		if err := obligation.CompleteAuto(st, liveTables); err != nil {
@@ -153,7 +155,7 @@ func run(ctx context.Context, cfg config) error {
 		go writer.Run(ctx, loop.In)
 	}
 	server, err = channel.ServeAuthenticated(socket, mgr, func(meta seat.SeatMeta) channel.ToolSet {
-		tools := channelTools(ctx, st, meta, writer, loop, func() {
+		tools := channelTools(ctx, st, reg, pinned.Digest, liveTables, meta, writer, loop, func() {
 			if server != nil {
 				_ = server.Push([]byte(`{"kind":"delivery-nudge"}`))
 			}
@@ -186,8 +188,31 @@ func run(ctx context.Context, cfg config) error {
 	return nil
 }
 
-func channelTools(ctx context.Context, st *store.Store, meta seat.SeatMeta, writer *intake.Writer[engine.Outcome], loop *engine.Loop, nudge func()) channel.ToolSet {
+func channelTools(ctx context.Context, st *store.Store, reg *fieldspec.Registry, configDigest string, liveTables *tables.T, meta seat.SeatMeta, writer *intake.Writer[engine.Outcome], loop *engine.Loop, nudge func()) channel.ToolSet {
 	return channel.ToolSet{
+		Describe: func(_ context.Context, payload json.RawMessage) (json.RawMessage, error) {
+			var req channel.DescribeRequest
+			_ = json.Unmarshal(payload, &req)
+			if req.Phase == "" {
+				req.Phase = "SITREP"
+			}
+			if req.Tier == "" {
+				req.Tier = "medium"
+			}
+			form, digest := reg.Render(
+				fieldspec.RenderEnv{ConfigDigest: configDigest, ParentCandidates: lineage.ActiveLineageCandidates(liveTables, lineage.TurnContext{})},
+				fieldspec.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator},
+				req.Phase,
+				req.Tier,
+				lineage.RealGrantState(liveTables),
+			)
+			return json.Marshal(channel.DescriptionResponse{
+				Tools:        []string{"submit", "project", "read"},
+				Descriptions: seatToolDescriptions(),
+				SubmitSchema: &form,
+				FormDigest:   digest,
+			})
+		},
 		Submit: func(ctx context.Context, payload json.RawMessage) (json.RawMessage, error) {
 			if writer == nil {
 				return nil, errors.New("submit unavailable")
@@ -247,6 +272,14 @@ func channelTools(ctx context.Context, st *store.Store, meta seat.SeatMeta, writ
 				SchemaVersion int           `json:"schema_version"`
 			}{Record: rec, SchemaVersion: rec.Envelope.SchemaVersion})
 		},
+	}
+}
+
+func seatToolDescriptions() map[string]string {
+	return map[string]string{
+		"submit":  "Submit a stamped governance record through the serialized loop.",
+		"project": "List committed relay IDs currently visible to this seat mailbox.",
+		"read":    "Read an immutable committed relay record by relay ID.",
 	}
 }
 

@@ -21,9 +21,10 @@ import (
 type ToolFunc func(context.Context, json.RawMessage) (json.RawMessage, error)
 
 type ToolSet struct {
-	Submit  ToolFunc
-	Project ToolFunc
-	Read    ToolFunc
+	Submit   ToolFunc
+	Project  ToolFunc
+	Read     ToolFunc
+	Describe ToolFunc
 }
 
 type ToolFactory func(seat.SeatMeta) ToolSet
@@ -37,6 +38,18 @@ func FullSurface(ready *engine.Ready, tools ToolSet) ToolSet {
 
 func ReadOnlySurface(_ *engine.Diagnostics, tools ToolSet) ToolSet {
 	return ToolSet{Project: tools.Project, Read: tools.Read}
+}
+
+type DescribeRequest struct {
+	Phase string `json:"phase,omitempty"`
+	Tier  string `json:"tier,omitempty"`
+}
+
+type DescriptionResponse struct {
+	Tools        []string          `json:"tools"`
+	Descriptions map[string]string `json:"descriptions,omitempty"`
+	SubmitSchema *fieldspec.Form   `json:"submit_schema,omitempty"`
+	FormDigest   string            `json:"form_digest,omitempty"`
 }
 
 type Server struct {
@@ -209,7 +222,15 @@ func (c *serverConn) handle(req rpcMessage) (json.RawMessage, string) {
 	case "tools/list":
 		return mustJSON(c.activeTools().names()), ""
 	case "tools/descriptions":
-		return mustJSON(toolDescriptions()), ""
+		tools := c.activeTools()
+		if tools.Describe != nil {
+			result, err := tools.Describe(context.Background(), req.Params)
+			if err != nil {
+				return nil, safeError("tool-error")
+			}
+			return result, ""
+		}
+		return mustJSON(DescriptionResponse{Tools: tools.names(), Descriptions: toolDescriptions()}), ""
 	case "tools/call":
 		var call toolCall
 		if err := json.Unmarshal(req.Params, &call); err != nil {
@@ -333,15 +354,23 @@ func (c *Client) ListTools(ctx context.Context) ([]string, error) {
 }
 
 func (c *Client) ToolDescriptions(ctx context.Context) (map[string]string, error) {
-	resp, err := c.request(ctx, "tools/descriptions", nil)
+	describe, err := c.DescribeTools(ctx, DescribeRequest{})
 	if err != nil {
 		return nil, err
 	}
-	var descriptions map[string]string
-	if err := json.Unmarshal(resp.Result, &descriptions); err != nil {
-		return nil, err
+	return describe.Descriptions, nil
+}
+
+func (c *Client) DescribeTools(ctx context.Context, req DescribeRequest) (DescriptionResponse, error) {
+	resp, err := c.request(ctx, "tools/descriptions", mustJSON(req))
+	if err != nil {
+		return DescriptionResponse{}, err
 	}
-	return descriptions, nil
+	var description DescriptionResponse
+	if err := json.Unmarshal(resp.Result, &description); err != nil {
+		return DescriptionResponse{}, err
+	}
+	return description, nil
 }
 
 func (c *Client) Call(ctx context.Context, name string, args json.RawMessage) (json.RawMessage, error) {

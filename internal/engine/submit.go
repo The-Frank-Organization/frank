@@ -15,6 +15,10 @@ import (
 )
 
 func SubmitHandler(st *store.Store, reg *fieldspec.Registry, meta seat.SeatMeta, existing ...*tables.T) Handler {
+	return SubmitHandlerWithRender(st, reg, meta, fieldspec.RenderEnv{}, existing...)
+}
+
+func SubmitHandlerWithRender(st *store.Store, reg *fieldspec.Registry, meta seat.SeatMeta, env fieldspec.RenderEnv, existing ...*tables.T) Handler {
 	return func(ctx context.Context, cmd intake.Cmd) (record.Record, []store.Intent, error) {
 		cand, formDigest, err := fieldspec.DecodeSubmitPayload(cmd.Payload)
 		if err != nil {
@@ -30,12 +34,6 @@ func SubmitHandler(st *store.Store, reg *fieldspec.Registry, meta seat.SeatMeta,
 		if cand.Envelope.SchemaVersion == 0 {
 			cand.Envelope.SchemaVersion = 1
 		}
-		violations := reg.Validate(cand, fieldspec.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator}, formDigest, fieldspec.RenderEnv{}, fieldspec.ClosedGrantState)
-		if len(violations) > 0 {
-			cand.Envelope.DeliveryState = record.Rejected
-			cand.Body = bounce.Format(anySlice(violations)...)
-			return cand, nil, nil
-		}
 		tab := firstSubmitTable(existing)
 		if tab == nil {
 			var err error
@@ -45,6 +43,12 @@ func SubmitHandler(st *store.Store, reg *fieldspec.Registry, meta seat.SeatMeta,
 				cand.Body = bounce.Format(fieldspec.Violation{Field: "system", Class: "store-read-error"})
 				return cand, nil, nil
 			}
+		}
+		violations := reg.Validate(cand, fieldspec.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator}, formDigest, env, lineage.RealGrantState(tab))
+		if len(violations) > 0 {
+			cand.Envelope.DeliveryState = record.Rejected
+			cand.Body = bounce.Format(anySlice(violations)...)
+			return cand, nil, nil
 		}
 		if lineageBounce := (&lineage.Engine{Reg: reg, T: tab}).Check(cand, seat.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator}); lineageBounce != nil {
 			cand.Envelope.DeliveryState = record.Rejected

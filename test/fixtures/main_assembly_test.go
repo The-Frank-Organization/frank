@@ -61,13 +61,21 @@ func TestFrankBinaryAssemblesAuthenticatedSubmitProjectRead(t *testing.T) {
 	}
 	defer func() { _ = client.Close() }()
 
-	reg := loadAssemblyRegistry(t)
-	meta := seat.SeatMeta{Name: "seat-a", Role: "implementer"}
-	payload := submitPayloadBytes(t, reg, meta, record.Record{
+	describe, err := client.DescribeTools(ctx, channel.DescribeRequest{Phase: "SITREP", Tier: "medium"})
+	if err != nil {
+		t.Fatalf("DescribeTools stderr=%s: %v", stderr.String(), err)
+	}
+	if describe.FormDigest == "" || describe.SubmitSchema == nil {
+		t.Fatalf("describe missing schema/digest: %+v", describe)
+	}
+	if describe.SubmitSchema.HasField("grant") || describe.SubmitSchema.OptionAllowed("AUTHORITY", "merge-gated") {
+		t.Fatalf("pair describe exposed grant authority: %+v", describe.SubmitSchema.Fields)
+	}
+	payload := mustJSONBytes(t, fieldspec.SubmitPayload{Record: record.Record{
 		Envelope: record.Envelope{To: "seat-a", DispatchID: "dispatch-main"},
-		Headers:  map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "SUBJECT": "binary path"},
+		Headers:  map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "CEREMONY_TIER": "medium", "SUBJECT": "binary path"},
 		Body:     "hello",
-	})
+	}, FormDigest: describe.FormDigest})
 	result, err := client.Call(ctx, "submit", payload)
 	if err != nil {
 		t.Fatalf("submit stderr=%s: %v", stderr.String(), err)
@@ -133,7 +141,7 @@ func TestFrankBinaryAssemblesAuthenticatedSubmitProjectRead(t *testing.T) {
 
 func TestFrankBinaryOperatorChannelO3OwedSweepOpenAndDisposition(t *testing.T) {
 	root := t.TempDir()
-	initFixtureStore(t, root)
+	pinned := initFixtureStore(t, root)
 	reg := loadAssemblyRegistry(t)
 	mgr, err := seat.Open(root)
 	if err != nil {
@@ -178,7 +186,7 @@ func TestFrankBinaryOperatorChannelO3OwedSweepOpenAndDisposition(t *testing.T) {
 		RelayID string `json:"relay_id"`
 	} {
 		t.Helper()
-		payload := submitPayloadBytes(t, reg, meta, rec)
+		payload := submitPayloadBytes(t, reg, pinned.Digest, meta, rec)
 		result, err := client.Call(ctx, "submit", payload)
 		if err != nil {
 			t.Fatalf("submit stderr=%s: %v", stderr.String(), err)
@@ -476,6 +484,13 @@ func TestFrankBinaryServesReadOnlyDiagnosticsOnDigestMismatch(t *testing.T) {
 	if strings.Join(tools, ",") != strings.Join(want, ",") {
 		t.Fatalf("tools = %v, want %v; stderr=%s", tools, want, stderr.String())
 	}
+	describe, err := client.DescribeTools(ctx, channel.DescribeRequest{Phase: "SITREP", Tier: "medium"})
+	if err != nil {
+		t.Fatalf("DescribeTools stderr=%s: %v", stderr.String(), err)
+	}
+	if describe.SubmitSchema != nil || describe.FormDigest != "" {
+		t.Fatalf("diagnostics describe exposed submit schema: %+v", describe)
+	}
 	if _, err := client.Call(ctx, "submit", json.RawMessage(`{}`)); err == nil {
 		t.Fatalf("submit unexpectedly available in diagnostics mode")
 	}
@@ -483,7 +498,7 @@ func TestFrankBinaryServesReadOnlyDiagnosticsOnDigestMismatch(t *testing.T) {
 
 func TestFrankBinaryReadCorruptionQueuesLiveQuarantine(t *testing.T) {
 	root := t.TempDir()
-	initFixtureStore(t, root)
+	pinned := initFixtureStore(t, root)
 	mgr, err := seat.Open(root)
 	if err != nil {
 		t.Fatalf("Open seats: %v", err)
@@ -513,7 +528,7 @@ func TestFrankBinaryReadCorruptionQueuesLiveQuarantine(t *testing.T) {
 	defer func() { _ = client.Close() }()
 	reg := loadAssemblyRegistry(t)
 	meta := seat.SeatMeta{Name: "seat-a", Role: "implementer"}
-	payload := submitPayloadBytes(t, reg, meta, record.Record{
+	payload := submitPayloadBytes(t, reg, pinned.Digest, meta, record.Record{
 		Envelope: record.Envelope{To: "seat-a", DispatchID: "dispatch-k2"},
 		Headers:  map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "SUBJECT": "corrupt me"},
 	})
@@ -612,12 +627,21 @@ func loadAssemblyRegistry(t *testing.T) *fieldspec.Registry {
 	return reg
 }
 
-func submitPayloadBytes(t *testing.T, reg *fieldspec.Registry, meta seat.SeatMeta, rec record.Record) []byte {
+func submitPayloadBytes(t *testing.T, reg *fieldspec.Registry, configDigest string, meta seat.SeatMeta, rec record.Record) []byte {
 	t.Helper()
-	_, digest := reg.Render(fieldspec.RenderEnv{}, fieldspec.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator}, rec.Headers["PHASE"], rec.Headers["CEREMONY_TIER"], fieldspec.ClosedGrantState)
+	_, digest := reg.Render(fieldspec.RenderEnv{ConfigDigest: configDigest}, fieldspec.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator}, rec.Headers["PHASE"], rec.Headers["CEREMONY_TIER"], fieldspec.ClosedGrantState)
 	payload, err := json.Marshal(fieldspec.SubmitPayload{Record: rec, FormDigest: digest})
 	if err != nil {
 		t.Fatalf("marshal submit payload: %v", err)
+	}
+	return payload
+}
+
+func mustJSONBytes(t *testing.T, v any) []byte {
+	t.Helper()
+	payload, err := json.Marshal(v)
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
 	}
 	return payload
 }
