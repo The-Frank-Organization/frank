@@ -1,12 +1,21 @@
 [
   {
+    "anchor": "relay-lint.py:accepted-control",
+    "check": "expected-OK oracle entries",
+    "class_10": "retained",
+    "disposition": "retained",
+    "surface": "typed equivalent accept path",
+    "obsolete_ground": null,
+    "fixtures": ["claude/A1-valid-audit.md", "addressing/G1-casefold-lineage", "design-review/DR1-valid-design-doc-chain"]
+  },
+  {
     "anchor": "relay-lint.py:phase-enum",
     "check": "PHASE token membership",
     "class_10": "10b",
     "disposition": "dissolved-form",
     "surface": "fieldspec enum validation",
     "obsolete_ground": null,
-    "fixtures": ["bad-phase-token", "claude/B9-bad-enum.md", "claude/C2-enum-bypass.md"]
+    "fixtures": ["claude/B9-bad-enum.md", "claude/C2-enum-bypass.md"]
   },
   {
     "anchor": "relay-lint.py:address-token-shape",
@@ -14,8 +23,8 @@
     "class_10": "obsolete",
     "disposition": "obsolete",
     "surface": "typed submit payload has no raw markdown token channel",
-    "obsolete_ground": "vanished-markdown-channel",
-    "fixtures": ["bare-token-shape", "addressing/T2-token-no-to.md"]
+    "obsolete_ground": "vanished-hand-authored-markdown-channel",
+    "fixtures": ["addressing/T2-token-no-to.md", "addressing/T3-token-to-planner.md", "addressing/T4-token-two-implementers.md"]
   },
   {
     "anchor": "relay-lint.py:scope-diff-carrier",
@@ -24,16 +33,43 @@
     "disposition": "dissolved-form",
     "surface": "canonical row_array typed carrier",
     "obsolete_ground": null,
-    "fixtures": ["scope-diff-row-array"]
+    "fixtures": ["content/E6-out-row-allin.md", "content/E9-unparseable-row.md", "content/E13-scopediff-detached-row.md"]
+  },
+  {
+    "anchor": "relay-lint.py:fold-scope-carrier",
+    "check": "structured FOLD_SCOPE rows and required fold scope",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "canonical row_array typed carrier plus REVIEW-FOLD required_when",
+    "obsolete_ground": null,
+    "fixtures": ["fold/FD1-fold-edit-no-foldscope.md", "fold/FD3-out-row-with-edit.md", "fold/FD10-detached-row-foldscope.md"]
+  },
+  {
+    "anchor": "relay-lint.py:observe-actions-substance",
+    "check": "FINAL_GIT_STATUS_SHORT/ACTIONS_GIT_REF observe-context substance",
+    "class_10": "10b-observe",
+    "disposition": "dissolved-form",
+    "surface": "observe-layer predicate context and path-hygiene bounce surface",
+    "obsolete_ground": null,
+    "fixtures": ["content/E1-empty-final-git-status.md", "content/E2-empty-actions-git-ref.md", "p9/P9b-claim-after-scan-blank-line.md"]
+  },
+  {
+    "anchor": "relay-lint.py:header-grammar",
+    "check": "relay header grammar and required-field checks",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "registry required_when, enum, and typed scalar validation",
+    "obsolete_ground": null,
+    "fixtures": ["claude/B2-why-before-scan.md", "lint-test/bad1.md", "probes/N4-scan-result-mismatch.md"]
   },
   {
     "anchor": "relay-lint.py:parent-substrate",
-    "check": "parent relay/dispatch resolution",
+    "check": "parent relay/dispatch resolution and addressee lineage",
     "class_10": "10c",
     "disposition": "dissolved-lineage",
     "surface": "lineage.Engine parent substrate over tables",
     "obsolete_ground": null,
-    "fixtures": ["addressing/G1-casefold-lineage/IMPL-Dispatch-20260610-102000.md"]
+    "fixtures": ["lineage/LI3-no-plan-review-parent", "lineage/LI4-non-addressee-impl-report", "lineage/LI5-edgeless-delegated-cc-trap"]
   },
   {
     "anchor": "relay-lint.py:merge-grant",
@@ -42,6 +78,42 @@
     "disposition": "dissolved-lineage",
     "surface": "lineage.Engine merge-claim prerequisite",
     "obsolete_ground": null,
-    "fixtures": ["merge-token/MT1-valid-token-grant/MERGE-GATE-20260610-130000.md"]
+    "fixtures": ["merge/M1-merge-claim-no-auth", "merge/M4-canonical-claim-no-auth", "merge-token/MT9-cross-dispatch-runroot"]
+  },
+  {
+    "anchor": "relay-lint.py:design-review-lineage",
+    "check": "design-review parent chain",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine design-review lock checks",
+    "obsolete_ground": null,
+    "fixtures": ["design-review/DR2-edge-less-no-review", "design-review/DR10-review-parent-not-design", "design-review/DR19-F-thread-mustrevise"]
+  },
+  {
+    "anchor": "relay-lint.py:row-truth-check",
+    "check": "ROW_TRUTH_CHECK scope/fold evidence",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine scope/fold flip drift checks",
+    "obsolete_ground": null,
+    "fixtures": ["rowtruth/RT2-missing-fold-evidence.md", "rowtruth/RT4-missing-scope-evidence.md", "rowtruth/RT5-two-relay-out-in-flip"]
+  },
+  {
+    "anchor": "relay-lint.py:orch-review-visibility",
+    "check": "orchestrator-reviewer visibility gate",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine orchestrator-review visibility over tables",
+    "obsolete_ground": null,
+    "fixtures": ["orch-review/OR7-audit-no-reviewer", "orch-review/OR10-override-impl-no-reviewer", "orch-review/A3-self-waiver"]
+  },
+  {
+    "anchor": "relay-lint.py:role-from-stamp",
+    "check": "payload ROLE/FROM proxying",
+    "class_10": "obsolete",
+    "disposition": "obsolete",
+    "surface": "seat.Stamp owns FROM/ROLE as the single channel",
+    "obsolete_ground": "one-channel-role-from-stamp",
+    "fixtures": ["identity/S4a-proxy-from.md"]
   }
 ]
