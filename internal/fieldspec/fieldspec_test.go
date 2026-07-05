@@ -11,7 +11,8 @@ import (
 func TestRenderA2EnumAndGrantVisibility(t *testing.T) {
 	reg := loadRegistry(t)
 
-	pairForm, _ := reg.Render(fieldspec.SeatMeta{Name: "s1-core", Role: "implementer"}, "MERGE-GATE", "medium")
+	env := fieldspec.RenderEnv{}
+	pairForm, _ := reg.Render(env, fieldspec.SeatMeta{Name: "s1-core", Role: "implementer"}, "MERGE-GATE", "medium", fieldspec.ClosedGrantState)
 	if pairForm.HasField("grant") {
 		t.Fatalf("pair form unexpectedly renders grant")
 	}
@@ -19,7 +20,7 @@ func TestRenderA2EnumAndGrantVisibility(t *testing.T) {
 		t.Fatalf("pair form unexpectedly allows merge-gated")
 	}
 
-	operatorForm, _ := reg.Render(fieldspec.SeatMeta{Name: "operator", Role: "operator", IsOperator: true}, "MERGE-GATE", "medium")
+	operatorForm, _ := reg.Render(env, fieldspec.SeatMeta{Name: "operator", Role: "operator", IsOperator: true}, "MERGE-GATE", "medium", fieldspec.ClosedGrantState)
 	if !operatorForm.HasField("grant") {
 		t.Fatalf("operator merge-gate form did not render grant")
 	}
@@ -27,7 +28,7 @@ func TestRenderA2EnumAndGrantVisibility(t *testing.T) {
 		t.Fatalf("operator merge-gate form did not allow dispatch-merge")
 	}
 
-	orchestratorForm, _ := reg.Render(fieldspec.SeatMeta{Name: "s1.orchestrator-planner", Role: "orchestrator-planner"}, "IMPL", "medium")
+	orchestratorForm, _ := reg.Render(env, fieldspec.SeatMeta{Name: "s1.orchestrator-planner", Role: "orchestrator-planner"}, "IMPL", "medium", fieldspec.ClosedGrantState)
 	if !orchestratorForm.HasField("grant") || !orchestratorForm.OptionAllowed("grant", "dispatch-impl") {
 		t.Fatalf("orchestrator form missing dispatch-impl grant: %#v", orchestratorForm.Fields["grant"])
 	}
@@ -36,7 +37,7 @@ func TestRenderA2EnumAndGrantVisibility(t *testing.T) {
 func TestValidateB3AndStaleDigest(t *testing.T) {
 	reg := loadRegistry(t)
 	seat := fieldspec.SeatMeta{Name: "s1-core", Role: "implementer"}
-	_, digest := reg.Render(seat, "SITREP", "medium")
+	_, digest := reg.Render(fieldspec.RenderEnv{}, seat, "SITREP", "medium", fieldspec.ClosedGrantState)
 
 	rec := record.Record{
 		Envelope: record.Envelope{From: "s1-core.implementer", Role: "implementer", SchemaVersion: 1},

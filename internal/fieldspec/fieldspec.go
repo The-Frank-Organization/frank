@@ -1,9 +1,6 @@
 package fieldspec
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"slices"
 
 	"github.com/jackli/frank/internal/record"
@@ -20,7 +17,10 @@ type Form struct {
 }
 
 type Field struct {
-	Options []string `json:"options,omitempty"`
+	Type         string   `json:"type,omitempty"`
+	Options      []string `json:"options,omitempty"`
+	Default      string   `json:"default,omitempty"`
+	DigestExempt bool     `json:"digest_exempt,omitempty"`
 }
 
 type Violation struct {
@@ -29,39 +29,12 @@ type Violation struct {
 	Reason string
 }
 
-func (r *Registry) Render(seat SeatMeta, phase, tier string) (Form, string) {
-	authority := append([]string(nil), r.Authority...)
-	if !canGrant(seat) {
-		authority = remove(authority, "merge-gated")
-	}
-	form := Form{Fields: map[string]Field{
-		"PHASE":               {Options: r.Phase},
-		"AUTHORITY":           {Options: authority},
-		"CEREMONY_TIER":       {Options: r.CeremonyTier},
-		"EVIDENCE_TARGET":     {Options: r.EvidenceTarget},
-		"HUMAN_GATE_REQUIRED": {Options: []string{"no", "yes"}},
-		"gate_category":       {Options: append(append([]string(nil), r.GateCategory["A"]...), r.GateCategory["B"]...)},
-		"SUBJECT":             {},
-		"body":                {},
-		"X-*":                 {},
-	}}
-	if canGrant(seat) {
-		grantOptions := []string{"dispatch-impl"}
-		if phase == "MERGE-GATE" {
-			grantOptions = append(grantOptions, "dispatch-merge")
-		}
-		form.Fields["grant"] = Field{Options: grantOptions}
-	}
-	digest := digestForm(form, seat, phase, tier)
-	return form, digest
-}
-
 func (r *Registry) Validate(cand record.Record, seat SeatMeta, formDigest string) []Violation {
 	var violations []Violation
 	phase := cand.Headers["PHASE"]
 	authority := cand.Headers["AUTHORITY"]
 	subject := cand.Headers["SUBJECT"]
-	_, digest := r.Render(seat, phase, cand.Headers["CEREMONY_TIER"])
+	_, digest := r.Render(RenderEnv{}, seat, phase, cand.Headers["CEREMONY_TIER"], ClosedGrantState)
 	if formDigest != "" && formDigest != digest {
 		violations = append(violations, Violation{Field: "form_digest", Class: "re-render", Reason: "stale form digest"})
 	}
@@ -74,17 +47,13 @@ func (r *Registry) Validate(cand record.Record, seat SeatMeta, formDigest string
 	if authority != "" && !slices.Contains(r.Authority, authority) {
 		violations = append(violations, Violation{Field: "AUTHORITY", Class: "enum", Reason: "unknown AUTHORITY"})
 	}
-	if authority == "merge-gated" && !canGrant(seat) {
+	if authority == "merge-gated" && !r.optionAllowedForSeat("AUTHORITY", seat, phase, authority, ClosedGrantState) {
 		violations = append(violations, Violation{Field: "AUTHORITY", Class: "seat-scope", Reason: "merge-gated absent from pair forms"})
 	}
-	if cand.Headers["grant"] != "" && !canGrant(seat) {
+	if cand.Headers["grant"] != "" && !r.optionAllowedForSeat("grant", seat, phase, cand.Headers["grant"], ClosedGrantState) {
 		violations = append(violations, Violation{Field: "grant", Class: "seat-scope", Reason: "grant absent from pair forms"})
 	}
 	return violations
-}
-
-func canGrant(seat SeatMeta) bool {
-	return seat.IsOperator || seat.Role == "operator" || seat.Role == "orchestrator-planner" || seat.Role == "orchestrator-reviewer"
 }
 
 func (r *Registry) ClassifyGateCategory(token string, knownA bool) (string, bool) {
@@ -111,28 +80,4 @@ func (f Form) OptionAllowed(field, option string) bool {
 		return false
 	}
 	return slices.Contains(spec.Options, option)
-}
-
-func digestForm(form Form, seat SeatMeta, phase, tier string) string {
-	data, err := json.Marshal(struct {
-		Form  Form
-		Seat  SeatMeta
-		Phase string
-		Tier  string
-	}{form, seat, phase, tier})
-	if err != nil {
-		panic(err)
-	}
-	sum := sha256.Sum256(data)
-	return hex.EncodeToString(sum[:])
-}
-
-func remove(values []string, value string) []string {
-	var out []string
-	for _, candidate := range values {
-		if candidate != value {
-			out = append(out, candidate)
-		}
-	}
-	return out
 }
