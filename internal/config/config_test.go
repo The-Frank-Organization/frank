@@ -63,6 +63,15 @@ func TestLoadParsesEngineConfigAndStoresMemberBytes(t *testing.T) {
 	}
 }
 
+func TestFrameBytesDefault(t *testing.T) {
+	if got := (config.EngineConfig{}).FrameBytes(); got != 1<<20 {
+		t.Fatalf("FrameBytes() = %d, want %d", got, 1<<20)
+	}
+	if got := (config.EngineConfig{MaxFrameBytes: 4096}).FrameBytes(); got != 4096 {
+		t.Fatalf("FrameBytes() with configured value = %d, want 4096", got)
+	}
+}
+
 func TestLoadRequiresEngineMember(t *testing.T) {
 	root := t.TempDir()
 	registryPath := writeFile(t, root, "registry.json", `{"phase":["SITREP"],"authority":[],"ceremony_tier":[],"evidence_target":[],"gate_category":{},"grant":[]}`)

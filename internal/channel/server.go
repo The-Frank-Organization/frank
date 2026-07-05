@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -28,6 +29,38 @@ type ToolSet struct {
 }
 
 type ToolFactory func(seat.SeatMeta) ToolSet
+
+const defaultFrameLimit = 1 << 20
+
+var errFrameTooLarge = errors.New("frame too large")
+
+type Option func(*options)
+
+type options struct {
+	frameLimit int
+}
+
+func WithFrameLimit(limit int) Option {
+	return func(o *options) {
+		o.frameLimit = normalizeFrameLimit(limit)
+	}
+}
+
+func applyOptions(opts []Option) options {
+	o := options{frameLimit: defaultFrameLimit}
+	for _, opt := range opts {
+		opt(&o)
+	}
+	o.frameLimit = normalizeFrameLimit(o.frameLimit)
+	return o
+}
+
+func normalizeFrameLimit(limit int) int {
+	if limit <= 0 {
+		return defaultFrameLimit
+	}
+	return limit
+}
 
 func FullSurface(ready *engine.Ready, tools ToolSet) ToolSet {
 	if ready == nil {
@@ -60,10 +93,12 @@ type Server struct {
 	done    chan struct{}
 	clients map[*serverConn]struct{}
 	pending [][]byte
+	limit   int
 	mu      sync.Mutex
 }
 
-func Serve(sockPath string, tools ToolSet) (*Server, error) {
+func Serve(sockPath string, tools ToolSet, opts ...Option) (*Server, error) {
+	applied := applyOptions(opts)
 	if err := os.MkdirAll(filepath.Dir(sockPath), 0o755); err != nil {
 		return nil, err
 	}
@@ -79,13 +114,14 @@ func Serve(sockPath string, tools ToolSet) (*Server, error) {
 		tools:   tools,
 		done:    make(chan struct{}),
 		clients: map[*serverConn]struct{}{},
+		limit:   applied.frameLimit,
 	}
 	go s.accept()
 	return s, nil
 }
 
-func ServeAuthenticated(sockPath string, manager *seat.Manager, factory ToolFactory) (*Server, error) {
-	s, err := Serve(sockPath, ToolSet{})
+func ServeAuthenticated(sockPath string, manager *seat.Manager, factory ToolFactory, opts ...Option) (*Server, error) {
+	s, err := Serve(sockPath, ToolSet{}, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -185,10 +221,18 @@ func (c *serverConn) run() {
 		c.server.mu.Unlock()
 		_ = c.conn.Close()
 	}()
-	scanner := bufio.NewScanner(c.conn)
-	for scanner.Scan() {
+	reader := bufio.NewReaderSize(c.conn, 64*1024)
+	for {
+		frame, err := readFrame(reader, c.server.limit)
+		if err != nil {
+			if errors.Is(err, errFrameTooLarge) {
+				_ = c.write(rpcMessage{Error: frameTooLargeError(c.server.limit, "")})
+				continue
+			}
+			return
+		}
 		var req rpcMessage
-		if err := json.Unmarshal(scanner.Bytes(), &req); err != nil {
+		if err := json.Unmarshal(frame, &req); err != nil {
 			continue
 		}
 		result, errText := c.handle(req)
@@ -272,7 +316,22 @@ func (c *serverConn) flushPending() {
 func (c *serverConn) write(msg rpcMessage) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.enc.Encode(msg)
+	data, err := encodeFrame(msg)
+	if err != nil {
+		return err
+	}
+	if len(data) > c.server.limit {
+		msg = rpcMessage{
+			ID:    msg.ID,
+			Error: frameTooLargeError(c.server.limit, "narrow the request: re-read by relay_id or paginate project"),
+		}
+		data, err = encodeFrame(msg)
+		if err != nil {
+			return err
+		}
+	}
+	_, err = c.conn.Write(data)
+	return err
 }
 
 func (t ToolSet) byName(name string) (ToolFunc, bool) {
@@ -310,9 +369,11 @@ type Client struct {
 	pending map[int64]chan rpcMessage
 	pushes  chan []byte
 	done    chan struct{}
+	limit   int
 }
 
-func Dial(ctx context.Context, sockPath string) (*Client, error) {
+func Dial(ctx context.Context, sockPath string, opts ...Option) (*Client, error) {
+	applied := applyOptions(opts)
 	var d net.Dialer
 	conn, err := d.DialContext(ctx, "unix", sockPath)
 	if err != nil {
@@ -324,13 +385,14 @@ func Dial(ctx context.Context, sockPath string) (*Client, error) {
 		pending: map[int64]chan rpcMessage{},
 		pushes:  make(chan []byte, 16),
 		done:    make(chan struct{}),
+		limit:   applied.frameLimit,
 	}
 	go c.readLoop()
 	return c, nil
 }
 
-func DialAuthenticated(ctx context.Context, sockPath, credential string) (*Client, error) {
-	c, err := Dial(ctx, sockPath)
+func DialAuthenticated(ctx context.Context, sockPath, credential string, opts ...Option) (*Client, error) {
+	c, err := Dial(ctx, sockPath, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -445,10 +507,17 @@ func (c *Client) readLoop() {
 			close(c.done)
 		}
 	}()
-	scanner := bufio.NewScanner(c.conn)
-	for scanner.Scan() {
+	reader := bufio.NewReaderSize(c.conn, 64*1024)
+	for {
+		frame, err := readFrame(reader, c.limit)
+		if err != nil {
+			if errors.Is(err, errFrameTooLarge) {
+				continue
+			}
+			return
+		}
 		var msg rpcMessage
-		if err := json.Unmarshal(scanner.Bytes(), &msg); err != nil {
+		if err := json.Unmarshal(frame, &msg); err != nil {
 			continue
 		}
 		if msg.ID != 0 {
@@ -502,6 +571,55 @@ func mustJSON(v any) json.RawMessage {
 
 func safeError(class string) string {
 	return bounce.Format(fieldspec.Violation{Field: "system", Class: class})
+}
+
+func frameTooLargeError(limit int, hint string) string {
+	reason := fmt.Sprintf("frame:frame-too-large max_frame_bytes=%d", limit)
+	if hint != "" {
+		reason += "; " + hint
+	}
+	return reason
+}
+
+func encodeFrame(msg rpcMessage) ([]byte, error) {
+	data, err := json.Marshal(msg)
+	if err != nil {
+		return nil, err
+	}
+	data = append(data, '\n')
+	return data, nil
+}
+
+func readFrame(reader *bufio.Reader, limit int) ([]byte, error) {
+	limit = normalizeFrameLimit(limit)
+	var frame []byte
+	for {
+		part, err := reader.ReadSlice('\n')
+		if len(frame)+len(part) > limit {
+			discardFrameRemainder(reader, err)
+			return nil, errFrameTooLarge
+		}
+		frame = append(frame, part...)
+		switch {
+		case err == nil:
+			return frame, nil
+		case errors.Is(err, bufio.ErrBufferFull):
+			continue
+		case errors.Is(err, io.EOF):
+			if len(frame) > 0 {
+				return frame, nil
+			}
+			return nil, err
+		default:
+			return nil, err
+		}
+	}
+}
+
+func discardFrameRemainder(reader *bufio.Reader, err error) {
+	for errors.Is(err, bufio.ErrBufferFull) {
+		_, err = reader.ReadSlice('\n')
+	}
 }
 
 func toolDescriptions() map[string]string {
