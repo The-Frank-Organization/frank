@@ -394,6 +394,27 @@ func TestFrankInitTwiceRejectsExistingGenesis(t *testing.T) {
 	}
 }
 
+func TestFrankBinarySocketPathPreflight(t *testing.T) {
+	root := t.TempDir()
+	initFixtureStore(t, root)
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	bin := buildFrank(t, ctx)
+	longSock := filepath.Join(os.TempDir(), strings.Repeat("s", 120)+".sock")
+	cmd := exec.CommandContext(ctx, bin, "-root", root, "-socket", longSock, "-registry", filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("frank unexpectedly started with long socket path")
+	}
+	text := string(out)
+	if !strings.Contains(text, "socket path too long") || !strings.Contains(text, "darwin") {
+		t.Fatalf("socket preflight output = %s, want typed darwin length error", text)
+	}
+	if strings.Contains(text, "bind: invalid argument") {
+		t.Fatalf("socket preflight leaked raw bind error: %s", text)
+	}
+}
+
 func TestFrankBinaryReissuesRecoveryWakeForExistingMailbox(t *testing.T) {
 	root := t.TempDir()
 	initFixtureStore(t, root)

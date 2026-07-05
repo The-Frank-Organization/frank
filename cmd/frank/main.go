@@ -28,6 +28,8 @@ import (
 	"github.com/jackli/frank/internal/tables"
 )
 
+const maxDarwinSocketPathBytes = 100
+
 type config struct {
 	Root           string
 	Socket         string
@@ -156,6 +158,9 @@ func run(ctx context.Context, cfg config) error {
 	if socket == "" {
 		socket = filepath.Join(cfg.Root, "frank.sock")
 	}
+	if err := validateSocketPath(socket); err != nil {
+		return err
+	}
 	var server *channel.Server
 	var loop *engine.Loop
 	var writer *intake.Writer[engine.Outcome]
@@ -213,6 +218,13 @@ func run(ctx context.Context, cfg config) error {
 
 	<-ctx.Done()
 	return nil
+}
+
+func validateSocketPath(socket string) error {
+	if len(socket) < maxDarwinSocketPathBytes {
+		return nil
+	}
+	return fmt.Errorf("socket path too long for darwin AF_UNIX limit: len=%d max<%d; choose a short path such as /tmp/frank.sock", len(socket), maxDarwinSocketPathBytes)
 }
 
 func deliveryNudgeFrame(relayID string) []byte {

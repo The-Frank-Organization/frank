@@ -307,7 +307,7 @@ func errorToolResult(class string) mcpToolResult {
 }
 
 func mcpTools(submitSchema map[string]any) []mcpTool {
-	honesty := "transport/provenance only; content claims are not verified by this tool"
+	honesty := "transport/provenance only; done-state and record_integrity remain self_reported until Step-2 observe; content claims are not checked by this tool"
 	if submitSchema == nil {
 		submitSchema = map[string]any{
 			"type":                 "object",
