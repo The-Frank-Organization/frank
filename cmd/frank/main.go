@@ -18,11 +18,14 @@ import (
 	"github.com/jackli/frank/internal/fieldspec"
 	frankgc "github.com/jackli/frank/internal/gc"
 	"github.com/jackli/frank/internal/intake"
+	"github.com/jackli/frank/internal/lineage"
+	"github.com/jackli/frank/internal/migrate"
 	"github.com/jackli/frank/internal/obligation"
 	"github.com/jackli/frank/internal/record"
 	frankrecover "github.com/jackli/frank/internal/recover"
 	"github.com/jackli/frank/internal/seat"
 	"github.com/jackli/frank/internal/store"
+	"github.com/jackli/frank/internal/tables"
 )
 
 type config struct {
@@ -81,10 +84,6 @@ func run(ctx context.Context, cfg config) error {
 	if err != nil {
 		return err
 	}
-	reg, err := fieldspec.Load(cfg.Registry)
-	if err != nil {
-		return err
-	}
 	mgr, err := seat.Open(cfg.Root)
 	if err != nil {
 		return err
@@ -93,26 +92,42 @@ func run(ctx context.Context, cfg config) error {
 	if err != nil {
 		return err
 	}
+	reg := pinned.Registry
 	journal, err := intake.OpenWithConfig(cfg.Root, pinned.Engine)
 	if err != nil {
 		return err
 	}
+	liveTables := tables.NewLive(tables.New())
+	publishStoreTables := func() (*tables.T, error) {
+		tab, err := tables.Build(st)
+		if err != nil {
+			return nil, err
+		}
+		liveTables.Publish(tab)
+		return tab, nil
+	}
 	handler := func(ctx context.Context, cmd intake.Cmd) (record.Record, []store.Intent, error) {
 		meta := seat.SeatMeta{Name: cmd.Seat, Role: cmd.Role, IsOperator: cmd.IsOperator}
-		return engine.SubmitHandler(st, reg, meta)(ctx, cmd)
+		tab := liveTables.Snapshot()
+		env := fieldspec.RenderEnv{ConfigDigest: pinned.Digest, ParentCandidates: lineage.ActiveLineageCandidates(tab, turnContextForSeat(st, tab, meta.Name))}
+		return engine.SubmitHandlerWithRender(st, reg, meta, env, tab)(ctx, cmd)
 	}
 	completeTurn := func(st *store.Store) error {
-		if err := obligation.CompleteAuto(st); err != nil {
+		tab := liveTables.Snapshot()
+		if err := obligation.CompleteAuto(st, tab); err != nil {
 			return err
 		}
-		tables, err := obligation.BuildTables(st)
-		if err != nil {
+		if err := frankgc.Pass(st, tab, pinned.Engine); err != nil {
 			return err
 		}
-		return frankgc.Pass(st, tables, pinned.Engine)
+		_, err := publishStoreTables()
+		return err
 	}
 
 	process := func(cmd intake.Cmd) error {
+		if _, err := publishStoreTables(); err != nil {
+			return err
+		}
 		rec, intents, err := handler(ctx, cmd)
 		if err != nil {
 			return err
@@ -123,9 +138,16 @@ func run(ctx context.Context, cfg config) error {
 		if _, err := st.Commit(rec, intents); err != nil {
 			return err
 		}
+		tab := liveTables.Snapshot()
+		tab.OnCommit(rec)
+		liveTables.Publish(tab)
 		return completeTurn(st)
 	}
 	result, err := frankrecover.RunWithProcessor(cfg.Root, pinned, process)
+	if err != nil {
+		return err
+	}
+	postRecoveryTables, err := publishStoreTables()
 	if err != nil {
 		return err
 	}
@@ -139,12 +161,18 @@ func run(ctx context.Context, cfg config) error {
 	var writer *intake.Writer[engine.Outcome]
 	if result.Ready != nil {
 		loop = engine.New(st, handler, result.Ready)
+		loop.Tables = postRecoveryTables
 		loop.AfterCommit = func(st *store.Store) error {
-			tables, err := obligation.BuildTables(st)
+			if err := frankgc.Pass(st, loop.Tables, pinned.Engine); err != nil {
+				return err
+			}
+			tab, err := tables.Build(st)
 			if err != nil {
 				return err
 			}
-			return frankgc.Pass(st, tables, pinned.Engine)
+			loop.Tables = tab
+			liveTables.Publish(tab)
+			return nil
 		}
 		go loop.Run(ctx)
 		writer, err = intake.NewWriter[engine.Outcome](journal, pinned.Engine, result.Ready)
@@ -154,7 +182,7 @@ func run(ctx context.Context, cfg config) error {
 		go writer.Run(ctx, loop.In)
 	}
 	server, err = channel.ServeAuthenticated(socket, mgr, func(meta seat.SeatMeta) channel.ToolSet {
-		tools := channelTools(ctx, st, meta, writer, loop, func() {
+		tools := channelTools(ctx, st, reg, pinned.Digest, liveTables, meta, writer, loop, func() {
 			if server != nil {
 				_ = server.Push([]byte(`{"kind":"delivery-nudge"}`))
 			}
@@ -187,8 +215,32 @@ func run(ctx context.Context, cfg config) error {
 	return nil
 }
 
-func channelTools(ctx context.Context, st *store.Store, meta seat.SeatMeta, writer *intake.Writer[engine.Outcome], loop *engine.Loop, nudge func()) channel.ToolSet {
+func channelTools(ctx context.Context, st *store.Store, reg *fieldspec.Registry, configDigest string, liveTables *tables.Live, meta seat.SeatMeta, writer *intake.Writer[engine.Outcome], loop *engine.Loop, nudge func()) channel.ToolSet {
 	return channel.ToolSet{
+		Describe: func(_ context.Context, payload json.RawMessage) (json.RawMessage, error) {
+			var req channel.DescribeRequest
+			_ = json.Unmarshal(payload, &req)
+			if req.Phase == "" {
+				req.Phase = "SITREP"
+			}
+			if req.Tier == "" {
+				req.Tier = "medium"
+			}
+			tab := liveTables.Snapshot()
+			form, digest := reg.Render(
+				fieldspec.RenderEnv{ConfigDigest: configDigest, ParentCandidates: lineage.ActiveLineageCandidates(tab, turnContextForSeat(st, tab, meta.Name))},
+				fieldspec.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator},
+				req.Phase,
+				req.Tier,
+				lineage.RealGrantState(tab),
+			)
+			return json.Marshal(channel.DescriptionResponse{
+				Tools:        []string{"submit", "project", "read"},
+				Descriptions: seatToolDescriptions(),
+				SubmitSchema: &form,
+				FormDigest:   digest,
+			})
+		},
 		Submit: func(ctx context.Context, payload json.RawMessage) (json.RawMessage, error) {
 			if writer == nil {
 				return nil, errors.New("submit unavailable")
@@ -220,7 +272,7 @@ func channelTools(ctx context.Context, st *store.Store, meta seat.SeatMeta, writ
 			if err := json.Unmarshal(payload, &req); err != nil {
 				return nil, err
 			}
-			rec, err := st.Read(req.RelayID)
+			view, err := (migrate.Reader{Store: st, Registry: migrate.New()}).Read(req.RelayID)
 			if err != nil {
 				var checksum store.ErrChecksum
 				if errors.As(err, &checksum) {
@@ -246,9 +298,34 @@ func channelTools(ctx context.Context, st *store.Store, meta seat.SeatMeta, writ
 			return json.Marshal(struct {
 				Record        record.Record `json:"record"`
 				SchemaVersion int           `json:"schema_version"`
-			}{Record: rec, SchemaVersion: rec.Envelope.SchemaVersion})
+				SourceVersion int           `json:"source_schema_version"`
+			}{Record: view.Record, SchemaVersion: view.Record.Envelope.SchemaVersion, SourceVersion: view.SourceVersion})
 		},
 	}
+}
+
+func seatToolDescriptions() map[string]string {
+	return map[string]string{
+		"submit":  "Submit a stamped governance record through the serialized loop.",
+		"project": "List committed relay IDs currently visible to this seat mailbox.",
+		"read":    "Read an immutable committed relay record by relay ID.",
+	}
+}
+
+func turnContextForSeat(st *store.Store, tab *tables.T, seatName string) lineage.TurnContext {
+	if st == nil || tab == nil || seatName == "" {
+		return lineage.TurnContext{}
+	}
+	relayIDs, err := st.Project(seatName)
+	if err != nil || len(relayIDs) == 0 {
+		return lineage.TurnContext{}
+	}
+	wokenOn := relayIDs[len(relayIDs)-1]
+	ctx := lineage.TurnContext{WokenOn: wokenOn}
+	if rec, ok := tab.ByRelay[wokenOn]; ok {
+		ctx.ActiveDispatch = rec.Envelope.DispatchID
+	}
+	return ctx
 }
 
 func mintSeat(ctx context.Context, cfg config) error {

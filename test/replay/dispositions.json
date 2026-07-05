@@ -1,0 +1,1312 @@
+[
+  {
+    "anchor": "relay-lint.py:99",
+    "check": "self.errors.append(msg)",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:102",
+    "check": "self.warnings.append(msg)",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:150",
+    "check": "warnings.append(i)",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:169",
+    "check": "errors.append(f\"duplicate {header} block; the report of record carries exactly one\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:202",
+    "check": "errors.append(",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:237",
+    "check": "errors.append(f\"row-shaped line outside the {header} block: {lines[i].strip()!r}; rows must sit contiguously under their header\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:390",
+    "check": "errors.append(f\"unparseable {header} row: {line.strip()!r}\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:429",
+    "check": "errors.append(f\"unparseable ESCALATION_SCAN row: {line.strip()!r}\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:435",
+    "check": "errors.append(f\"non-canonical ESCALATION_SCAN row: {raw_key!r}\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:439",
+    "check": "errors.append(f\"ESCALATION_SCAN row {raw_key!r} has non-canonical value: {raw_value!r}\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:442",
+    "check": "errors.append(f\"duplicate ESCALATION_SCAN row: {raw_key!r}\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:462",
+    "check": "result.error(f\"{name} has non-canonical value: {val!r}\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": [
+      "claude/B9-bad-enum.md",
+      "claude/C2-enum-bypass.md"
+    ]
+  },
+  {
+    "anchor": "relay-lint.py:510",
+    "check": "result.error(f\"{name} address list is empty\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:513",
+    "check": "result.error(\"FROM must contain exactly one address\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:516",
+    "check": "result.error(f\"{name} has invalid address {addr!r}; expected operator, orchestrator, or <owner>.<role>\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:518",
+    "check": "result.warn(f\"{name} address {addr!r} is non-canonical case; addresses compare case-insensitively and canonicalize to lowercase\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:601",
+    "check": "errors.append(f\"{row_header} has IN rows but missing {evidence_header}; verify row truth against file/scope evidence, not row shape\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:605",
+    "check": "errors.append(f\"{evidence_header} missing evidence for IN row {path!r}\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:656",
+    "check": "warnings.append(i)",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:810",
+    "check": "result.error(f\"missing required header field {f}\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": [
+      "claude/B2-why-before-scan.md",
+      "claude/B3-yes-row-why.md",
+      "claude/B5-audit-no-final.md",
+      "claude/B6-audit-impl-authority.md",
+      "claude/B7-delegated-no-scopediff.md",
+      "claude/B8-deviation-dispatch.md",
+      "claude/C1-evasive-rows.md",
+      "lint-test/bad1.md",
+      "lint-test/bad2.md",
+      "lint-test/bad3.md",
+      "lint-test/bad3b.md",
+      "lint-test/bad4.md",
+      "claude/L3"
+    ]
+  },
+  {
+    "anchor": "relay-lint.py:824",
+    "check": "result.error(f\"phase/authority inconsistent: PHASE={phase}, AUTHORITY={authority!r}\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:830",
+    "check": "result.error(mismatch)",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:830",
+    "check": "obsolete typed-equivalent construction",
+    "class_10": "obsolete",
+    "disposition": "obsolete",
+    "surface": "typed submit API removes the offending markdown/proxy channel",
+    "context": "live",
+    "obsolete_ground": "one-channel-role-from-stamp",
+    "fixtures": [
+      "identity/S4a-proxy-from.md"
+    ]
+  },
+  {
+    "anchor": "relay-lint.py:832",
+    "check": "result.error(err)",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:834",
+    "check": "result.error(err)",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:839",
+    "check": "result.error(err)",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:844",
+    "check": "result.error(\"DISPATCH IMPL requires a TO address\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "grant-bearing submit form TO-cardinality validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:844",
+    "check": "obsolete typed-equivalent construction",
+    "class_10": "obsolete",
+    "disposition": "obsolete",
+    "surface": "typed submit API removes the offending markdown/proxy channel",
+    "context": "live",
+    "obsolete_ground": "vanished-markdown-channel",
+    "fixtures": [
+      "addressing/T2-token-no-to.md"
+    ]
+  },
+  {
+    "anchor": "relay-lint.py:844",
+    "check": "obsolete typed-equivalent construction",
+    "class_10": "obsolete",
+    "disposition": "obsolete",
+    "surface": "typed submit API removes the offending markdown/proxy channel",
+    "context": "live",
+    "obsolete_ground": "vanished-markdown-channel",
+    "fixtures": [
+      "addressing/T3-token-to-planner.md"
+    ]
+  },
+  {
+    "anchor": "relay-lint.py:844",
+    "check": "obsolete typed-equivalent construction",
+    "class_10": "obsolete",
+    "disposition": "obsolete",
+    "surface": "typed submit API removes the offending markdown/proxy channel",
+    "context": "live",
+    "obsolete_ground": "vanished-markdown-channel",
+    "fixtures": [
+      "addressing/T4-token-two-implementers.md"
+    ]
+  },
+  {
+    "anchor": "relay-lint.py:846",
+    "check": "result.error(\"DISPATCH IMPL requires exactly one TO addressee\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "grant-bearing submit form TO-cardinality validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:848",
+    "check": "result.error(\"DISPATCH IMPL requires TO to be exactly one implementer-role address\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "grant-bearing submit form TO-cardinality validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:855",
+    "check": "result.error(\"DISPATCH MERGE is valid only in PHASE: MERGE-GATE relay files\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "grant SeatScope plus MERGE-GATE grant visibility",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:857",
+    "check": "result.error(\"DISPATCH MERGE requires a TO address\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "grant SeatScope plus MERGE-GATE grant visibility",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:859",
+    "check": "result.error(\"DISPATCH MERGE requires exactly one TO addressee\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "grant SeatScope plus MERGE-GATE grant visibility",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:861",
+    "check": "result.error(\"DISPATCH MERGE requires TO to be exactly one implementer-role address\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "grant SeatScope plus MERGE-GATE grant visibility",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:863",
+    "check": "result.error(\"DISPATCH MERGE requires exactly one FROM grantor\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "grant SeatScope plus MERGE-GATE grant visibility",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:868",
+    "check": "result.error(\"DISPATCH MERGE FROM must be operator, orchestrator, or an orchestrator-planner-role address\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "grant SeatScope plus MERGE-GATE grant visibility",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:873",
+    "check": "result.error(\"duplicate/conflicting merge authorization; the grant of record carries exactly one verdict line\")",
+    "class_10": "obsolete",
+    "disposition": "obsolete",
+    "surface": "typed grant field is single-valued by construction",
+    "context": "live",
+    "obsolete_ground": "strict-submit-api",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:880",
+    "check": "result.error(f\"non-canonical merge/live verdict: {verdict!r}\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:885",
+    "check": "result.error(f\"DISPATCH IMPL appears inline on line {line_no}; dispatch token is valid only bare/unfenced/un-backticked and alone on its own line\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:887",
+    "check": "result.error(f\"DISPATCH MERGE appears inline on line {line_no}; merge token is valid only bare/unfenced/un-backticked and alone on its own line\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:889",
+    "check": "result.warn(f\"DISPATCH IMPL appears inside fenced code on line {line_no}; quoted/fenced tokens are inert\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:891",
+    "check": "result.warn(f\"DISPATCH MERGE appears inside fenced code on line {line_no}; quoted/fenced tokens are inert\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:901",
+    "check": "result.error(\"downgrade/waiver present but ESCALATION_SCAN is missing\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:903",
+    "check": "result.error(\"downgrade/waiver present but ESCALATION_SCAN_RESULT is missing\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:906",
+    "check": "result.error(\"WHY_DOWNGRADE_IS_SAFE appears before completed ESCALATION_SCAN + ESCALATION_SCAN_RESULT\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:909",
+    "check": "result.error(e)",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:912",
+    "check": "result.error(f\"missing canonical ESCALATION_SCAN row: {row}\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:915",
+    "check": "result.error(f\"ESCALATION_SCAN_RESULT has non-canonical value: {fields.get('ESCALATION_SCAN_RESULT')!r}\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:919",
+    "check": "result.error(f\"ESCALATION_SCAN_RESULT={fields.get('ESCALATION_SCAN_RESULT')!r} inconsistent with rows; expected {expected_result!r}\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:923",
+    "check": "result.error(\"WHY_DOWNGRADE_IS_SAFE forbidden when any ESCALATION_SCAN row is yes/unknown\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:925",
+    "check": "result.error(\"OPERATOR_WAIVER required when any ESCALATION_SCAN row is yes/unknown\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:930",
+    "check": "caught — surviving §10b rule, fires under the reconstructed `layer_present:observe` context",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "observe-layer predicate context",
+    "context": "reconstructed-observe",
+    "obsolete_ground": "",
+    "fixtures": [
+      "probes/N4-scan-result-mismatch.md",
+      "probes/N5-missing-scan-row.md",
+      "content/E1-empty-final-git-status.md",
+      "content/E2-empty-actions-git-ref.md",
+      "content/E3-empty-scopediff-live-dispatch.md",
+      "content/E6-out-row-allin.md",
+      "content/E8-structured-none-scopediff.md",
+      "content/E9-unparseable-row.md",
+      "content/E10-bare-unavailable.md",
+      "content/E11-placeholder-field.md",
+      "content/E13-na-marker.md",
+      "content/E13-scopediff-detached-row.md",
+      "content/E14-scopediff-row-after-result.md",
+      "content/E15-dual-scopediff-decoy.md",
+      "content/E16-dual-scopediff-contiguous.md",
+      "p9/P9b-claim-after-scan-blank-line.md"
+    ]
+  },
+  {
+    "anchor": "relay-lint.py:934",
+    "check": "caught — surviving §10b rule, fires under the reconstructed `layer_present:observe` context",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "observe-layer predicate context",
+    "context": "reconstructed-observe",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:940",
+    "check": "caught — surviving §10b rule, fires under the reconstructed `layer_present:observe` context",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "observe-layer predicate context",
+    "context": "reconstructed-observe",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:944",
+    "check": "caught — surviving §10b rule, fires under the reconstructed `layer_present:observe` context",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "observe-layer predicate context",
+    "context": "reconstructed-observe",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:950",
+    "check": "result.error(\"REVIEW-FOLD report claims actions without FOLD_SCOPE; list every touched file against the findings scope before editing\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": [
+      "fold/FD1-fold-edit-no-foldscope.md",
+      "fold/FD3-out-row-with-edit.md",
+      "fold/FD4-empty-foldscope.md",
+      "fold/FD6-edit-then-waiver-shape.md",
+      "fold/FD7-fold-no-deviation-uncommitted.md",
+      "fold/FD8-scope-after-actions.md",
+      "fold/FD9-fold-no-wordlist-verbs.md",
+      "fold/FD10-detached-row-foldscope.md",
+      "fold/FD11-row-after-result-foldscope.md",
+      "fold/FD12-absence-prefixed-actions.md",
+      "fold/FD13-dual-foldscope-contiguous.md"
+    ]
+  },
+  {
+    "anchor": "relay-lint.py:954",
+    "check": "result.error(e)",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:956",
+    "check": "result.error(\"FOLD_SCOPE requires >=1 parsed '<path> -> in|out' row; an empty scope list does not license a fold edit\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:958",
+    "check": "result.error(\"FOLD_SCOPE contains an OUT row alongside claimed actions; an OUT file requires a deviation relay before any edit\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:960",
+    "check": "result.error(\"REVIEW-FOLD report claims actions without FOLD_SCOPE_RESULT\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:962",
+    "check": "result.error(\"REVIEW-FOLD edits require FOLD_SCOPE_RESULT: all-in; any OUT file goes to a deviation relay before edit\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:966",
+    "check": "result.error(\"FOLD_SCOPE appears after ACTIONS_GIT_REF; the scope artifact precedes the action claim (field-ordering)\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:973",
+    "check": "result.error(\"delegated DISPATCH IMPL missing SCOPE_DIFF\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:977",
+    "check": "result.error(e)",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:979",
+    "check": "result.error(\"delegated DISPATCH IMPL requires SCOPE_DIFF with >=1 parsed '<path> -> in|OUT' row; a vacuous or structured-none diff does not authorize dispatch\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:981",
+    "check": "result.error(\"SCOPE_DIFF_RESULT: all-in inconsistent with an OUT row\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:983",
+    "check": "result.error(\"delegated DISPATCH IMPL missing SCOPE_DIFF_RESULT\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:985",
+    "check": "result.error(\"delegated DISPATCH IMPL requires SCOPE_DIFF_RESULT: all-in\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:997",
+    "check": "result.error(e)",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1000",
+    "check": "result.error(e)",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1129",
+    "check": "errors.append(f\"{f.relative_to(path)}: orchestrator authority relay must CC <run>.orchestrator-reviewer (or run under an operator no-reviewer waiver)\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": [
+      "orch-review/OR7-audit-no-reviewer",
+      "orch-review/OR8-design-no-reviewer",
+      "orch-review/OR9-plan-delegated-no-reviewer",
+      "orch-review/OR10-override-impl-no-reviewer",
+      "orch-review/OR11-merge-gate-no-reviewer",
+      "orch-review/OR12-review-fold-no-reviewer",
+      "orch-review/A1-no-reviewer-no-waiver",
+      "orch-review/A3-self-waiver"
+    ]
+  },
+  {
+    "anchor": "relay-lint.py:1136",
+    "check": "result.error(f\"no .md relay files found under {path}\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1141",
+    "check": "result.error(f\"{f.relative_to(path)}: {e}\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1143",
+    "check": "result.warn(f\"{f.relative_to(path)}: {w}\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1214",
+    "check": "result.error(f\"{f.relative_to(path)}: DESIGN_LOCK_ID present with v2.8.5 design-review context but DESIGN_RECORD_KIND is missing\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1219",
+    "check": "result.error(f\"{f.relative_to(path)}: pair Planner cannot use DESIGN_RECORD_KIND: direct-override; only operator/orchestrator/orchestrator-planner authority may override design review\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1225",
+    "check": "result.error(f\"{f.relative_to(path)}: DESIGN_RECORD_KIND: audit-record conflicts with observable same-owner DESIGN relay carrying DESIGN_DOC_ID\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1241",
+    "check": "result.error(f\"{f.relative_to(path)}: DESIGN_LOCK_ID {lock_id!r} has no earlier same-owner DESIGN relay carrying matching DESIGN_DOC_ID\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1247",
+    "check": "result.error(f\"{f.relative_to(path)}: design-doc PLAN requires PARENT_DISPATCH_ID to the approving DESIGN-REVIEW relay\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": [
+      "design-review/DR2-edge-less-no-review",
+      "design-review/DR4-self-override",
+      "design-review/DR7b-audit-record-design-doc-visible",
+      "design-review/DR8-review-not-from-implementer",
+      "design-review/DR9-verdict-not-approve",
+      "design-review/DR10-review-parent-not-design",
+      "design-review/DR11a-stale-review-parent",
+      "design-review/DR11b-locks-must-revise-v1",
+      "design-review/DR13-omit-record-kind-post-v285",
+      "design-review/DR15-verdict-human-decision",
+      "design-review/DR19-F-thread-mustrevise",
+      "design-review/DR20-F-b-no-design-parent",
+      "design-review/DR21-F-b158-no-owner-review",
+      "design-review/DR22-F-c-cross-owner-design"
+    ]
+  },
+  {
+    "anchor": "relay-lint.py:1251",
+    "check": "result.error(f\"{f.relative_to(path)}: design-doc PLAN parent {fields.get('PARENT_DISPATCH_ID')!r} does not resolve to a relay in this lineage\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1255",
+    "check": "result.error(f\"{f.relative_to(path)}: approving DESIGN-REVIEW parent is not earlier than the PLAN relay\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1257",
+    "check": "result.error(f\"{f.relative_to(path)}: design-doc PLAN parent must be a DESIGN-REVIEW relay\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1260",
+    "check": "result.error(f\"{f.relative_to(path)}: DESIGN-REVIEW parent must be FROM {plan_owner}.implementer\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1262",
+    "check": "result.error(f\"{f.relative_to(path)}: DESIGN-REVIEW parent must have DESIGN_REVIEW_VERDICT: approve\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1264",
+    "check": "result.error(f\"{f.relative_to(path)}: DESIGN-REVIEW parent DESIGN_DOC_ID must match PLAN DESIGN_LOCK_ID {lock_id!r}\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1267",
+    "check": "result.error(f\"{f.relative_to(path)}: DESIGN-REVIEW parent lacks a resolvable DESIGN parent\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1271",
+    "check": "result.error(f\"{f.relative_to(path)}: DESIGN parent is not earlier than the DESIGN-REVIEW relay\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1273",
+    "check": "result.error(f\"{f.relative_to(path)}: DESIGN-REVIEW parent must point to a DESIGN relay\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1276",
+    "check": "result.error(f\"{f.relative_to(path)}: DESIGN-REVIEW must review the pair Planner's DESIGN relay\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1278",
+    "check": "result.error(f\"{f.relative_to(path)}: DESIGN parent DESIGN_DOC_ID must match PLAN DESIGN_LOCK_ID {lock_id!r}\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1302",
+    "check": "result.error(f\"{f.relative_to(path)}: pair-Planner DISPATCH IMPL FROM owner does not match TO implementer owner\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1305",
+    "check": "result.error(f\"{f.relative_to(path)}: pair-Planner DISPATCH IMPL requires PARENT_DISPATCH_ID to an approving PLAN-REVIEW relay; absence is not a delegated-dispatch escape hatch\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": [
+      "addressing/T5-bad-address.md",
+      "lineage/LI2-cc-orchestrator-plan-trap",
+      "lineage/LI3-no-plan-review-parent",
+      "lineage/LI4-non-addressee-impl-report",
+      "lineage/LI5-edgeless-delegated-cc-trap",
+      "lineage/LI6-edgeless-no-approve",
+      "lineage/LI7-edgeless-non-addressee-report"
+    ]
+  },
+  {
+    "anchor": "relay-lint.py:1310",
+    "check": "result.error(f\"{f.relative_to(path)}: DISPATCH IMPL parent {fields.get('PARENT_DISPATCH_ID')!r} does not resolve to a relay in this lineage\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1314",
+    "check": "result.error(f\"{f.relative_to(path)}: DISPATCH IMPL parent {fields.get('PARENT_DISPATCH_ID')!r} is not earlier than the dispatch relay\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1316",
+    "check": "result.error(f\"{f.relative_to(path)}: DISPATCH IMPL parent must be an earlier PLAN-REVIEW relay with verdict approve\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1319",
+    "check": "result.error(f\"{f.relative_to(path)}: PLAN-REVIEW parent must be FROM {dispatch_owner}.implementer\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1322",
+    "check": "result.error(f\"{f.relative_to(path)}: PLAN-REVIEW parent lacks a resolvable pair-Planner PLAN parent\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1326",
+    "check": "result.error(f\"{f.relative_to(path)}: pair-Planner PLAN parent is not earlier than the PLAN-REVIEW relay\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1328",
+    "check": "result.error(f\"{f.relative_to(path)}: PLAN-REVIEW parent must point to a PLAN relay\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1331",
+    "check": "result.error(f\"{f.relative_to(path)}: PLAN-REVIEW must review the pair Planner's PLAN, not a CC'd orchestrator dispatch\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1334",
+    "check": "result.error(f\"{f.relative_to(path)}: pair-Planner PLAN must address the Implementer in TO for review\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1347",
+    "check": "result.error(f\"{f.relative_to(path)}: IMPL report with substantive actions requires PARENT_DISPATCH_ID to the addressed DISPATCH IMPL relay\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1351",
+    "check": "result.error(f\"{f.relative_to(path)}: IMPL report parent {fields.get('PARENT_DISPATCH_ID')!r} does not resolve to a relay in this lineage\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1355",
+    "check": "result.error(f\"{f.relative_to(path)}: IMPL report parent must be a DISPATCH IMPL relay\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1360",
+    "check": "result.error(f\"{f.relative_to(path)}: IMPL report FROM {actor_from[0]!r} is not the addressee of the parent DISPATCH IMPL relay\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1374",
+    "check": "result.error(f\"{f.relative_to(path)}: relay claims a merge/merge commit without an earlier MERGE-GATE authorization relay with the same DISPATCH_ID\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": [
+      "merge/M1-merge-claim-no-auth",
+      "merge/M4-canonical-claim-no-auth",
+      "merge/M5-self-auth-forgery",
+      "merge/M7-continuation-prose-claim-no-auth",
+      "merge/M8-continuation-canonical-claim-no-auth",
+      "merge/BP5-blank-line-merge-evasion",
+      "merge/GA-flushleft-canonical-no-auth",
+      "merge/GB-tab-ambiguous-canonical",
+      "merge/GC-2blank-ambiguous-canonical",
+      "merge/organic-m2-unauthorized-merge",
+      "merge-token/MT2-backticked-token-inert",
+      "merge-token/MT3-self-granted-token.md",
+      "merge-token/MT4-multi-to-grant.md",
+      "merge-token/MT5-wrong-phase-token.md",
+      "merge-token/MT6-token-outside-root",
+      "merge-token/MT7-duplicate-authorization-decoy",
+      "merge-token/MT8-denied-only-no-auth",
+      "merge-token/MT9-cross-dispatch-runroot"
+    ]
+  },
+  {
+    "anchor": "relay-lint.py:1393",
+    "check": "result.error(f\"{f.relative_to(path)}: {header} flips {row_path!r} from OUT in {prior_file.relative_to(path)} to IN without a reconciliation evidence override\")",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": [
+      "rowtruth/RT2-missing-fold-evidence.md",
+      "rowtruth/RT4-missing-scope-evidence.md",
+      "rowtruth/RT5-two-relay-out-in-flip"
+    ]
+  },
+  {
+    "anchor": "relay-lint.py:1400",
+    "check": "result.error(err)",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine table-backed walk",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1410",
+    "check": "result.error(f\"{f.relative_to(path)}: {key} references missing file {val}\")",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1416",
+    "check": "for w in result.warnings:",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1418",
+    "check": "for e in result.errors:",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1420",
+    "check": "if result.ok and not result.warnings:",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec registry validation",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": []
+  },
+  {
+    "anchor": "relay-lint.py:1420",
+    "check": "expected-OK oracle entries",
+    "class_10": "retained",
+    "disposition": "retained",
+    "surface": "typed equivalent accept path",
+    "context": "live",
+    "obsolete_ground": "",
+    "fixtures": [
+      "claude/A1-valid-audit.md",
+      "claude/A2-valid-downgrade.md",
+      "lint-test/good5.md",
+      "claude/L1",
+      "claude/L2",
+      "probes/N2-refusal-code-span.md",
+      "probes/N3-fenced-dispatch-inert.md",
+      "addressing/T1-valid-addressed-dispatch.md",
+      "addressing/T6-valid-audit-both-to.md",
+      "addressing/T7-valid-cc-context.md",
+      "addressing/T8-cc-trap-structurally-valid.md",
+      "addressing/G1-casefold-lineage",
+      "merge/M2-merge-claim-with-auth",
+      "merge/M3-honest-not-merged",
+      "merge/GD-quoted-canonical-inert",
+      "merge-token/MT1-valid-token-grant",
+      "content/E4-structured-unavailable.md",
+      "content/E5-clean-tree.md",
+      "content/E7-valid-scopediff-dispatch.md",
+      "content/E12-colon-rows-valid.md",
+      "fold/FD2-valid-fold-report.md",
+      "fold/FD5-deviation-relay-out-rows-no-edit.md",
+      "lineage/LI1-valid-parent-chain",
+      "rowtruth/RT1-valid-fold-evidence.md",
+      "rowtruth/RT3-valid-scope-evidence.md",
+      "p9/P9-blank-line-prose-after-block",
+      "design-review/DR1-valid-design-doc-chain",
+      "design-review/DR3-direct-override",
+      "design-review/DR5-tiny-no-lock",
+      "design-review/DR6-genuine-audit-record",
+      "design-review/DR7a-audit-record-no-design-doc",
+      "design-review/DR11c-positive-control-v2",
+      "design-review/DR14-legacy-lock-tolerated",
+      "design-review/DR16-F-a-same-id-orch-design",
+      "design-review/DR17-F-relock-latest-before-review",
+      "design-review/DR18-F-thread-one-id-pass",
+      "orch-review/OR1-audit-cc",
+      "orch-review/OR2-design-cc",
+      "orch-review/OR3-plan-delegated-cc",
+      "orch-review/OR4-override-impl-cc",
+      "orch-review/OR5-merge-gate-cc",
+      "orch-review/OR6-review-fold-cc",
+      "orch-review/A2-operator-waiver",
+      "orch-review/A4-solo-no-orchestrator-relay",
+      "orch-review/EX1-operator-authority",
+      "orch-review/EX2-pairplanner-impl",
+      "orch-review/EX3-reviewer-boot",
+      "orch-review/EX4-reconcile",
+      "orch-review/EX5-proceed-nodeleg",
+      "orch-review/EX6-boot-to-reviewer"
+    ]
+  }
+]

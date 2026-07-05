@@ -8,4 +8,4 @@ Identity and store access are tool-mediated confusion-resistance. The per-seat s
 
 The commit loop is the sole in-process writer for governance-surface mutations, with the D5 residual above applying to out-of-tool-surface local processes. Crash fixtures exercise the rename-pivot path and recovery replay at E2.
 
-S1 renders `grant` only on operator/orchestrator forms. Conditional pair-Planner grant rendering lands in S3, and this S1 schema keeps that later landing additive rather than foreclosed.
+S1 renders `grant` only on operator/orchestrator forms. Conditional pair-Planner grant rendering lands in S3 through the form-system registry for fresh stores: the S3 registry rides `store.Init`; registry evolution on an existing store awaits the §7 config-change record, and this S1 schema keeps that later landing additive rather than foreclosed.

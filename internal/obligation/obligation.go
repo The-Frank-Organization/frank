@@ -6,6 +6,7 @@ import (
 
 	"github.com/jackli/frank/internal/record"
 	"github.com/jackli/frank/internal/store"
+	"github.com/jackli/frank/internal/tables"
 )
 
 type Fact struct {
@@ -20,12 +21,7 @@ type Class struct {
 	Complete  func(Fact, *store.Store) error
 }
 
-type Tables struct {
-	OutcomeByIntake map[string]record.Record
-	ContentHash     map[string]string
-	CompletionIndex map[string]map[string]bool
-	ParkedLanes     map[string]bool
-}
+type Tables = tables.T
 
 type Engine struct {
 	classes map[string]Class
@@ -75,51 +71,19 @@ func (e *Engine) BuildTables(st *store.Store) error {
 func (e *Engine) OnCommit(record.Record) {}
 
 func BuildTables(st *store.Store) (*Tables, error) {
-	records, err := st.Records()
-	if err != nil {
-		return nil, err
-	}
-	tables := &Tables{
-		OutcomeByIntake: map[string]record.Record{},
-		ContentHash:     map[string]string{},
-		CompletionIndex: map[string]map[string]bool{
-			"park":       {},
-			"outbox":     {},
-			"incident":   {},
-			"quarantine": {},
-			"owed":       {},
-		},
-		ParkedLanes: map[string]bool{},
-	}
-	for _, rec := range records {
-		if rec.Envelope.IntakeID != "" {
-			tables.OutcomeByIntake[rec.Envelope.IntakeID] = rec
-		}
-		if gate := rec.Headers["parks_gate"]; gate != "" {
-			tables.CompletionIndex["park"][gate] = true
-			tables.ParkedLanes[gate] = true
-		}
-		if rec.Headers["quarantined_ref"] != "" {
-			tables.CompletionIndex["incident"][rec.Headers["quarantined_ref"]] = true
-		}
-		if rec.Headers["disposes_owed"] != "" {
-			tables.CompletionIndex["owed"][rec.Headers["disposes_owed"]] = true
-		}
-		var outbox struct {
-			SourceRecordRef string `json:"source_record_ref"`
-		}
-		if rec.Body != "" && json.Unmarshal([]byte(rec.Body), &outbox) == nil && outbox.SourceRecordRef != "" {
-			tables.CompletionIndex["outbox"][outbox.SourceRecordRef] = true
-		}
-	}
-	return tables, nil
+	return tables.Build(st)
 }
 
-func CompleteAuto(st *store.Store) error {
-	records, err := st.Records()
-	if err != nil {
-		return err
+func CompleteAuto(st *store.Store, existing ...*tables.T) error {
+	t := firstTable(existing)
+	if t == nil {
+		var err error
+		t, err = tables.Build(st)
+		if err != nil {
+			return err
+		}
 	}
+	records := append([]record.Record(nil), t.Records...)
 	for _, rec := range records {
 		sourceKind := ""
 		switch {
@@ -131,25 +95,30 @@ func CompleteAuto(st *store.Store) error {
 			continue
 		}
 		if sourceKind == "gate" {
-			if err := completePark(st, records, rec); err != nil {
+			if err := completePark(st, t, rec); err != nil {
 				return err
 			}
 		}
-		if err := completeOutbox(st, records, rec, sourceKind); err != nil {
+		if err := completeOutbox(st, t, rec, sourceKind); err != nil {
 			return err
 		}
 	}
 	return st.CompleteIncidents()
 }
 
-func completePark(st *store.Store, records []record.Record, gateRecord record.Record) error {
-	parkID := "park-" + gateRecord.Envelope.RelayID
-	for _, existing := range records {
-		if existing.Envelope.RelayID == parkID || existing.Headers["parks_gate"] == gateRecord.Envelope.RelayID {
-			return nil
-		}
+func firstTable(existing []*tables.T) *tables.T {
+	if len(existing) == 0 {
+		return nil
 	}
-	_, err := st.Commit(record.Record{
+	return existing[0]
+}
+
+func completePark(st *store.Store, t *tables.T, gateRecord record.Record) error {
+	parkID := "park-" + gateRecord.Envelope.RelayID
+	if _, ok := t.ByRelay[parkID]; ok || t.CompletionIndex["park"][gateRecord.Envelope.RelayID] {
+		return nil
+	}
+	rec := record.Record{
 		Envelope: record.Envelope{
 			RelayID:       parkID,
 			From:          "system",
@@ -163,17 +132,19 @@ func completePark(st *store.Store, records []record.Record, gateRecord record.Re
 			"SUBJECT":    "parked gate",
 			"parks_gate": gateRecord.Envelope.RelayID,
 		},
-	}, nil)
+	}
+	_, err := st.Commit(rec, nil)
+	if err == nil {
+		t.OnCommit(rec)
+	}
 	return err
 }
 
-func completeOutbox(st *store.Store, records []record.Record, rec record.Record, sourceKind string) error {
+func completeOutbox(st *store.Store, t *tables.T, rec record.Record, sourceKind string) error {
 	itemID := sourceKind + "-" + rec.Envelope.RelayID
 	outboxRecordID := "outbox-" + itemID
-	for _, existing := range records {
-		if existing.Envelope.RelayID == outboxRecordID {
-			return nil
-		}
+	if _, ok := t.ByRelay[outboxRecordID]; ok || t.CompletionIndex["outbox"][rec.Envelope.RelayID] {
+		return nil
 	}
 	item := struct {
 		ItemID          string `json:"item_id"`
@@ -196,7 +167,7 @@ func completeOutbox(st *store.Store, records []record.Record, rec record.Record,
 	if err != nil {
 		return err
 	}
-	_, err = st.Commit(record.Record{
+	outboxRec := record.Record{
 		Envelope: record.Envelope{
 			RelayID:       outboxRecordID,
 			From:          "system",
@@ -206,7 +177,11 @@ func completeOutbox(st *store.Store, records []record.Record, rec record.Record,
 		},
 		Headers: map[string]string{"PHASE": "SITREP", "SUBJECT": "derived outbox item"},
 		Body:    string(data),
-	}, []store.Intent{{Kind: store.IntentOutbox, Path: itemID + ".json", Payload: data}})
+	}
+	_, err = st.Commit(outboxRec, []store.Intent{{Kind: store.IntentOutbox, Path: itemID + ".json", Payload: data}})
+	if err == nil {
+		t.OnCommit(outboxRec)
+	}
 	return err
 }
 

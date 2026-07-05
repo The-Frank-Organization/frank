@@ -20,9 +20,10 @@ import (
 func TestOwedItemSubmitProjectsOpenAndDispositionClosesIt(t *testing.T) {
 	root := t.TempDir()
 	st, reg := owedDeps(t, root)
-	handler := engine.SubmitHandler(st, reg, seat.SeatMeta{Name: "operator", Role: "operator", IsOperator: true})
+	meta := seat.SeatMeta{Name: "operator", Role: "operator", IsOperator: true}
+	handler := engine.SubmitHandler(st, reg, meta)
 
-	owed := submitAndCommitOwed(t, st, handler, record.Record{
+	owed := submitAndCommitOwed(t, st, handler, reg, meta, record.Record{
 		Headers: map[string]string{
 			"PHASE":            "SITREP",
 			"AUTHORITY":        "report-only",
@@ -48,7 +49,7 @@ func TestOwedItemSubmitProjectsOpenAndDispositionClosesIt(t *testing.T) {
 		t.Fatalf("open owed = %+v, want %s", facts, owed.Envelope.RelayID)
 	}
 
-	disposition := submitAndCommitOwed(t, st, handler, record.Record{
+	disposition := submitAndCommitOwed(t, st, handler, reg, meta, record.Record{
 		Headers: map[string]string{
 			"PHASE":         "SITREP",
 			"AUTHORITY":     "report-only",
@@ -65,7 +66,7 @@ func TestOwedItemSubmitProjectsOpenAndDispositionClosesIt(t *testing.T) {
 		t.Fatalf("OPEN.md still contains disposed owed id:\n%s", open)
 	}
 
-	second := submitOwed(t, handler, record.Record{
+	second := submitOwed(t, handler, reg, meta, record.Record{
 		Headers: map[string]string{
 			"PHASE":         "SITREP",
 			"AUTHORITY":     "report-only",
@@ -81,15 +82,16 @@ func TestOwedItemSubmitProjectsOpenAndDispositionClosesIt(t *testing.T) {
 
 func TestOwedValidationRejectsUnknownKindsAndUnknownParents(t *testing.T) {
 	st, reg := owedDeps(t, t.TempDir())
-	handler := engine.SubmitHandler(st, reg, seat.SeatMeta{Name: "seat-a", Role: "implementer"})
+	meta := seat.SeatMeta{Name: "seat-a", Role: "implementer"}
+	handler := engine.SubmitHandler(st, reg, meta)
 
-	unknownKind := submitOwed(t, handler, record.Record{
+	unknownKind := submitOwed(t, handler, reg, meta, record.Record{
 		Headers: map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "SUBJECT": "bad", "record_kind": "mystery"},
 	})
 	if unknownKind.Envelope.DeliveryState != record.Rejected {
 		t.Fatalf("unknown kind state = %s, want rejected", unknownKind.Envelope.DeliveryState)
 	}
-	unknownParent := submitOwed(t, handler, record.Record{
+	unknownParent := submitOwed(t, handler, reg, meta, record.Record{
 		Headers: map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "SUBJECT": "bad parent", "record_kind": "owed_disposition", "disposes_owed": "missing"},
 	})
 	if unknownParent.Envelope.DeliveryState != record.Rejected {
@@ -100,8 +102,9 @@ func TestOwedValidationRejectsUnknownKindsAndUnknownParents(t *testing.T) {
 func TestOwedItemAcceptsNonOperatorSeat(t *testing.T) {
 	root := t.TempDir()
 	st, reg := owedDeps(t, root)
-	handler := engine.SubmitHandler(st, reg, seat.SeatMeta{Name: "s2-core.implementer", Role: "implementer"})
-	owed := submitAndCommitOwed(t, st, handler, record.Record{
+	meta := seat.SeatMeta{Name: "s2-core.implementer", Role: "implementer"}
+	handler := engine.SubmitHandler(st, reg, meta)
+	owed := submitAndCommitOwed(t, st, handler, reg, meta, record.Record{
 		Headers: map[string]string{
 			"PHASE":            "SITREP",
 			"AUTHORITY":        "report-only",
@@ -150,9 +153,9 @@ func owedDeps(t *testing.T, root string) (*store.Store, *fieldspec.Registry) {
 	return st, reg
 }
 
-func submitAndCommitOwed(t *testing.T, st *store.Store, handler engine.Handler, rec record.Record) record.Record {
+func submitAndCommitOwed(t *testing.T, st *store.Store, handler engine.Handler, reg *fieldspec.Registry, meta seat.SeatMeta, rec record.Record) record.Record {
 	t.Helper()
-	cand := submitOwed(t, handler, rec)
+	cand := submitOwed(t, handler, reg, meta, rec)
 	if cand.Envelope.DeliveryState == record.Accepted {
 		if _, err := st.Commit(cand, store.OwedProjectionIntentsForCandidate(st, cand)); err != nil {
 			t.Fatalf("Commit owed candidate: %v", err)
@@ -161,13 +164,14 @@ func submitAndCommitOwed(t *testing.T, st *store.Store, handler engine.Handler, 
 	return cand
 }
 
-func submitOwed(t *testing.T, handler engine.Handler, rec record.Record) record.Record {
+func submitOwed(t *testing.T, handler engine.Handler, reg *fieldspec.Registry, meta seat.SeatMeta, rec record.Record) record.Record {
 	t.Helper()
-	payload, err := json.Marshal(rec)
+	_, digest := reg.Render(fieldspec.RenderEnv{}, fieldspec.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator}, rec.Headers["PHASE"], rec.Headers["CEREMONY_TIER"], fieldspec.ClosedGrantState)
+	payload, err := json.Marshal(fieldspec.SubmitPayload{Record: rec, FormDigest: digest})
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
-	cand, _, err := handler(context.Background(), intake.Cmd{IntakeID: "owed-intake", Seat: "operator", Role: "operator", Payload: payload})
+	cand, _, err := handler(context.Background(), intake.Cmd{IntakeID: "owed-intake", Seat: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator, Payload: payload})
 	if err != nil {
 		t.Fatalf("handler: %v", err)
 	}

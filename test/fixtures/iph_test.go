@@ -17,6 +17,7 @@ import (
 	"github.com/jackli/frank/internal/engine"
 	"github.com/jackli/frank/internal/fieldspec"
 	"github.com/jackli/frank/internal/intake"
+	"github.com/jackli/frank/internal/migrate"
 	"github.com/jackli/frank/internal/record"
 	"github.com/jackli/frank/internal/store"
 )
@@ -34,6 +35,50 @@ func TestP1NoPathFamiliesInSeatDeliverableStrings(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestP1S3ExtendedSurfacesDoNotLeakPathFamilies(t *testing.T) {
+	outputs := []string{
+		bounce.Format(fieldspec.Violation{Field: "form_digest", Class: "re-render", Reason: filepath.Join(t.TempDir(), "records", "leak.json")}),
+		migrate.ErrFutureVersion.Error(),
+		migrate.ErrUnversioned.Error(),
+		fmt.Errorf("%w: 1->2", migrate.ErrMigrationGap).Error(),
+	}
+
+	registryPath := filepath.Join(t.TempDir(), "registry.json")
+	if err := os.WriteFile(registryPath, []byte(`{
+		"version": "bad",
+		"provenance": {"owner": "test"},
+		"named_enums": {"bool": ["no", "yes"]},
+		"fields": [{
+			"id": "TRIGGER",
+			"layer": "header",
+			"owner": "agent_enum_pick",
+			"type": "bool",
+			"enum_set": "bool",
+			"required_when": {"field": "MISSING", "op": "present"}
+		}]
+	}`), 0o644); err != nil {
+		t.Fatalf("write registry fixture: %v", err)
+	}
+	if _, err := fieldspec.Load(registryPath); err != nil {
+		outputs = append(outputs, err.Error())
+	} else {
+		t.Fatalf("bad registry unexpectedly loaded")
+	}
+
+	response, err := json.Marshal(channel.DescriptionResponse{
+		Tools: []string{"submit", "project", "read"},
+		SubmitSchema: &fieldspec.Form{Fields: map[string]fieldspec.Field{
+			"PARENT_DISPATCH_ID": {Type: "id_ref", Options: []string{"parent-1"}, Default: "parent-1", DigestExempt: true},
+		}},
+		FormDigest: "digest-1",
+	})
+	if err != nil {
+		t.Fatalf("marshal description response: %v", err)
+	}
+	outputs = append(outputs, string(response))
+	assertNoPathFamilies(t, outputs...)
 }
 
 func TestP1LoopOutcomeDoesNotLeakStorePaths(t *testing.T) {
@@ -55,6 +100,17 @@ func TestP1LoopOutcomeDoesNotLeakStorePaths(t *testing.T) {
 	out := <-reply
 	if strings.Contains(out.Reason, root) || strings.Contains(out.Reason, "/records/") {
 		t.Fatalf("loop outcome leaked path: %+v", out)
+	}
+}
+
+func assertNoPathFamilies(t *testing.T, outputs ...string) {
+	t.Helper()
+	for _, output := range outputs {
+		for _, family := range []string{"/records", "/staging", "/outbox", "/binding", "operator-socket"} {
+			if strings.Contains(output, family) {
+				t.Fatalf("P1 output leaked %s in %q", family, output)
+			}
+		}
 	}
 }
 

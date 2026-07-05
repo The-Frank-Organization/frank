@@ -451,10 +451,11 @@ func runF11Mutation(root, mutation string) error {
 		if err != nil {
 			return err
 		}
-		handler := engine.SubmitHandler(st, reg, seat.SeatMeta{Name: "operator", Role: "operator", IsOperator: true})
-		payload, _ := json.Marshal(record.Record{
+		meta := seat.SeatMeta{Name: "operator", Role: "operator", IsOperator: true}
+		handler := engine.SubmitHandler(st, reg, meta)
+		payload, _ := json.Marshal(submitPayloadForRegistry(reg, meta, record.Record{
 			Headers: map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "SUBJECT": "verdict", "PARENT_DISPATCH_ID": "gate-base", "resolves_gate": "gate-base"},
-		})
+		}))
 		rec, intents, err := handler(context.Background(), intake.Cmd{IntakeID: "verdict-intake", Seat: "operator", Role: "operator", IsOperator: true, Payload: payload})
 		if err != nil {
 			return err
@@ -543,7 +544,8 @@ func commitOwedMutation(st *store.Store, kind, parent string) error {
 	if err != nil {
 		return err
 	}
-	handler := engine.SubmitHandler(st, reg, seat.SeatMeta{Name: "operator", Role: "operator", IsOperator: true})
+	meta := seat.SeatMeta{Name: "operator", Role: "operator", IsOperator: true}
+	handler := engine.SubmitHandler(st, reg, meta)
 	recordKind := strings.ReplaceAll(kind, "-", "_")
 	headers := map[string]string{
 		"PHASE":            "SITREP",
@@ -558,13 +560,18 @@ func commitOwedMutation(st *store.Store, kind, parent string) error {
 	if kind == "owed-disposition" {
 		headers = map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "SUBJECT": kind, "record_kind": recordKind, "disposes_owed": parent}
 	}
-	payload, _ := json.Marshal(record.Record{Headers: headers})
+	payload, _ := json.Marshal(submitPayloadForRegistry(reg, meta, record.Record{Headers: headers}))
 	rec, intents, err := handler(context.Background(), intake.Cmd{IntakeID: kind + "-intake", Seat: "operator", Role: "operator", IsOperator: true, Payload: payload})
 	if err != nil {
 		return err
 	}
 	_, err = st.Commit(rec, intents)
 	return err
+}
+
+func submitPayloadForRegistry(reg *fieldspec.Registry, meta seat.SeatMeta, rec record.Record) fieldspec.SubmitPayload {
+	_, digest := reg.Render(fieldspec.RenderEnv{}, fieldspec.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator}, rec.Headers["PHASE"], rec.Headers["CEREMONY_TIER"], fieldspec.ClosedGrantState)
+	return fieldspec.SubmitPayload{Record: rec, FormDigest: digest}
 }
 
 func assertNoTornStaging(t *testing.T, root string) {

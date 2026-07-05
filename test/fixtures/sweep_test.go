@@ -18,6 +18,8 @@ func TestSweepReadmeClaimHonesty(t *testing.T) {
 		"tool-mediated confusion-resistance",
 		"D5 residual",
 		"pair-Planner grant rendering lands in S3",
+		"the S3 registry rides `store.Init`",
+		"registry evolution on an existing store awaits the §7 config-change record",
 	} {
 		if !strings.Contains(readme, want) {
 			t.Fatalf("README missing honesty phrase %q", want)
@@ -32,6 +34,31 @@ func TestSweepReadmeClaimHonesty(t *testing.T) {
 		if hasExclusivityClaim(paragraph) && !strings.Contains(paragraph, "D5 residual") && !strings.Contains(paragraph, "governance-surface") {
 			t.Fatalf("claim lacks D5/governance qualifier: %q", paragraph)
 		}
+	}
+}
+
+func TestS3SweepGateCategoryAuthorityUsesRegistry(t *testing.T) {
+	data, err := os.ReadFile("../../internal/lineage/lineage.go")
+	if err != nil {
+		t.Fatalf("read lineage.go: %v", err)
+	}
+	helperName := "isA" + "GateCategory"
+	if strings.Contains(string(data), helperName) {
+		t.Fatalf("lineage still carries the S1 hard-coded gate-category helper")
+	}
+}
+
+func TestS3SweepMainThreadsActiveLineageTurnContext(t *testing.T) {
+	data, err := os.ReadFile("../../cmd/frank/main.go")
+	if err != nil {
+		t.Fatalf("read main.go: %v", err)
+	}
+	main := string(data)
+	if strings.Contains(main, "ActiveLineageCandidates(tab, lineage.TurnContext{})") {
+		t.Fatalf("main.go still passes an empty lineage turn context into ActiveLineageCandidates")
+	}
+	if !strings.Contains(main, "turnContextForSeat") {
+		t.Fatalf("main.go does not thread the conductor-derived turn context helper")
 	}
 }
 
