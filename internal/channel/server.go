@@ -3,6 +3,7 @@ package channel
 import (
 	"bufio"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -92,6 +93,7 @@ type Server struct {
 	factory ToolFactory
 	done    chan struct{}
 	clients map[*serverConn]struct{}
+	active  map[[32]byte]*serverConn
 	pending [][]byte
 	limit   int
 	mu      sync.Mutex
@@ -114,6 +116,7 @@ func Serve(sockPath string, tools ToolSet, opts ...Option) (*Server, error) {
 		tools:   tools,
 		done:    make(chan struct{}),
 		clients: map[*serverConn]struct{}{},
+		active:  map[[32]byte]*serverConn{},
 		limit:   applied.frameLimit,
 	}
 	go s.accept()
@@ -206,18 +209,22 @@ func (s *Server) Close() error {
 }
 
 type serverConn struct {
-	server *Server
-	conn   net.Conn
-	enc    *json.Encoder
-	mu     sync.Mutex
-	tools  ToolSet
-	authed bool
+	server   *Server
+	conn     net.Conn
+	enc      *json.Encoder
+	mu       sync.Mutex
+	tools    ToolSet
+	authed   bool
+	credHash [32]byte
 }
 
 func (c *serverConn) run() {
 	defer func() {
 		c.server.mu.Lock()
 		delete(c.server.clients, c)
+		if c.authed {
+			delete(c.server.active, c.credHash)
+		}
 		c.server.mu.Unlock()
 		_ = c.conn.Close()
 	}()
@@ -257,8 +264,18 @@ func (c *serverConn) handle(req rpcMessage) (json.RawMessage, string) {
 		if !ok {
 			return nil, "auth:invalid-credential"
 		}
-		c.tools = c.server.factory(meta)
+		credHash := sha256.Sum256([]byte(connect.Credential))
+		tools := c.server.factory(meta)
+		c.server.mu.Lock()
+		if _, exists := c.server.active[credHash]; exists {
+			c.server.mu.Unlock()
+			return nil, "auth:channel-active"
+		}
+		c.credHash = credHash
+		c.tools = tools
 		c.authed = true
+		c.server.active[credHash] = c
+		c.server.mu.Unlock()
 		c.flushPending()
 		return mustJSON(connectResponse{Seat: meta.Name, Role: meta.Role}), ""
 	}
