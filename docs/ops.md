@@ -43,6 +43,8 @@ Status is socket liveness plus channel diagnostics. If phase-0 cannot open for s
 
 One seat = one credential = one host MCP config entry. A session occupies a durable seat by launching `frank-mcp` with that seat credential. Killing the host session or shim closes the socket; relaunching with the same credential reoccupies the same seat and mailbox.
 
+S4 corrects delivery to the locked TO/CC-mailbox semantics (m-1 §5); S1–S3 delivered to Envelope.To only.
+
 Two blessed wiring patterns:
 
 1. Separate per-seat host config scopes, each with its own `FRANK_SOCKET` and `FRANK_CREDENTIAL`.

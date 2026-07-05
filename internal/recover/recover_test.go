@@ -190,6 +190,44 @@ func TestPhase0RematerializesFromChain(t *testing.T) {
 	}
 }
 
+func TestPhase0RematerializesLatestConfigChangePerMember(t *testing.T) {
+	root := t.TempDir()
+	initRecoverStore(t, root)
+	st, err := store.Open(root)
+	if err != nil {
+		t.Fatalf("Open store: %v", err)
+	}
+	registryBody := []byte(`{"phase":["SITREP","PLAN"],"authority":[],"ceremony_tier":[],"evidence_target":[],"gate_category":{},"grant":[]}`)
+	commitRecoverConfigMemberChange(t, st, root, "recover-registry-change", "fieldspec", registryBody)
+	engineBody := []byte(`{"gc_enabled":true,"segment_rotate_bytes":4194304,"max_frame_bytes":4096}`)
+	commitRecoverConfigMemberChange(t, st, root, "recover-engine-change", "engine", engineBody)
+	pinnedAfter, err := config.Load(store.StoreRootConfigPaths(root))
+	if err != nil {
+		t.Fatalf("load pinned after changes: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(root, "config", "fieldspec", "registry.json"), []byte(`{"phase":["SITREP"],"authority":[],"ceremony_tier":[],"evidence_target":[],"gate_category":{},"grant":[]}`), 0o644); err != nil {
+		t.Fatalf("stale registry: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "config", "engine.json"), []byte(`{"gc_enabled":false,"segment_rotate_bytes":4194304}`), 0o644); err != nil {
+		t.Fatalf("stale engine: %v", err)
+	}
+
+	result, err := frankrecover.Run(root, pinnedAfter)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if result.Ready == nil || result.Diag != nil {
+		t.Fatalf("result = %+v, want Ready", result)
+	}
+	if got := string(mustReadRecover(t, filepath.Join(root, "config", "fieldspec", "registry.json"))); got != string(registryBody) {
+		t.Fatalf("rematerialized registry = %q, want %q", got, registryBody)
+	}
+	if got := string(mustReadRecover(t, filepath.Join(root, "config", "engine.json"))); got != string(engineBody) {
+		t.Fatalf("rematerialized engine = %q, want %q", got, engineBody)
+	}
+}
+
 func TestPhase0FreshStoreUnchanged(t *testing.T) {
 	root := t.TempDir()
 	pinned := initRecoverStore(t, root)
@@ -265,14 +303,19 @@ func pinnedForRecoverTest(t *testing.T) *config.Pinned {
 
 func commitRecoverConfigChange(t *testing.T, st *store.Store, root, relayID string, body []byte) {
 	t.Helper()
-	digest := recoverDigestWithMember(t, root, "fieldspec", body)
+	commitRecoverConfigMemberChange(t, st, root, relayID, "fieldspec", body)
+}
+
+func commitRecoverConfigMemberChange(t *testing.T, st *store.Store, root, relayID, member string, body []byte) {
+	t.Helper()
+	digest := recoverDigestWithMember(t, root, member, body)
 	rec := record.Record{
 		Envelope: record.Envelope{RelayID: relayID, From: "operator", Role: "operator", DeliveryState: record.Accepted, SchemaVersion: 1},
 		Headers: map[string]string{
 			"PHASE":       "SITREP",
-			"SUBJECT":     "registry update",
+			"SUBJECT":     member + " update",
 			"record_kind": "config_change",
-			"member":      "fieldspec",
+			"member":      member,
 			"new_digest":  digest,
 		},
 		Body: string(body),

@@ -114,6 +114,8 @@ Host B then calls `project` and `read` for the returned relay id.
 
 Evidence: `transcripts/10-host-a-tools-list.jsonl`, `transcripts/11-host-a-submit.jsonl`, `transcripts/12-host-b-project.jsonl`, and `transcripts/13-host-b-read.jsonl`. The exit report records the relay id, not a content-verification claim.
 
+S4 corrects delivery to the locked TO/CC-mailbox semantics (m-1 §5); S1–S3 delivered to Envelope.To only.
+
 ## 6. Adversarial legs
 
 No credential and bad credential:

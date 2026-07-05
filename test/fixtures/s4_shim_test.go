@@ -53,6 +53,35 @@ func TestNudgeAllRecipients(t *testing.T) {
 	expectFixtureNudge(t, h.ctx, seatC, "delivery-nudge", relayID)
 }
 
+func TestCCRecipientMailboxedNudgedOnceAndPathClean(t *testing.T) {
+	h := newS4ShimHarness(t)
+	credA := h.mint(t, "seat-a", "implementer")
+	credB := h.mint(t, "seat-b", "planner")
+	credC := h.mint(t, "seat-c", "reviewer")
+	h.start(t)
+
+	sender := h.dial(t, credA)
+	defer func() { _ = sender.Close() }()
+	seatB := h.dial(t, credB)
+	defer func() { _ = seatB.Close() }()
+	seatC := h.dial(t, credC)
+	defer func() { _ = seatC.Close() }()
+
+	relayID := h.submit(t, sender, s4Relay("seat-b", `["seat-c","seat-b","seat-c"]`, "cc-dedupe"))
+	for seatName, client := range map[string]*channel.Client{"seat-b": seatB, "seat-c": seatC} {
+		frame := expectFixtureNudge(t, h.ctx, client, "delivery-nudge", relayID)
+		for _, forbidden := range [][]byte{[]byte(h.root), []byte(h.sock), []byte("binding"), []byte("seats.json"), []byte(credA.Value), []byte(credB.Value), []byte(credC.Value), []byte("wake")} {
+			if bytes.Contains(frame, forbidden) {
+				t.Fatalf("%s nudge leaked %q in %s", seatName, forbidden, frame)
+			}
+		}
+		expectNoFixturePush(t, client)
+		assertFixtureProject(t, h.ctx, client, seatName, relayID)
+		assertFixtureMailbox(t, h.root, seatName, relayID)
+	}
+	expectNoFixturePush(t, sender)
+}
+
 func TestOfflineRecipientNudgedOnReconnect(t *testing.T) {
 	h := newS4ShimHarness(t)
 	credA := h.mint(t, "seat-a", "implementer")
@@ -252,5 +281,32 @@ func expectNoFixturePush(t *testing.T, client *channel.Client) {
 	defer cancel()
 	if frame, err := client.NextPush(ctx); err == nil {
 		t.Fatalf("unexpected push: %s", frame)
+	}
+}
+
+func assertFixtureProject(t *testing.T, ctx context.Context, client *channel.Client, seatName, relayID string) {
+	t.Helper()
+	data, err := client.Call(ctx, "project", nil)
+	if err != nil {
+		t.Fatalf("project %s: %v", seatName, err)
+	}
+	var got []string
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatalf("decode project %s: %v", data, err)
+	}
+	if len(got) != 1 || got[0] != relayID {
+		t.Fatalf("project %s = %v, want [%s]", seatName, got, relayID)
+	}
+}
+
+func assertFixtureMailbox(t *testing.T, root, seatName, relayID string) {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(root, "mailboxes", seatName+".jsonl"))
+	if err != nil {
+		t.Fatalf("read mailbox %s: %v", seatName, err)
+	}
+	lines := bytes.Split(bytes.TrimSpace(data), []byte("\n"))
+	if len(lines) != 1 || string(lines[0]) != relayID {
+		t.Fatalf("mailbox %s = %q, want exactly %s", seatName, data, relayID)
 	}
 }

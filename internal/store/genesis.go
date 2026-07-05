@@ -156,7 +156,30 @@ func (s *Store) rematerializeLatestConfigChange() error {
 	if len(chain) == 0 {
 		return errors.New("no config_change chain")
 	}
-	return s.applyIntents(ConfigChangeIntents(chain[len(chain)-1]))
+	latest := map[string]record.Record{}
+	for _, rec := range chain {
+		member := rec.Headers["member"]
+		if _, err := configTarget(member); err != nil {
+			return err
+		}
+		latest[member] = rec
+	}
+	var intents []Intent
+	for _, member := range []string{"engine", "fieldspec"} {
+		rec, ok := latest[member]
+		if !ok {
+			continue
+		}
+		target, err := configTarget(member)
+		if err != nil {
+			return err
+		}
+		intents = append(intents, Intent{Kind: IntentConfig, Path: target, Payload: []byte(rec.Body)})
+	}
+	if len(intents) == 0 {
+		return errors.New("no config_change members")
+	}
+	return s.applyIntents(intents)
 }
 
 func (s *Store) acceptedConfigChanges() ([]record.Record, error) {

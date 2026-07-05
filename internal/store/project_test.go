@@ -1,6 +1,7 @@
 package store_test
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/jackli/frank/internal/record"
@@ -80,5 +81,23 @@ func TestPendingDeliveryForUsesDurableRecipientMailboxes(t *testing.T) {
 	}
 	if pending {
 		t.Fatalf("sender has pending delivery")
+	}
+}
+
+func TestDeliveryRecipientsRequireCanonicalAddressLists(t *testing.T) {
+	canonical := record.Record{
+		Envelope: record.Envelope{To: "seat-b"},
+		Headers:  map[string]string{"TO": `["seat-d"]`, "CC": `["seat-c","seat-b"]`},
+	}
+	if got, want := store.DeliveryRecipients(canonical), []string{"seat-b", "seat-d", "seat-c"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("canonical recipients = %v, want %v", got, want)
+	}
+
+	nonCanonical := record.Record{
+		Envelope: record.Envelope{To: "seat-b"},
+		Headers:  map[string]string{"TO": `["seat-d"]`, "CC": `["seat-c", "seat-e"]`},
+	}
+	if got, want := store.DeliveryRecipients(nonCanonical), []string{"seat-b"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("non-canonical recipients = %v, want envelope fallback %v", got, want)
 	}
 }

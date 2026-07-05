@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/jackli/frank/internal/crashpoint"
+	"github.com/jackli/frank/internal/fieldspec"
 	"github.com/jackli/frank/internal/fsio"
 	"github.com/jackli/frank/internal/record"
 )
@@ -130,25 +131,39 @@ func DeliveryRecipients(rec record.Record) []string {
 		recipients = append(recipients, value)
 	}
 	add(rec.Envelope.To)
-	for _, value := range addressList(rec.Headers["TO"]) {
-		add(value)
+	headerRecipients, ok := addressListHeaders(rec)
+	if !ok {
+		return recipients
 	}
-	for _, value := range addressList(rec.Headers["CC"]) {
+	for _, value := range headerRecipients {
 		add(value)
 	}
 	return recipients
 }
 
-func addressList(raw string) []string {
+func addressListHeaders(rec record.Record) ([]string, bool) {
+	var recipients []string
+	for _, header := range []string{"TO", "CC"} {
+		values, ok := addressList(header, rec.Headers[header])
+		if !ok {
+			return nil, false
+		}
+		recipients = append(recipients, values...)
+	}
+	return recipients, true
+}
+
+func addressList(header, raw string) ([]string, bool) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
-		return nil
+		return nil, true
 	}
-	var values []string
-	if err := json.Unmarshal([]byte(raw), &values); err == nil {
-		return values
+	value, err := fieldspec.ParseTyped(&fieldspec.FieldSpec{ID: header, Type: "address_list"}, raw)
+	if err != nil {
+		return nil, false
 	}
-	return strings.Split(raw, ",")
+	values, ok := value.([]string)
+	return values, ok
 }
 
 func canonicalProjectionIntents(rec record.Record) []Intent {

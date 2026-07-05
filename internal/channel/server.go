@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/jackli/frank/internal/bounce"
 	"github.com/jackli/frank/internal/engine"
@@ -33,6 +34,7 @@ type ToolFactory func(seat.SeatMeta) ToolSet
 type AuthPushFunc func(seat.SeatMeta) [][]byte
 
 const defaultFrameLimit = 1 << 20
+const pushWriteTimeout = 100 * time.Millisecond
 
 var errFrameTooLarge = errors.New("frame too large")
 
@@ -178,7 +180,7 @@ func (s *Server) PushTo(seatName string, frame []byte) error {
 
 func writePushes(clients []*serverConn, frame []byte) error {
 	for _, c := range clients {
-		if err := c.write(rpcMessage{Method: "notifications/nudge", Params: frame}); err != nil {
+		if err := c.writePush(rpcMessage{Method: "notifications/nudge", Params: frame}); err != nil {
 			continue
 		}
 	}
@@ -327,6 +329,20 @@ func (c *serverConn) authPushes(meta seat.SeatMeta) [][]byte {
 func (c *serverConn) write(msg rpcMessage) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	return c.writeLocked(msg)
+}
+
+func (c *serverConn) writePush(msg rpcMessage) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if err := c.conn.SetWriteDeadline(time.Now().Add(pushWriteTimeout)); err != nil {
+		return err
+	}
+	defer func() { _ = c.conn.SetWriteDeadline(time.Time{}) }()
+	return c.writeLocked(msg)
+}
+
+func (c *serverConn) writeLocked(msg rpcMessage) error {
 	data, err := encodeFrame(msg)
 	if err != nil {
 		return err
