@@ -78,6 +78,12 @@ func (s *Store) applyIntents(intents []Intent) error {
 				return err
 			}
 			crashpoint.Hit("post_projection_write")
+		case IntentConfig:
+			crashpoint.Hit("pre_projection_write")
+			if err := fsio.WriteFileAtomic(s.Root, intent.Path, intent.Payload); err != nil {
+				return err
+			}
+			crashpoint.Hit("post_projection_write")
 		}
 	}
 	return nil
@@ -146,6 +152,9 @@ func addressList(raw string) []string {
 }
 
 func canonicalProjectionIntents(rec record.Record) []Intent {
+	if rec.Headers["record_kind"] == "config_change" {
+		return ConfigChangeIntents(rec)
+	}
 	intents := DefaultProjectionIntents(rec)
 	if rec.Body == "" {
 		return intents
