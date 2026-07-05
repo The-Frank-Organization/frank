@@ -46,7 +46,7 @@ func SubmitHandler(st *store.Store, reg *fieldspec.Registry, meta seat.SeatMeta,
 				return cand, nil, nil
 			}
 		}
-		if lineageBounce := lineage.Check(cand, tab); lineageBounce != nil {
+		if lineageBounce := (&lineage.Engine{Reg: reg, T: tab}).Check(cand, seat.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator}); lineageBounce != nil {
 			cand.Envelope.DeliveryState = record.Rejected
 			cand.Body = bounce.Format(lineageBounce)
 			return cand, nil, nil
