@@ -62,13 +62,14 @@
       "merge_feature_to_feature",
       "routing",
       "sequencing",
-      "scope_within_bounds"
+      "scope_within_bounds",
+      "other"
     ],
     "grant": ["dispatch-impl", "dispatch-merge"],
     "delivery_state": ["accepted", "rejected", "held"],
     "DESIGN_RECORD_KIND": ["design-doc", "audit-record", "direct-override"],
     "DESIGN_REVIEW_VERDICT": ["approve", "must-revise", "reject-narrow", "human-decision-required"],
-    "record_kind": ["genesis", "owed_item", "gate_resolution", "disposition", "diagnostics"]
+    "record_kind": ["genesis", "owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics"]
   },
   "fields": [
     {"id": "FROM", "layer": "envelope", "owner": "system", "type": "text", "fill_constraints": "system_only", "lineage_role": "none"},

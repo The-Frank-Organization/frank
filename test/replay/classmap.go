@@ -67,7 +67,7 @@ func classifyBadPhase() Result {
 	violations := reg.Validate(record.Record{
 		Envelope: record.Envelope{From: "seat-a", Role: "implementer", SchemaVersion: 1},
 		Headers:  map[string]string{"PHASE": "NOPE", "AUTHORITY": "report-only", "SUBJECT": "bad phase"},
-	}, fieldspec.SeatMeta{Name: "seat-a", Role: "implementer"}, "")
+	}, fieldspec.SeatMeta{Name: "seat-a", Role: "implementer"}, "replay-digest", fieldspec.RenderEnv{}, fieldspec.ClosedGrantState)
 	for _, violation := range violations {
 		if violation.Field == "PHASE" && violation.Class == "enum" {
 			return Result{Name: "bad-phase-token", CheckClass: "enum", Disposition: "caught", Reason: "MVP validator rejects the typed PHASE equivalent"}

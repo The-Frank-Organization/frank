@@ -16,8 +16,9 @@ import (
 
 func TestSubmitHandlerStampsAndAcceptsValidCandidate(t *testing.T) {
 	st, reg := submitDeps(t)
-	handler := engine.SubmitHandler(st, reg, seat.SeatMeta{Name: "s1-core.implementer", Role: "implementer"})
-	payload := mustJSON(t, record.Record{
+	meta := seat.SeatMeta{Name: "s1-core.implementer", Role: "implementer"}
+	handler := engine.SubmitHandler(st, reg, meta)
+	payload := submitPayload(t, reg, meta, record.Record{
 		Envelope: record.Envelope{RelayID: "candidate-1", From: "victim.planner", Role: "planner"},
 		Headers:  map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "SUBJECT": "ok"},
 		Body:     "hello",
@@ -36,8 +37,9 @@ func TestSubmitHandlerStampsAndAcceptsValidCandidate(t *testing.T) {
 
 func TestSubmitHandlerAssignsRelayIDAndProjectionIntents(t *testing.T) {
 	st, reg := submitDeps(t)
-	handler := engine.SubmitHandler(st, reg, seat.SeatMeta{Name: "s1-core.implementer", Role: "implementer"})
-	payload := mustJSON(t, record.Record{
+	meta := seat.SeatMeta{Name: "s1-core.implementer", Role: "implementer"}
+	handler := engine.SubmitHandler(st, reg, meta)
+	payload := submitPayload(t, reg, meta, record.Record{
 		Envelope: record.Envelope{
 			RelayID:    "client-picked",
 			DispatchID: "dispatch-1",
@@ -65,8 +67,9 @@ func TestSubmitHandlerAssignsRelayIDAndProjectionIntents(t *testing.T) {
 
 func TestSubmitHandlerRejectsForbiddenPairGrant(t *testing.T) {
 	st, reg := submitDeps(t)
-	handler := engine.SubmitHandler(st, reg, seat.SeatMeta{Name: "s1-core.implementer", Role: "implementer"})
-	payload := mustJSON(t, record.Record{
+	meta := seat.SeatMeta{Name: "s1-core.implementer", Role: "implementer"}
+	handler := engine.SubmitHandler(st, reg, meta)
+	payload := submitPayload(t, reg, meta, record.Record{
 		Envelope: record.Envelope{RelayID: "candidate-2", From: "s1-core.implementer", Role: "implementer"},
 		Headers: map[string]string{
 			"PHASE":     "SITREP",
@@ -95,9 +98,10 @@ func TestOperatorVerdictOneShotRunsThroughSubmitHandler(t *testing.T) {
 	}, nil); err != nil {
 		t.Fatalf("Commit gate: %v", err)
 	}
-	handler := engine.SubmitHandler(st, reg, seat.SeatMeta{Name: "operator", Role: "operator", IsOperator: true})
+	meta := seat.SeatMeta{Name: "operator", Role: "operator", IsOperator: true}
+	handler := engine.SubmitHandler(st, reg, meta)
 
-	firstPayload := mustJSON(t, record.Record{
+	firstPayload := submitPayload(t, reg, meta, record.Record{
 		Headers: map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "SUBJECT": "verdict 1", "PARENT_DISPATCH_ID": "gate-1", "resolves_gate": "gate-1"},
 	})
 	first, _, err := handler(context.Background(), intake.Cmd{IntakeID: "v1", Seat: "operator", Role: "operator", IsOperator: true, Payload: firstPayload})
@@ -111,7 +115,7 @@ func TestOperatorVerdictOneShotRunsThroughSubmitHandler(t *testing.T) {
 		t.Fatalf("commit first: %v", err)
 	}
 
-	secondPayload := mustJSON(t, record.Record{
+	secondPayload := submitPayload(t, reg, meta, record.Record{
 		Headers: map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "SUBJECT": "verdict 2", "PARENT_DISPATCH_ID": "gate-1", "resolves_gate": "gate-1"},
 	})
 	second, _, err := handler(context.Background(), intake.Cmd{IntakeID: "v2", Seat: "operator", Role: "operator", IsOperator: true, Payload: secondPayload})
@@ -153,4 +157,10 @@ func mustJSON(t *testing.T, v any) json.RawMessage {
 		t.Fatalf("marshal: %v", err)
 	}
 	return data
+}
+
+func submitPayload(t *testing.T, reg *fieldspec.Registry, meta seat.SeatMeta, rec record.Record) json.RawMessage {
+	t.Helper()
+	_, digest := reg.Render(fieldspec.RenderEnv{}, fieldspec.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator}, rec.Headers["PHASE"], rec.Headers["CEREMONY_TIER"], fieldspec.ClosedGrantState)
+	return mustJSON(t, fieldspec.SubmitPayload{Record: rec, FormDigest: digest})
 }

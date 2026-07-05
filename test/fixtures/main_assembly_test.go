@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/jackli/frank/internal/channel"
+	"github.com/jackli/frank/internal/fieldspec"
 	"github.com/jackli/frank/internal/record"
 	"github.com/jackli/frank/internal/seat"
 	"github.com/jackli/frank/internal/store"
@@ -60,7 +61,9 @@ func TestFrankBinaryAssemblesAuthenticatedSubmitProjectRead(t *testing.T) {
 	}
 	defer func() { _ = client.Close() }()
 
-	payload, _ := json.Marshal(record.Record{
+	reg := loadAssemblyRegistry(t)
+	meta := seat.SeatMeta{Name: "seat-a", Role: "implementer"}
+	payload := submitPayloadBytes(t, reg, meta, record.Record{
 		Envelope: record.Envelope{To: "seat-a", DispatchID: "dispatch-main"},
 		Headers:  map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "SUBJECT": "binary path"},
 		Body:     "hello",
@@ -131,6 +134,7 @@ func TestFrankBinaryAssemblesAuthenticatedSubmitProjectRead(t *testing.T) {
 func TestFrankBinaryOperatorChannelO3OwedSweepOpenAndDisposition(t *testing.T) {
 	root := t.TempDir()
 	initFixtureStore(t, root)
+	reg := loadAssemblyRegistry(t)
 	mgr, err := seat.Open(root)
 	if err != nil {
 		t.Fatalf("Open seats: %v", err)
@@ -168,15 +172,13 @@ func TestFrankBinaryOperatorChannelO3OwedSweepOpenAndDisposition(t *testing.T) {
 		t.Fatalf("DialAuthenticated stderr=%s: %v", stderr.String(), err)
 	}
 	defer func() { _ = client.Close() }()
+	meta := seat.SeatMeta{Name: "operator", Role: "operator", IsOperator: true}
 	submit := func(rec record.Record) struct {
 		State   string `json:"state"`
 		RelayID string `json:"relay_id"`
 	} {
 		t.Helper()
-		payload, err := json.Marshal(rec)
-		if err != nil {
-			t.Fatalf("marshal submit payload: %v", err)
-		}
+		payload := submitPayloadBytes(t, reg, meta, rec)
 		result, err := client.Call(ctx, "submit", payload)
 		if err != nil {
 			t.Fatalf("submit stderr=%s: %v", stderr.String(), err)
@@ -509,7 +511,9 @@ func TestFrankBinaryReadCorruptionQueuesLiveQuarantine(t *testing.T) {
 		t.Fatalf("DialAuthenticated stderr=%s: %v", stderr.String(), err)
 	}
 	defer func() { _ = client.Close() }()
-	payload, _ := json.Marshal(record.Record{
+	reg := loadAssemblyRegistry(t)
+	meta := seat.SeatMeta{Name: "seat-a", Role: "implementer"}
+	payload := submitPayloadBytes(t, reg, meta, record.Record{
 		Envelope: record.Envelope{To: "seat-a", DispatchID: "dispatch-k2"},
 		Headers:  map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "SUBJECT": "corrupt me"},
 	})
@@ -597,6 +601,25 @@ func mustReadFile(t *testing.T, path string) []byte {
 		t.Fatalf("read %s: %v", path, err)
 	}
 	return data
+}
+
+func loadAssemblyRegistry(t *testing.T) *fieldspec.Registry {
+	t.Helper()
+	reg, err := fieldspec.Load(filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
+	if err != nil {
+		t.Fatalf("load assembly registry: %v", err)
+	}
+	return reg
+}
+
+func submitPayloadBytes(t *testing.T, reg *fieldspec.Registry, meta seat.SeatMeta, rec record.Record) []byte {
+	t.Helper()
+	_, digest := reg.Render(fieldspec.RenderEnv{}, fieldspec.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator}, rec.Headers["PHASE"], rec.Headers["CEREMONY_TIER"], fieldspec.ClosedGrantState)
+	payload, err := json.Marshal(fieldspec.SubmitPayload{Record: rec, FormDigest: digest})
+	if err != nil {
+		t.Fatalf("marshal submit payload: %v", err)
+	}
+	return payload
 }
 
 func readOptionalFile(t *testing.T, path string) []byte {

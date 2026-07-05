@@ -2,7 +2,6 @@ package engine
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/jackli/frank/internal/bounce"
@@ -16,8 +15,8 @@ import (
 
 func SubmitHandler(st *store.Store, reg *fieldspec.Registry, meta seat.SeatMeta) Handler {
 	return func(ctx context.Context, cmd intake.Cmd) (record.Record, []store.Intent, error) {
-		var cand record.Record
-		if err := json.Unmarshal(cmd.Payload, &cand); err != nil {
+		cand, formDigest, err := fieldspec.DecodeSubmitPayload(cmd.Payload)
+		if err != nil {
 			return rejected(cmd, meta, "bad submit payload"), nil, nil
 		}
 		cand = seat.Stamp(cand, meta)
@@ -30,7 +29,7 @@ func SubmitHandler(st *store.Store, reg *fieldspec.Registry, meta seat.SeatMeta)
 		if cand.Envelope.SchemaVersion == 0 {
 			cand.Envelope.SchemaVersion = 1
 		}
-		violations := reg.Validate(cand, fieldspec.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator}, "")
+		violations := reg.Validate(cand, fieldspec.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator}, formDigest, fieldspec.RenderEnv{}, fieldspec.ClosedGrantState)
 		if len(violations) > 0 {
 			cand.Envelope.DeliveryState = record.Rejected
 			cand.Body = bounce.Format(anySlice(violations)...)

@@ -46,7 +46,7 @@ func TestValidateB3AndStaleDigest(t *testing.T) {
 			"AUTHORITY": "merge-gated",
 		},
 	}
-	violations := reg.Validate(rec, seat, digest)
+	violations := reg.Validate(rec, seat, digest, fieldspec.RenderEnv{}, fieldspec.ClosedGrantState)
 	assertViolation(t, violations, "SUBJECT", "required")
 	assertViolation(t, violations, "PHASE", "enum")
 	assertViolation(t, violations, "AUTHORITY", "seat-scope")
@@ -55,7 +55,7 @@ func TestValidateB3AndStaleDigest(t *testing.T) {
 		Envelope: record.Envelope{From: "s1-core.implementer", Role: "implementer", SchemaVersion: 1},
 		Headers:  map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "SUBJECT": "ok"},
 	}
-	assertViolation(t, reg.Validate(valid, seat, "stale"), "form_digest", "re-render")
+	assertViolation(t, reg.Validate(valid, seat, "stale", fieldspec.RenderEnv{}, fieldspec.ClosedGrantState), "form_digest", "re-render")
 }
 
 func TestGateCategoryEnumAndRaiseOnly(t *testing.T) {

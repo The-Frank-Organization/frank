@@ -37,6 +37,11 @@ func TestRegistryV2MemberParsesAndExposesLockedEnums(t *testing.T) {
 	assertTokens(t, reg.NamedEnums["gate_category_B"], []string{
 		"merge_feature_to_feature", "routing", "sequencing", "scope_within_bounds",
 	})
+	assertTokens(t, reg.NamedEnums["gate_category"], []string{
+		"merge_to_protected", "irreversible_write", "residual_risk_acceptance", "live_verify_skip",
+		"ceremony_downgrade", "authz_security", "product_semantics", "scope_expansion",
+		"merge_feature_to_feature", "routing", "sequencing", "scope_within_bounds", "other",
+	})
 	assertTokens(t, reg.NamedEnums["grant"], []string{"dispatch-impl", "dispatch-merge"})
 	assertTokens(t, reg.NamedEnums["delivery_state"], []string{"accepted", "rejected", "held"})
 }
