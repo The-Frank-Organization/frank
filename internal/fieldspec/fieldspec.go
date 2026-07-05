@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"os"
 	"slices"
 
 	"github.com/jackli/frank/internal/record"
@@ -14,15 +13,6 @@ type SeatMeta struct {
 	Name       string
 	Role       string
 	IsOperator bool
-}
-
-type Registry struct {
-	Phase          []string            `json:"phase"`
-	Authority      []string            `json:"authority"`
-	CeremonyTier   []string            `json:"ceremony_tier"`
-	EvidenceTarget []string            `json:"evidence_target"`
-	GateCategory   map[string][]string `json:"gate_category"`
-	Grant          []string            `json:"grant"`
 }
 
 type Form struct {
@@ -37,18 +27,6 @@ type Violation struct {
 	Field  string
 	Class  string
 	Reason string
-}
-
-func Load(path string) (*Registry, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	var reg Registry
-	if err := json.Unmarshal(data, &reg); err != nil {
-		return nil, err
-	}
-	return &reg, nil
 }
 
 func (r *Registry) Render(seat SeatMeta, phase, tier string) (Form, string) {

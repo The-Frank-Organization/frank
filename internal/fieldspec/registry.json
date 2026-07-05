@@ -1,32 +1,40 @@
 {
-  "phase": [
-    "AUDIT",
-    "DESIGN",
-    "DESIGN-REVIEW",
-    "PLAN",
-    "PLAN-REVIEW",
-    "IMPL",
-    "REVIEW-FOLD",
-    "MERGE-GATE",
-    "LIVE-VERIFY",
-    "SITREP",
-    "RECONCILE"
-  ],
-  "authority": [
-    "read-only",
-    "design-only",
-    "plan-only",
-    "review-only",
-    "implementation",
-    "fold-in-only",
-    "merge-gated",
-    "live-verify",
-    "report-only"
-  ],
-  "ceremony_tier": ["tiny", "small", "medium", "large", "production-risk"],
-  "evidence_target": ["E1", "E2", "E3", "E4"],
-  "gate_category": {
-    "A": [
+  "version": "s3-fieldspec-v2",
+  "provenance": {
+    "owner": "s3-form",
+    "design_doc_id": "s3-slice-3-design",
+    "plan_lock_id": "s3-slice-3-plan",
+    "note": "s3-built to the m-2 locked shape and m-2-guide-reviewed; not a CQ-4b m-2-stamped section"
+  },
+  "named_enums": {
+    "PHASE": [
+      "AUDIT",
+      "DESIGN",
+      "DESIGN-REVIEW",
+      "PLAN",
+      "PLAN-REVIEW",
+      "IMPL",
+      "REVIEW-FOLD",
+      "MERGE-GATE",
+      "LIVE-VERIFY",
+      "SITREP",
+      "RECONCILE"
+    ],
+    "AUTHORITY": [
+      "read-only",
+      "design-only",
+      "plan-only",
+      "review-only",
+      "implementation",
+      "fold-in-only",
+      "merge-gated",
+      "live-verify",
+      "report-only"
+    ],
+    "CEREMONY_TIER": ["tiny", "small", "medium", "large", "production-risk"],
+    "EVIDENCE_TARGET": ["E1", "E2", "E3", "E4"],
+    "bool": ["no", "yes"],
+    "gate_category_A": [
       "merge_to_protected",
       "irreversible_write",
       "residual_risk_acceptance",
@@ -36,12 +44,74 @@
       "product_semantics",
       "scope_expansion"
     ],
-    "B": [
+    "gate_category_B": [
       "merge_feature_to_feature",
       "routing",
       "sequencing",
       "scope_within_bounds"
-    ]
+    ],
+    "gate_category": [
+      "merge_to_protected",
+      "irreversible_write",
+      "residual_risk_acceptance",
+      "live_verify_skip",
+      "ceremony_downgrade",
+      "authz_security",
+      "product_semantics",
+      "scope_expansion",
+      "merge_feature_to_feature",
+      "routing",
+      "sequencing",
+      "scope_within_bounds"
+    ],
+    "grant": ["dispatch-impl", "dispatch-merge"],
+    "delivery_state": ["accepted", "rejected", "held"],
+    "DESIGN_RECORD_KIND": ["design-doc", "audit-record", "direct-override"],
+    "DESIGN_REVIEW_VERDICT": ["approve", "must-revise", "reject-narrow", "human-decision-required"],
+    "record_kind": ["genesis", "owed_item", "gate_resolution", "disposition", "diagnostics"]
   },
-  "grant": ["dispatch-impl", "dispatch-merge"]
+  "fields": [
+    {"id": "FROM", "layer": "envelope", "owner": "system", "type": "text", "fill_constraints": "system_only", "lineage_role": "none"},
+    {"id": "ROLE", "layer": "envelope", "owner": "system", "type": "text", "fill_constraints": "system_only", "lineage_role": "none"},
+    {"id": "relay_id", "layer": "envelope", "owner": "system", "type": "id_ref", "fill_constraints": "system_only", "lineage_role": "none"},
+    {"id": "DISPATCH_ID", "layer": "envelope", "owner": "system", "type": "id_ref", "fill_constraints": "system_only", "lineage_role": "none"},
+    {"id": "timestamp", "layer": "envelope", "owner": "system", "type": "text", "fill_constraints": "system_only", "lineage_role": "none"},
+    {"id": "schema_version", "layer": "envelope", "owner": "system", "type": "text", "fill_constraints": "system_only", "lineage_role": "none"},
+    {"id": "certification", "layer": "envelope", "owner": "system", "type": "text", "fill_constraints": "system_only", "lineage_role": "none"},
+    {"id": "PARENT_DISPATCH_ID", "layer": "envelope", "owner": "agent_enum_pick", "type": "id_ref", "fill_constraints": "parent_picker", "lineage_role": "parent_edge"},
+    {"id": "TO", "layer": "envelope", "owner": "agent_enum_pick", "type": "address_list", "fill_constraints": "recipient_picker", "lineage_role": "none"},
+    {"id": "CC", "layer": "envelope", "owner": "agent_enum_pick", "type": "address_list", "fill_constraints": "recipient_picker", "lineage_role": "none"},
+
+    {"id": "PHASE", "layer": "header", "owner": "agent_enum_pick", "type": "enum", "enum_set": "PHASE", "gate_referenceable": true, "fill_constraints": "seat_allowed_values", "lineage_role": "none"},
+    {"id": "AUTHORITY", "layer": "header", "owner": "seat_scoped_enum", "type": "enum", "enum_set": "AUTHORITY", "gate_referenceable": true, "fill_constraints": "seat_allowed_values", "lineage_role": "none", "seat_scope": {"operator": ["read-only", "design-only", "plan-only", "review-only", "implementation", "fold-in-only", "merge-gated", "live-verify", "report-only"], "*.orchestrator-planner": ["read-only", "design-only", "plan-only", "review-only", "implementation", "fold-in-only", "merge-gated", "live-verify", "report-only"], "*": ["read-only", "design-only", "plan-only", "review-only", "implementation", "fold-in-only", "live-verify", "report-only"]}},
+    {"id": "CEREMONY_TIER", "layer": "header", "owner": "agent_enum_pick", "type": "enum", "enum_set": "CEREMONY_TIER", "gate_referenceable": true, "fill_constraints": "seat_allowed_values", "lineage_role": "none"},
+    {"id": "EVIDENCE_TARGET", "layer": "header", "owner": "agent_enum_pick", "type": "enum", "enum_set": "EVIDENCE_TARGET", "gate_referenceable": true, "fill_constraints": "seat_allowed_values", "lineage_role": "none"},
+    {"id": "HUMAN_GATE_REQUIRED", "layer": "header", "owner": "agent_enum_pick", "type": "bool", "enum_set": "bool", "gate_referenceable": true, "fill_constraints": "monotonic", "lineage_role": "none"},
+    {"id": "gate_category", "layer": "header", "owner": "agent_enum_pick", "type": "enum", "enum_set": "gate_category", "gate_referenceable": true, "fill_constraints": "monotonic", "lineage_role": "none"},
+    {"id": "gate_category_raised", "layer": "header", "owner": "computed", "type": "bool", "enum_set": "bool", "fill_constraints": "computed_result", "lineage_role": "none"},
+    {"id": "grant", "layer": "header", "owner": "seat_scoped_enum", "type": "enum", "enum_set": "grant", "gate_referenceable": true, "fill_constraints": "seat_allowed_values", "lineage_role": "grant", "seat_scope": {"operator": ["dispatch-impl", "dispatch-merge"], "*.orchestrator-planner": ["dispatch-impl", "dispatch-merge"]}},
+    {"id": "delivery_state", "layer": "header", "owner": "system", "type": "enum", "enum_set": "delivery_state", "fill_constraints": "system_only", "lineage_role": "none"},
+    {"id": "failing_edge", "layer": "header", "owner": "system", "type": "text", "fill_constraints": "system_only", "lineage_role": "none"},
+    {"id": "SUBJECT", "layer": "header", "owner": "free_text", "type": "text", "fill_constraints": "free_text", "lineage_role": "none"},
+    {"id": "body", "layer": "body", "owner": "body_text", "type": "text", "fill_constraints": "free_text", "lineage_role": "none"},
+    {"id": "X-*", "layer": "header", "owner": "free_text", "type": "text", "fill_constraints": "free_text", "lineage_role": "none"},
+
+    {"id": "DESIGN_DOC_ID", "layer": "header", "owner": "agent_enum_pick", "type": "id_ref", "gate_referenceable": true, "fill_constraints": "free_text", "lineage_role": "lock_id"},
+    {"id": "DESIGN_LOCK_ID", "layer": "header", "owner": "agent_enum_pick", "type": "id_ref", "gate_referenceable": true, "fill_constraints": "free_text", "lineage_role": "lock_id"},
+    {"id": "DESIGN_RECORD_KIND", "layer": "header", "owner": "seat_scoped_enum", "type": "enum", "enum_set": "DESIGN_RECORD_KIND", "gate_referenceable": true, "fill_constraints": "seat_allowed_values", "lineage_role": "lock_id"},
+    {"id": "DESIGN_REVIEW_VERDICT", "layer": "header", "owner": "agent_enum_pick", "type": "enum", "enum_set": "DESIGN_REVIEW_VERDICT", "gate_referenceable": true, "fill_constraints": "seat_allowed_values", "lineage_role": "verdict"},
+    {"id": "IN_REPLY_TO", "layer": "header", "owner": "free_text", "type": "id_ref", "fill_constraints": "free_text", "lineage_role": "none"},
+    {"id": "SCOPE_DIFF", "layer": "header", "owner": "agent_enum_pick", "type": "row_array", "fill_constraints": "free_text", "lineage_role": "none"},
+    {"id": "SCOPE_DIFF_RESULT", "layer": "header", "owner": "agent_enum_pick", "type": "enum", "options": ["all-in", "deviation-present"], "fill_constraints": "seat_allowed_values", "lineage_role": "none"},
+    {"id": "FOLD_SCOPE", "layer": "header", "owner": "agent_enum_pick", "type": "row_array", "fill_constraints": "free_text", "lineage_role": "none"},
+    {"id": "FOLD_SCOPE_RESULT", "layer": "header", "owner": "agent_enum_pick", "type": "enum", "options": ["all-in", "deviation-present"], "fill_constraints": "seat_allowed_values", "lineage_role": "none"},
+    {"id": "ESCALATION_SCAN", "layer": "header", "owner": "agent_enum_pick", "type": "row_array", "fill_constraints": "free_text", "lineage_role": "none"},
+    {"id": "ACTIONS_GIT_REF", "layer": "header", "owner": "agent_enum_pick", "type": "text", "fill_constraints": "observed_value", "lineage_role": "action_report", "required_when": {"all_of": [{"layer_present": "observe"}]}},
+    {"id": "FINAL_GIT_STATUS_SHORT", "layer": "header", "owner": "agent_enum_pick", "type": "text", "fill_constraints": "observed_value", "lineage_role": "action_report", "required_when": {"all_of": [{"layer_present": "observe"}]}},
+    {"id": "record_kind", "layer": "header", "owner": "system", "type": "enum", "enum_set": "record_kind", "gate_referenceable": true, "fill_constraints": "system_only", "lineage_role": "none"},
+    {"id": "ROW_TRUTH_CHECK", "layer": "header", "owner": "agent_enum_pick", "type": "bool", "enum_set": "bool", "gate_referenceable": true, "fill_constraints": "seat_allowed_values", "lineage_role": "none"},
+    {"id": "ORCH_REVIEW_WAIVER", "layer": "header", "owner": "seat_scoped_enum", "type": "text", "fill_constraints": "seat_allowed_values", "lineage_role": "routing_ref", "seat_scope": {"operator": ["*"]}},
+    {"id": "GRILL_REQUIRED", "layer": "header", "owner": "agent_enum_pick", "type": "bool", "enum_set": "bool", "gate_referenceable": true, "fill_constraints": "monotonic", "consumers": ["form_renderer", "form_validator", "human_surface", "lineage_engine"], "lineage_role": "none"},
+    {"id": "GRILL_LOCK_ID", "layer": "header", "owner": "agent_enum_pick", "type": "id_ref", "fill_constraints": "free_text", "lineage_role": "lock_id", "required_when": {"all_of": [{"field": "GRILL_REQUIRED", "op": "==", "value": "yes"}, {"field": "DESIGN_LOCK_ID", "op": "present"}]}}
+  ]
 }
