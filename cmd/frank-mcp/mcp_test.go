@@ -293,6 +293,107 @@ func TestToolsListUsesRenderedSubmitSchemaWhenReachable(t *testing.T) {
 	}
 }
 
+func TestPhaseSwitchDriftLoop(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	root := t.TempDir()
+	mgr, err := seat.Open(root)
+	if err != nil {
+		t.Fatalf("seat.Open: %v", err)
+	}
+	cred, err := mgr.Mint("seat-a", "implementer", false)
+	if err != nil {
+		t.Fatalf("Mint: %v", err)
+	}
+	describeFor := func(phase string) channel.DescriptionResponse {
+		form := fieldspec.Form{Fields: map[string]fieldspec.Field{
+			"PHASE":   {Type: "enum", Options: []string{phase}},
+			"SUBJECT": {Type: "text"},
+		}}
+		if phase == "PLAN" {
+			form.Fields["PLAN_ONLY"] = fieldspec.Field{Type: "text"}
+		}
+		return channel.DescriptionResponse{Tools: []string{"submit", "project", "read"}, SubmitSchema: &form, FormDigest: strings.ToLower(phase) + "-digest"}
+	}
+	sock := filepath.Join(os.TempDir(), fmt.Sprintf("frank-mcp-drift-%d.sock", time.Now().UnixNano()))
+	t.Cleanup(func() { _ = os.Remove(sock) })
+	srv, err := channel.ServeAuthenticated(sock, mgr, func(seat.SeatMeta) channel.ToolSet {
+		return channel.ToolSet{
+			Describe: func(_ context.Context, payload json.RawMessage) (json.RawMessage, error) {
+				var req channel.DescribeRequest
+				_ = json.Unmarshal(payload, &req)
+				if req.Phase == "" {
+					req.Phase = "SITREP"
+				}
+				return mustJSON(describeFor(req.Phase)), nil
+			},
+			Submit: func(_ context.Context, args json.RawMessage) (json.RawMessage, error) {
+				var payload fieldspec.SubmitPayload
+				if err := json.Unmarshal(args, &payload); err != nil {
+					return nil, err
+				}
+				want := strings.ToLower(payload.Headers["PHASE"]) + "-digest"
+				if payload.FormDigest != want {
+					return mustJSON(map[string]any{
+						"state": record.Rejected,
+						"violations": []map[string]string{{
+							"field": "form_digest",
+							"class": "re-render",
+						}},
+					}), nil
+				}
+				return mustJSON(map[string]any{"state": record.Accepted}), nil
+			},
+			Project: func(context.Context, json.RawMessage) (json.RawMessage, error) { return json.RawMessage(`[]`), nil },
+			Read:    func(context.Context, json.RawMessage) (json.RawMessage, error) { return json.RawMessage(`{}`), nil },
+		}
+	})
+	if err != nil {
+		t.Fatalf("ServeAuthenticated: %v", err)
+	}
+	defer func() { _ = srv.Close() }()
+
+	stalePlan := map[string]any{
+		"headers":     map[string]string{"PHASE": "PLAN", "SUBJECT": "phase switch"},
+		"body":        "body",
+		"form_digest": "sitrep-digest",
+	}
+	freshPlan := map[string]any{
+		"headers":     map[string]string{"PHASE": "PLAN", "SUBJECT": "phase switch", "PLAN_ONLY": "yes"},
+		"body":        "body",
+		"form_digest": "plan-digest",
+	}
+	input := strings.Join([]string{
+		`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`,
+		strings.TrimSpace(mcpCall("submit", 2, stalePlan)),
+		`{"jsonrpc":"2.0","id":3,"method":"tools/list","params":{}}`,
+		strings.TrimSpace(mcpCall("submit", 4, freshPlan)),
+		"",
+	}, "\n")
+	stdout, stderr := runMCPGolden(t, Options{SocketPath: sock, Credential: cred.Value, Context: ctx}, input)
+	if stderr != "" {
+		t.Fatalf("stderr = %s", stderr)
+	}
+	lines := decodeRPCOutput(t, stdout)
+	if !strings.Contains(mustMarshalString(t, lines[0]), `"const":"sitrep-digest"`) {
+		t.Fatalf("initial tools/list did not serve SITREP digest: %s", stdout)
+	}
+	if lines[1]["method"] != "notifications/tools/list_changed" {
+		t.Fatalf("line 1 = %#v, want list_changed notification; all output:\n%s", lines[1], stdout)
+	}
+	rejectText := lines[2]["result"].(map[string]any)["content"].([]any)[0].(map[string]any)["text"].(string)
+	if !strings.Contains(rejectText, `"class":"re-render"`) || !strings.Contains(rejectText, "form refreshed") {
+		t.Fatalf("reject text = %s", rejectText)
+	}
+	if !strings.Contains(mustMarshalString(t, lines[3]), `"const":"plan-digest"`) || !strings.Contains(mustMarshalString(t, lines[3]), `"PLAN_ONLY"`) {
+		t.Fatalf("refreshed tools/list did not serve PLAN schema: %s", stdout)
+	}
+	acceptedText := lines[4]["result"].(map[string]any)["content"].([]any)[0].(map[string]any)["text"].(string)
+	if !strings.Contains(acceptedText, `"state":"accepted"`) {
+		t.Fatalf("fresh submit text = %s", acceptedText)
+	}
+}
+
 func mcpCall(name string, id int, args map[string]any) string {
 	payload, _ := json.Marshal(map[string]any{
 		"jsonrpc": "2.0",
@@ -304,6 +405,15 @@ func mcpCall(name string, id int, args map[string]any) string {
 		},
 	})
 	return string(payload) + "\n"
+}
+
+func mustMarshalString(t *testing.T, v any) string {
+	t.Helper()
+	data, err := json.Marshal(v)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	return string(data)
 }
 
 func runMCPGolden(t *testing.T, opts Options, stdin string) (string, string) {
