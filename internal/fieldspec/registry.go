@@ -233,7 +233,10 @@ var owners = map[string]struct{}{
 var types = map[string]struct{}{
 	"enum":         {},
 	"bool":         {},
+	"int":          {},
+	"string":       {},
 	"id_ref":       {},
+	"evidence_ref": {},
 	"text":         {},
 	"row_array":    {},
 	"address_list": {},
