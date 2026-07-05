@@ -16,6 +16,7 @@ import (
 	"github.com/jackli/frank/internal/record"
 	"github.com/jackli/frank/internal/seat"
 	"github.com/jackli/frank/internal/store"
+	"github.com/jackli/frank/internal/tables"
 )
 
 type Job = intake.Job[Outcome]
@@ -33,6 +34,7 @@ type Loop struct {
 	In          chan Job
 	Store       *store.Store
 	Handler     Handler
+	Tables      *tables.T
 	Timeout     time.Duration
 	AfterCommit func(*store.Store) error
 	quarantine  chan string
@@ -42,10 +44,15 @@ func New(st *store.Store, handler Handler, ready *Ready) *Loop {
 	if ready == nil {
 		panic("engine.New requires Ready")
 	}
+	tab, _ := tables.Build(st)
+	if tab == nil {
+		tab = tables.New()
+	}
 	return &Loop{
 		In:         make(chan Job, 32),
 		Store:      st,
 		Handler:    handler,
+		Tables:     tab,
 		Timeout:    5 * time.Second,
 		quarantine: make(chan string, 32),
 	}
@@ -101,6 +108,9 @@ func (l *Loop) drainQuarantine() {
 
 func (l *Loop) processQuarantine(relayID string) {
 	_, _ = l.Store.QuarantineOne(relayID)
+	if tab, err := tables.Build(l.Store); err == nil {
+		l.Tables = tab
+	}
 	_ = l.completeTurn()
 }
 
@@ -124,6 +134,9 @@ func (l *Loop) process(ctx context.Context, cmd intake.Cmd) (out Outcome) {
 	if err != nil {
 		return Outcome{State: record.Rejected, IntakeID: rec.Envelope.IntakeID, Reason: safeReason("commit-error")}
 	}
+	if l.Tables != nil {
+		l.Tables.OnCommit(rec)
+	}
 	if err := l.completeTurn(); err != nil {
 		return Outcome{State: record.Rejected, RelayID: relayID, IntakeID: rec.Envelope.IntakeID, Reason: safeReason("obligation-error")}
 	}
@@ -135,7 +148,7 @@ func (l *Loop) process(ctx context.Context, cmd intake.Cmd) (out Outcome) {
 }
 
 func (l *Loop) completeTurn() error {
-	if err := obligation.CompleteAuto(l.Store); err != nil {
+	if err := obligation.CompleteAuto(l.Store, l.Tables); err != nil {
 		return err
 	}
 	if l.AfterCommit != nil {
@@ -165,6 +178,9 @@ func (l *Loop) faultOutcome(cmd intake.Cmd, reason string) Outcome {
 		if err != nil {
 			return Outcome{State: record.Rejected, IntakeID: cmd.IntakeID, Reason: safeReason("commit-error")}
 		}
+		if l.Tables != nil {
+			l.Tables.OnCommit(held)
+		}
 		return Outcome{State: record.Held, RelayID: relayID, IntakeID: cmd.IntakeID, Reason: safeReason("internal-fault")}
 	}
 	rejected := record.Record{
@@ -182,6 +198,9 @@ func (l *Loop) faultOutcome(cmd intake.Cmd, reason string) Outcome {
 	relayID, err := l.Store.Commit(rejected, nil)
 	if err != nil {
 		return Outcome{State: record.Rejected, IntakeID: cmd.IntakeID, Reason: safeReason("commit-error")}
+	}
+	if l.Tables != nil {
+		l.Tables.OnCommit(rejected)
 	}
 	return Outcome{State: record.Rejected, RelayID: relayID, IntakeID: cmd.IntakeID, Reason: safeReason("internal-fault")}
 }

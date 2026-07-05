@@ -5,7 +5,7 @@ import (
 
 	"github.com/jackli/frank/internal/record"
 	"github.com/jackli/frank/internal/seat"
-	"github.com/jackli/frank/internal/store"
+	"github.com/jackli/frank/internal/tables"
 )
 
 const (
@@ -40,7 +40,7 @@ func AuthorityBearing(cand record.Record, meta seat.SeatMeta) bool {
 	return false
 }
 
-func Check(cand record.Record, st *store.Store) *Bounce {
+func Check(cand record.Record, t *tables.T) *Bounce {
 	if !AuthorityBearing(cand, seat.SeatMeta{Name: cand.Envelope.From, Role: cand.Envelope.Role}) {
 		return nil
 	}
@@ -48,17 +48,20 @@ func Check(cand record.Record, st *store.Store) *Bounce {
 	if parent == "" {
 		return nil
 	}
-	records, err := st.Records()
-	if err != nil {
+	if t == nil {
 		return &Bounce{Edge: "PARENT_DISPATCH_ID", Kind: ParentUnknownRecompose}
 	}
-	for _, rec := range records {
-		if rec.Envelope.RelayID == parent || rec.Envelope.DispatchID == parent {
-			if rec.Envelope.DeliveryState == record.Accepted {
-				return nil
-			}
-			return &Bounce{Edge: "PARENT_DISPATCH_ID", Kind: ParentInvalidDeadEdge}
+	if rec, ok := t.ByRelay[parent]; ok {
+		if rec.Envelope.DeliveryState == record.Accepted {
+			return nil
 		}
+		return &Bounce{Edge: "PARENT_DISPATCH_ID", Kind: ParentInvalidDeadEdge}
+	}
+	for _, rec := range t.ByDispatch[parent] {
+		if rec.Envelope.DeliveryState == record.Accepted {
+			return nil
+		}
+		return &Bounce{Edge: "PARENT_DISPATCH_ID", Kind: ParentInvalidDeadEdge}
 	}
 	return &Bounce{Edge: "PARENT_DISPATCH_ID", Kind: ParentUnknownRecompose}
 }

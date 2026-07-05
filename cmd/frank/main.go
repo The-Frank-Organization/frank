@@ -23,6 +23,7 @@ import (
 	frankrecover "github.com/jackli/frank/internal/recover"
 	"github.com/jackli/frank/internal/seat"
 	"github.com/jackli/frank/internal/store"
+	"github.com/jackli/frank/internal/tables"
 )
 
 type config struct {
@@ -97,19 +98,19 @@ func run(ctx context.Context, cfg config) error {
 	if err != nil {
 		return err
 	}
+	liveTables, err := tables.Build(st)
+	if err != nil {
+		return err
+	}
 	handler := func(ctx context.Context, cmd intake.Cmd) (record.Record, []store.Intent, error) {
 		meta := seat.SeatMeta{Name: cmd.Seat, Role: cmd.Role, IsOperator: cmd.IsOperator}
-		return engine.SubmitHandler(st, reg, meta)(ctx, cmd)
+		return engine.SubmitHandler(st, reg, meta, liveTables)(ctx, cmd)
 	}
 	completeTurn := func(st *store.Store) error {
-		if err := obligation.CompleteAuto(st); err != nil {
+		if err := obligation.CompleteAuto(st, liveTables); err != nil {
 			return err
 		}
-		tables, err := obligation.BuildTables(st)
-		if err != nil {
-			return err
-		}
-		return frankgc.Pass(st, tables, pinned.Engine)
+		return frankgc.Pass(st, liveTables, pinned.Engine)
 	}
 
 	process := func(cmd intake.Cmd) error {
@@ -123,6 +124,7 @@ func run(ctx context.Context, cfg config) error {
 		if _, err := st.Commit(rec, intents); err != nil {
 			return err
 		}
+		liveTables.OnCommit(rec)
 		return completeTurn(st)
 	}
 	result, err := frankrecover.RunWithProcessor(cfg.Root, pinned, process)
@@ -139,12 +141,9 @@ func run(ctx context.Context, cfg config) error {
 	var writer *intake.Writer[engine.Outcome]
 	if result.Ready != nil {
 		loop = engine.New(st, handler, result.Ready)
+		loop.Tables = liveTables
 		loop.AfterCommit = func(st *store.Store) error {
-			tables, err := obligation.BuildTables(st)
-			if err != nil {
-				return err
-			}
-			return frankgc.Pass(st, tables, pinned.Engine)
+			return frankgc.Pass(st, liveTables, pinned.Engine)
 		}
 		go loop.Run(ctx)
 		writer, err = intake.NewWriter[engine.Outcome](journal, pinned.Engine, result.Ready)

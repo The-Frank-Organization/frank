@@ -7,6 +7,7 @@ import (
 	"github.com/jackli/frank/internal/record"
 	"github.com/jackli/frank/internal/seat"
 	"github.com/jackli/frank/internal/store"
+	"github.com/jackli/frank/internal/tables"
 )
 
 func TestAuthorityBearingPessimisticSuperset(t *testing.T) {
@@ -41,12 +42,20 @@ func TestCheckParentEdges(t *testing.T) {
 	}
 
 	unknown := record.Record{Headers: map[string]string{"PHASE": "PLAN", "PARENT_DISPATCH_ID": "missing", "SUBJECT": "child"}}
-	if bounce := lineage.Check(unknown, st); bounce == nil || bounce.Kind != lineage.ParentUnknownRecompose {
+	tab, err := tables.Build(st)
+	if err != nil {
+		t.Fatalf("Build tables: %v", err)
+	}
+	if bounce := lineage.Check(unknown, tab); bounce == nil || bounce.Kind != lineage.ParentUnknownRecompose {
 		t.Fatalf("unknown parent bounce = %+v", bounce)
 	}
 
 	dead := record.Record{Headers: map[string]string{"PHASE": "PLAN", "PARENT_DISPATCH_ID": "rejected-parent", "SUBJECT": "child"}}
-	if bounce := lineage.Check(dead, st); bounce == nil || bounce.Kind != lineage.ParentInvalidDeadEdge {
+	tab, err = tables.Build(st)
+	if err != nil {
+		t.Fatalf("Build tables: %v", err)
+	}
+	if bounce := lineage.Check(dead, tab); bounce == nil || bounce.Kind != lineage.ParentInvalidDeadEdge {
 		t.Fatalf("dead parent bounce = %+v", bounce)
 	}
 }

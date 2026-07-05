@@ -11,9 +11,10 @@ import (
 	"github.com/jackli/frank/internal/record"
 	"github.com/jackli/frank/internal/seat"
 	"github.com/jackli/frank/internal/store"
+	"github.com/jackli/frank/internal/tables"
 )
 
-func SubmitHandler(st *store.Store, reg *fieldspec.Registry, meta seat.SeatMeta) Handler {
+func SubmitHandler(st *store.Store, reg *fieldspec.Registry, meta seat.SeatMeta, existing ...*tables.T) Handler {
 	return func(ctx context.Context, cmd intake.Cmd) (record.Record, []store.Intent, error) {
 		cand, formDigest, err := fieldspec.DecodeSubmitPayload(cmd.Payload)
 		if err != nil {
@@ -35,18 +36,28 @@ func SubmitHandler(st *store.Store, reg *fieldspec.Registry, meta seat.SeatMeta)
 			cand.Body = bounce.Format(anySlice(violations)...)
 			return cand, nil, nil
 		}
-		if lineageBounce := lineage.Check(cand, st); lineageBounce != nil {
+		tab := firstSubmitTable(existing)
+		if tab == nil {
+			var err error
+			tab, err = tables.Build(st)
+			if err != nil {
+				cand.Envelope.DeliveryState = record.Rejected
+				cand.Body = bounce.Format(fieldspec.Violation{Field: "system", Class: "store-read-error"})
+				return cand, nil, nil
+			}
+		}
+		if lineageBounce := lineage.Check(cand, tab); lineageBounce != nil {
 			cand.Envelope.DeliveryState = record.Rejected
 			cand.Body = bounce.Format(lineageBounce)
 			return cand, nil, nil
 		}
-		if violation := validateRecordKind(st, cand); violation != nil {
+		if violation := validateRecordKind(tab, cand); violation != nil {
 			cand.Envelope.DeliveryState = record.Rejected
 			cand.Body = bounce.Format(*violation)
 			return cand, nil, nil
 		}
 		if cand.Headers["resolves_gate"] != "" {
-			cand = classifyVerdict(st, cand)
+			cand = classifyVerdict(tab, cand)
 			if cand.Envelope.DeliveryState == record.Accepted {
 				return cand, store.DefaultProjectionIntents(cand), nil
 			}
@@ -59,6 +70,13 @@ func SubmitHandler(st *store.Store, reg *fieldspec.Registry, meta seat.SeatMeta)
 		}
 		return cand, intents, nil
 	}
+}
+
+func firstSubmitTable(existing []*tables.T) *tables.T {
+	if len(existing) == 0 {
+		return nil
+	}
+	return existing[0]
 }
 
 func rejected(cmd intake.Cmd, meta seat.SeatMeta, reason string) record.Record {
@@ -92,7 +110,7 @@ func isGateCandidate(rec record.Record) bool {
 	return rec.Headers["HUMAN_GATE_REQUIRED"] == "yes" || rec.Headers["gate_category"] != ""
 }
 
-func validateRecordKind(st *store.Store, cand record.Record) *fieldspec.Violation {
+func validateRecordKind(t *tables.T, cand record.Record) *fieldspec.Violation {
 	switch cand.Headers["record_kind"] {
 	case "":
 		return nil
@@ -108,12 +126,8 @@ func validateRecordKind(st *store.Store, cand record.Record) *fieldspec.Violatio
 		if target == "" {
 			return &fieldspec.Violation{Field: "disposes_owed", Class: "required", Reason: "disposes_owed required"}
 		}
-		records, err := st.Records()
-		if err != nil {
-			return &fieldspec.Violation{Field: "record_kind", Class: "store-read-error", Reason: "store read error"}
-		}
 		var found bool
-		for _, rec := range records {
+		for _, rec := range t.Records {
 			if rec.Headers["record_kind"] == "owed_item" && rec.Envelope.RelayID == target && rec.Envelope.DeliveryState == record.Accepted {
 				found = true
 			}
@@ -134,7 +148,7 @@ func isOwedKind(rec record.Record) bool {
 	return rec.Headers["record_kind"] == "owed_item" || rec.Headers["record_kind"] == "owed_disposition"
 }
 
-func classifyVerdict(st *store.Store, cand record.Record) record.Record {
+func classifyVerdict(t *tables.T, cand record.Record) record.Record {
 	gateRef := cand.Headers["resolves_gate"]
 	parent := cand.Headers["PARENT_DISPATCH_ID"]
 	if parent != gateRef {
@@ -142,15 +156,9 @@ func classifyVerdict(st *store.Store, cand record.Record) record.Record {
 		cand.Body = bounce.Format(lineage.Bounce{Edge: "PARENT_DISPATCH_ID", Kind: lineage.ParentInvalidDeadEdge})
 		return cand
 	}
-	records, err := st.Records()
-	if err != nil {
-		cand.Envelope.DeliveryState = record.Rejected
-		cand.Body = safeReason("store-read-error")
-		return cand
-	}
 	var gateFound bool
 	var wakeSeat string
-	for _, existing := range records {
+	for _, existing := range t.Records {
 		if existing.Envelope.RelayID == gateRef && existing.Envelope.DeliveryState == record.Accepted && isGateCandidate(existing) {
 			gateFound = true
 			wakeSeat = existing.Envelope.From
