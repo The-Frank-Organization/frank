@@ -1,0 +1,47 @@
+[
+  {
+    "anchor": "relay-lint.py:phase-enum",
+    "check": "PHASE token membership",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "fieldspec enum validation",
+    "obsolete_ground": null,
+    "fixtures": ["bad-phase-token", "claude/B9-bad-enum.md", "claude/C2-enum-bypass.md"]
+  },
+  {
+    "anchor": "relay-lint.py:address-token-shape",
+    "check": "bare authority token placement",
+    "class_10": "obsolete",
+    "disposition": "obsolete",
+    "surface": "typed submit payload has no raw markdown token channel",
+    "obsolete_ground": "vanished-markdown-channel",
+    "fixtures": ["bare-token-shape", "addressing/T2-token-no-to.md"]
+  },
+  {
+    "anchor": "relay-lint.py:scope-diff-carrier",
+    "check": "structured SCOPE_DIFF rows",
+    "class_10": "10b",
+    "disposition": "dissolved-form",
+    "surface": "canonical row_array typed carrier",
+    "obsolete_ground": null,
+    "fixtures": ["scope-diff-row-array"]
+  },
+  {
+    "anchor": "relay-lint.py:parent-substrate",
+    "check": "parent relay/dispatch resolution",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine parent substrate over tables",
+    "obsolete_ground": null,
+    "fixtures": ["addressing/G1-casefold-lineage/IMPL-Dispatch-20260610-102000.md"]
+  },
+  {
+    "anchor": "relay-lint.py:merge-grant",
+    "check": "merge grant authorization",
+    "class_10": "10c",
+    "disposition": "dissolved-lineage",
+    "surface": "lineage.Engine merge-claim prerequisite",
+    "obsolete_ground": null,
+    "fixtures": ["merge-token/MT1-valid-token-grant/MERGE-GATE-20260610-130000.md"]
+  }
+]
