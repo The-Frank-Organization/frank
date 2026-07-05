@@ -26,7 +26,10 @@ func scrubError(err error) string {
 		return errFrameTooLarge
 	case strings.Contains(msg, "auth:"):
 		return errAuthFailed
-	case errors.Is(err, net.ErrClosed), errors.Is(err, io.EOF), errors.Is(err, io.ErrClosedPipe):
+	case errors.Is(err, net.ErrClosed), errors.Is(err, io.EOF), errors.Is(err, io.ErrClosedPipe),
+		strings.Contains(msg, "broken pipe"),
+		strings.Contains(msg, "use of closed network connection"),
+		strings.Contains(msg, "connection reset by peer"):
 		return errConnectionLost
 	case errors.Is(err, os.ErrNotExist),
 		strings.Contains(msg, "dial unix"),
