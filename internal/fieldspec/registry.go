@@ -41,7 +41,8 @@ type FieldSpec struct {
 }
 
 type Predicate struct {
-	Raw json.RawMessage
+	Raw  json.RawMessage
+	root *predicateExpr
 }
 
 func (p *Predicate) UnmarshalJSON(data []byte) error {
@@ -171,92 +172,25 @@ func (r *Registry) validate() error {
 				return fmt.Errorf("field %s: enum_set %s missing", field.ID, field.EnumSet)
 			}
 		}
-		if err := r.validatePredicate(field.ID, field.RequiredWhen.Raw); err != nil {
+		if err := r.compilePredicate(field.ID, &field.RequiredWhen); err != nil {
 			return err
 		}
-		if err := r.validatePredicate(field.ID, field.VisibleWhen.Raw); err != nil {
+		if err := r.compilePredicate(field.ID, &field.VisibleWhen); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (r *Registry) validatePredicate(owner string, raw json.RawMessage) error {
-	if len(raw) == 0 || string(raw) == "null" {
+func (r *Registry) compilePredicate(owner string, pred *Predicate) error {
+	if pred == nil || len(pred.Raw) == 0 || string(pred.Raw) == "null" {
 		return nil
 	}
-	var value any
-	if err := json.Unmarshal(raw, &value); err != nil {
-		return fmt.Errorf("field %s: predicate parse: %w", owner, err)
+	parsed, err := parsePredicate(owner, pred.Raw, r)
+	if err != nil {
+		return err
 	}
-	return r.scanPredicate(owner, value)
-}
-
-func (r *Registry) scanPredicate(owner string, value any) error {
-	obj, ok := value.(map[string]any)
-	if !ok {
-		return fmt.Errorf("field %s: predicate must be object", owner)
-	}
-	recognized := false
-	for key, raw := range obj {
-		switch key {
-		case "all_of", "any_of":
-			recognized = true
-			items, ok := raw.([]any)
-			if !ok {
-				return fmt.Errorf("field %s: %s must be array", owner, key)
-			}
-			for _, item := range items {
-				if err := r.scanPredicate(owner, item); err != nil {
-					return err
-				}
-			}
-		case "not":
-			recognized = true
-			if err := r.scanPredicate(owner, raw); err != nil {
-				return err
-			}
-		case "field":
-			recognized = true
-			ref, ok := raw.(string)
-			if !ok {
-				return fmt.Errorf("field %s: field atom must name a column", owner)
-			}
-			if err := r.validateGateReference(owner, ref); err != nil {
-				return err
-			}
-			if err := validateOp(owner, obj); err != nil {
-				return err
-			}
-		case "any_row":
-			recognized = true
-			ref, ok := raw.(string)
-			if !ok {
-				return fmt.Errorf("field %s: any_row atom must name a row field", owner)
-			}
-			rowID := strings.SplitN(ref, ".", 2)[0]
-			if err := r.validateGateReference(owner, rowID); err != nil {
-				return err
-			}
-			if err := validateOp(owner, obj); err != nil {
-				return err
-			}
-		case "slot_in":
-			recognized = true
-			if hasConcreteValue(raw) {
-				return fmt.Errorf("field %s: slot_in is reserved for Step-1", owner)
-			}
-		case "phase_in", "ceremony_tier_gte", "authority_in", "seat_is", "role_in", "record_kind_in", "scan_result_in", "claims_action", "layer_present", "op", "value":
-			if key != "op" && key != "value" {
-				recognized = true
-			}
-		default:
-			return fmt.Errorf("field %s: unknown predicate atom %s", owner, key)
-		}
-	}
-	if !recognized {
-		return fmt.Errorf("field %s: unknown predicate atom", owner)
-	}
+	pred.root = parsed.root
 	return nil
 }
 
@@ -272,31 +206,6 @@ func (r *Registry) validateGateReference(owner, ref string) error {
 		return fmt.Errorf("field %s: predicate references non gate-referenceable field %s", owner, ref)
 	}
 	return nil
-}
-
-func validateOp(owner string, obj map[string]any) error {
-	raw, ok := obj["op"]
-	if !ok {
-		return fmt.Errorf("field %s: predicate op required", owner)
-	}
-	op, ok := raw.(string)
-	if !ok || !known(ops, op) {
-		return fmt.Errorf("field %s: unknown predicate op %v", owner, raw)
-	}
-	return nil
-}
-
-func hasConcreteValue(value any) bool {
-	switch typed := value.(type) {
-	case []any:
-		return len(typed) > 0
-	case string:
-		return typed != ""
-	case nil:
-		return false
-	default:
-		return true
-	}
 }
 
 func known(set map[string]struct{}, value string) bool {
