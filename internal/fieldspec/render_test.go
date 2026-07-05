@@ -39,6 +39,19 @@ func TestRenderV2GrantAndAuthoritySeatScope(t *testing.T) {
 	if orchestratorForm.OptionAllowed("grant", "dispatch-merge") {
 		t.Fatalf("orchestrator IMPL form unexpectedly allows dispatch-merge")
 	}
+
+	pairPlanner := fieldspec.SeatMeta{Name: "s3-form.planner", Role: "planner"}
+	closedPairPlanner, _ := reg.Render(env, pairPlanner, "IMPL", "medium", fieldspec.ClosedGrantState)
+	if closedPairPlanner.HasField("grant") {
+		t.Fatalf("pair planner grant rendered before approved plan-review chain")
+	}
+	openPairPlanner, _ := reg.Render(env, pairPlanner, "IMPL", "medium", func(fieldspec.SeatMeta) bool { return true })
+	if !openPairPlanner.OptionAllowed("grant", "dispatch-impl") {
+		t.Fatalf("pair planner grant did not render after grant state opened: %#v", openPairPlanner.Fields["grant"].Options)
+	}
+	if openPairPlanner.OptionAllowed("grant", "dispatch-merge") {
+		t.Fatalf("pair planner IMPL form unexpectedly allows dispatch-merge")
+	}
 }
 
 func TestRenderV2MonotonicFloorAndDigestContext(t *testing.T) {
@@ -49,6 +62,13 @@ func TestRenderV2MonotonicFloorAndDigestContext(t *testing.T) {
 	form, digest := reg.Render(env, seat, "IMPL", "medium", fieldspec.ClosedGrantState)
 	if got := form.Fields["HUMAN_GATE_REQUIRED"].Options; !slices.Equal(got, []string{"no", "yes"}) {
 		t.Fatalf("HUMAN_GATE_REQUIRED options = %v", got)
+	}
+	raised, _ := reg.Render(fieldspec.RenderEnv{ConfigDigest: "cfg-1", MonotonicFloors: map[string]string{"HUMAN_GATE_REQUIRED": "yes", "GRILL_REQUIRED": "yes"}}, seat, "IMPL", "medium", fieldspec.ClosedGrantState)
+	if got := raised.Fields["HUMAN_GATE_REQUIRED"].Options; !slices.Equal(got, []string{"yes"}) {
+		t.Fatalf("raised HUMAN_GATE_REQUIRED options = %v, want [yes]", got)
+	}
+	if got := raised.Fields["GRILL_REQUIRED"].Options; !slices.Equal(got, []string{"yes"}) {
+		t.Fatalf("raised GRILL_REQUIRED options = %v, want [yes]", got)
 	}
 
 	_, byConfig := reg.Render(fieldspec.RenderEnv{ConfigDigest: "cfg-2"}, seat, "IMPL", "medium", fieldspec.ClosedGrantState)

@@ -69,7 +69,7 @@ func SubmitHandlerWithRender(st *store.Store, reg *fieldspec.Registry, meta seat
 		cand.Envelope.DeliveryState = record.Accepted
 		intents := submitProjectionIntents(cand)
 		if isOwedKind(cand) {
-			intents = append(intents, store.OwedProjectionIntentsForCandidate(st, cand)...)
+			intents = append(intents, owedProjectionIntentsFromTable(tab, cand)...)
 		}
 		return cand, intents, nil
 	}
@@ -149,6 +149,15 @@ func validateRecordKind(t *tables.T, cand record.Record) *fieldspec.Violation {
 
 func isOwedKind(rec record.Record) bool {
 	return rec.Headers["record_kind"] == "owed_item" || rec.Headers["record_kind"] == "owed_disposition"
+}
+
+func owedProjectionIntentsFromTable(t *tables.T, cand record.Record) []store.Intent {
+	var records []record.Record
+	if t != nil {
+		records = append(records, t.Records...)
+	}
+	records = append(records, cand)
+	return []store.Intent{store.OwedOpenProjectionIntent(records)}
 }
 
 func classifyVerdict(t *tables.T, cand record.Record) record.Record {

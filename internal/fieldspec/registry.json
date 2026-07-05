@@ -90,7 +90,7 @@
     {"id": "HUMAN_GATE_REQUIRED", "layer": "header", "owner": "agent_enum_pick", "type": "bool", "enum_set": "bool", "gate_referenceable": true, "fill_constraints": "monotonic", "lineage_role": "none"},
     {"id": "gate_category", "layer": "header", "owner": "agent_enum_pick", "type": "enum", "enum_set": "gate_category", "gate_referenceable": true, "fill_constraints": "monotonic", "lineage_role": "none"},
     {"id": "gate_category_raised", "layer": "header", "owner": "computed", "type": "bool", "enum_set": "bool", "fill_constraints": "computed_result", "lineage_role": "none"},
-    {"id": "grant", "layer": "header", "owner": "seat_scoped_enum", "type": "enum", "enum_set": "grant", "gate_referenceable": true, "fill_constraints": "seat_allowed_values", "lineage_role": "grant", "seat_scope": {"operator": ["dispatch-impl", "dispatch-merge"], "*.orchestrator-planner": ["dispatch-impl", "dispatch-merge"]}},
+    {"id": "grant", "layer": "header", "owner": "seat_scoped_enum", "type": "enum", "enum_set": "grant", "gate_referenceable": true, "fill_constraints": "seat_allowed_values", "lineage_role": "grant", "seat_scope": {"operator": ["dispatch-impl", "dispatch-merge"], "*.orchestrator-planner": ["dispatch-impl", "dispatch-merge"], "*.planner": ["dispatch-impl"]}},
     {"id": "delivery_state", "layer": "header", "owner": "system", "type": "enum", "enum_set": "delivery_state", "fill_constraints": "system_only", "lineage_role": "none"},
     {"id": "failing_edge", "layer": "header", "owner": "system", "type": "text", "fill_constraints": "system_only", "lineage_role": "none"},
     {"id": "SUBJECT", "layer": "header", "owner": "free_text", "type": "text", "fill_constraints": "free_text", "lineage_role": "none"},

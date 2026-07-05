@@ -3,6 +3,7 @@ package tables
 import (
 	"encoding/json"
 	"sort"
+	"sync"
 
 	"github.com/jackli/frank/internal/record"
 	"github.com/jackli/frank/internal/store"
@@ -22,6 +23,11 @@ type T struct {
 	ContentHash     map[string]string
 	CompletionIndex map[string]map[string]bool
 	ParkedLanes     map[string]bool
+}
+
+type Live struct {
+	mu      sync.RWMutex
+	current *T
 }
 
 func New() *T {
@@ -44,6 +50,57 @@ func New() *T {
 		},
 		ParkedLanes: map[string]bool{},
 	}
+}
+
+func NewLive(initial *T) *Live {
+	l := &Live{}
+	l.Publish(initial)
+	return l
+}
+
+func (l *Live) Snapshot() *T {
+	if l == nil {
+		return New()
+	}
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	if l.current == nil {
+		return New()
+	}
+	return l.current.Clone()
+}
+
+func (l *Live) Publish(next *T) {
+	if l == nil {
+		return
+	}
+	if next == nil {
+		next = New()
+	}
+	l.mu.Lock()
+	l.current = next.Clone()
+	l.mu.Unlock()
+}
+
+func (t *T) Clone() *T {
+	if t == nil {
+		return New()
+	}
+	out := New()
+	out.Records = cloneRecords(t.Records)
+	out.ByRelay = cloneRecordMap(t.ByRelay)
+	out.ByDispatch = cloneRecordSliceMap(t.ByDispatch)
+	out.AcceptedParents = cloneStringMap(t.AcceptedParents)
+	out.Grants = cloneRecordSliceMap(t.Grants)
+	out.Verdicts = cloneRecordSliceMap(t.Verdicts)
+	out.Locks = cloneRecordSliceMap(t.Locks)
+	out.MergeGates = cloneRecordSliceMap(t.MergeGates)
+	out.Waivers = cloneRecords(t.Waivers)
+	out.OutcomeByIntake = cloneRecordMap(t.OutcomeByIntake)
+	out.ContentHash = cloneStringMap(t.ContentHash)
+	out.CompletionIndex = cloneBoolMapMap(t.CompletionIndex)
+	out.ParkedLanes = cloneBoolMap(t.ParkedLanes)
+	return out
 }
 
 func Build(st *store.Store) (*T, error) {
@@ -127,4 +184,63 @@ func (t *T) updateCompletion(rec record.Record) {
 	if rec.Body != "" && json.Unmarshal([]byte(rec.Body), &outbox) == nil && outbox.SourceRecordRef != "" {
 		t.CompletionIndex["outbox"][outbox.SourceRecordRef] = true
 	}
+}
+
+func cloneRecords(records []record.Record) []record.Record {
+	out := make([]record.Record, len(records))
+	for i, rec := range records {
+		out[i] = cloneRecord(rec)
+	}
+	return out
+}
+
+func cloneRecordMap(in map[string]record.Record) map[string]record.Record {
+	out := make(map[string]record.Record, len(in))
+	for key, value := range in {
+		out[key] = cloneRecord(value)
+	}
+	return out
+}
+
+func cloneRecordSliceMap(in map[string][]record.Record) map[string][]record.Record {
+	out := make(map[string][]record.Record, len(in))
+	for key, values := range in {
+		out[key] = cloneRecords(values)
+	}
+	return out
+}
+
+func cloneRecord(rec record.Record) record.Record {
+	rec.Headers = cloneStringMap(rec.Headers)
+	return rec
+}
+
+func cloneStringMap(in map[string]string) map[string]string {
+	if in == nil {
+		return nil
+	}
+	out := make(map[string]string, len(in))
+	for key, value := range in {
+		out[key] = value
+	}
+	return out
+}
+
+func cloneBoolMapMap(in map[string]map[string]bool) map[string]map[string]bool {
+	out := make(map[string]map[string]bool, len(in))
+	for key, values := range in {
+		out[key] = cloneBoolMap(values)
+	}
+	return out
+}
+
+func cloneBoolMap(in map[string]bool) map[string]bool {
+	if in == nil {
+		return nil
+	}
+	out := make(map[string]bool, len(in))
+	for key, value := range in {
+		out[key] = value
+	}
+	return out
 }

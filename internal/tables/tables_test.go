@@ -2,6 +2,7 @@ package tables_test
 
 import (
 	"reflect"
+	"sync"
 	"testing"
 
 	"github.com/jackli/frank/internal/record"
@@ -35,4 +36,53 @@ func TestIncrementalMatchesRebuild(t *testing.T) {
 	if !reflect.DeepEqual(inc, rebuilt) {
 		t.Fatalf("incremental tables differ from rebuild\nincremental=%#v\nrebuilt=%#v", inc, rebuilt)
 	}
+}
+
+func TestLiveSnapshotIsImmutableAcrossPublish(t *testing.T) {
+	initial := tables.New()
+	initial.OnCommit(record.Record{
+		Envelope: record.Envelope{RelayID: "r1", DispatchID: "d1", DeliveryState: record.Accepted, SchemaVersion: 1},
+		Headers:  map[string]string{"PHASE": "SITREP"},
+	})
+	live := tables.NewLive(initial)
+
+	snapshot := live.Snapshot()
+	next := snapshot.Clone()
+	next.OnCommit(record.Record{
+		Envelope: record.Envelope{RelayID: "r2", DispatchID: "d1", DeliveryState: record.Accepted, SchemaVersion: 1},
+		Headers:  map[string]string{"PHASE": "SITREP"},
+	})
+	live.Publish(next)
+
+	if _, ok := snapshot.ByRelay["r2"]; ok {
+		t.Fatalf("previous snapshot observed later publish")
+	}
+	current := live.Snapshot()
+	if _, ok := current.ByRelay["r2"]; !ok {
+		t.Fatalf("current snapshot missing published record")
+	}
+}
+
+func TestLiveSnapshotConcurrentPublishAndRead(t *testing.T) {
+	live := tables.NewLive(tables.New())
+	var wg sync.WaitGroup
+	for i := 0; i < 50; i++ {
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			next := live.Snapshot().Clone()
+			next.OnCommit(record.Record{
+				Envelope: record.Envelope{RelayID: "r", DispatchID: "d", DeliveryState: record.Accepted, SchemaVersion: 1},
+				Headers:  map[string]string{"SUBJECT": "publish"},
+			})
+			live.Publish(next)
+		}()
+		go func() {
+			defer wg.Done()
+			snapshot := live.Snapshot()
+			_ = snapshot.Records
+			_ = snapshot.ByDispatch["d"]
+		}()
+	}
+	wg.Wait()
 }

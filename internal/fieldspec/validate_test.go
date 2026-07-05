@@ -58,6 +58,46 @@ func TestValidateV2DigestRequiredAndTierBound(t *testing.T) {
 	assertViolation(t, reg.Validate(rec, seat, mediumDigest, fieldspec.RenderEnv{}, fieldspec.ClosedGrantState), "form_digest", "re-render")
 }
 
+func TestValidateV2MonotonicFloors(t *testing.T) {
+	reg := loadRegistry(t)
+	seat := fieldspec.SeatMeta{Name: "operator", Role: "operator", IsOperator: true}
+	env := fieldspec.RenderEnv{MonotonicFloors: map[string]string{"HUMAN_GATE_REQUIRED": "yes", "GRILL_REQUIRED": "yes"}}
+	rec := validCandidate()
+	rec.Headers["HUMAN_GATE_REQUIRED"] = "no"
+	rec.Headers["GRILL_REQUIRED"] = "no"
+
+	_, digest := reg.Render(env, seat, rec.Headers["PHASE"], rec.Headers["CEREMONY_TIER"], fieldspec.ClosedGrantState)
+	violations := reg.Validate(rec, seat, digest, env, fieldspec.ClosedGrantState)
+	assertViolation(t, violations, "HUMAN_GATE_REQUIRED", "monotonic-floor")
+	assertViolation(t, violations, "GRILL_REQUIRED", "monotonic-floor")
+
+	rec.Headers["HUMAN_GATE_REQUIRED"] = "yes"
+	rec.Headers["GRILL_REQUIRED"] = "yes"
+	violations = reg.Validate(rec, seat, digest, env, fieldspec.ClosedGrantState)
+	assertNoViolation(t, violations, "HUMAN_GATE_REQUIRED", "monotonic-floor")
+	assertNoViolation(t, violations, "GRILL_REQUIRED", "monotonic-floor")
+}
+
+func TestValidateV2RejectsParentOutsideActiveCandidateSet(t *testing.T) {
+	reg := loadRegistry(t)
+	seat := fieldspec.SeatMeta{Name: "s3-form.implementer", Role: "implementer"}
+	env := fieldspec.RenderEnv{ParentCandidates: func(fieldspec.SeatMeta) ([]string, string) {
+		return []string{"allowed-parent"}, "allowed-parent"
+	}}
+	rec := validCandidate()
+	rec.Headers["PHASE"] = "PLAN"
+	rec.Headers["AUTHORITY"] = "plan-only"
+	rec.Headers["PARENT_DISPATCH_ID"] = "unrelated-visible-parent"
+	_, digest := reg.Render(env, seat, rec.Headers["PHASE"], rec.Headers["CEREMONY_TIER"], fieldspec.ClosedGrantState)
+
+	violations := reg.Validate(rec, seat, digest, env, fieldspec.ClosedGrantState)
+	assertViolation(t, violations, "PARENT_DISPATCH_ID", "outside-active-lineage")
+
+	rec.Headers["PARENT_DISPATCH_ID"] = "allowed-parent"
+	violations = reg.Validate(rec, seat, digest, env, fieldspec.ClosedGrantState)
+	assertNoViolation(t, violations, "PARENT_DISPATCH_ID", "outside-active-lineage")
+}
+
 func TestValidateV2TypedCarrierAndGrillDependentRequired(t *testing.T) {
 	reg := loadRegistry(t)
 	seat := fieldspec.SeatMeta{Name: "operator", Role: "operator", IsOperator: true}

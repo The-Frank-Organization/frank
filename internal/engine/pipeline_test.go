@@ -3,15 +3,19 @@ package engine_test
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/jackli/frank/internal/engine"
 	"github.com/jackli/frank/internal/fieldspec"
 	"github.com/jackli/frank/internal/intake"
+	"github.com/jackli/frank/internal/lineage"
 	"github.com/jackli/frank/internal/record"
 	"github.com/jackli/frank/internal/seat"
 	"github.com/jackli/frank/internal/store"
+	"github.com/jackli/frank/internal/tables"
 )
 
 func TestSubmitHandlerStampsAndAcceptsValidCandidate(t *testing.T) {
@@ -144,6 +148,118 @@ func TestOperatorVerdictOneShotRunsThroughSubmitHandler(t *testing.T) {
 	}
 }
 
+func TestSubmitHandlerBuildsOwedProjectionFromProvidedTable(t *testing.T) {
+	st, reg := submitDeps(t)
+	meta := seat.SeatMeta{Name: "operator", Role: "operator", IsOperator: true}
+	owed := record.Record{
+		Envelope: record.Envelope{RelayID: "owed-base", From: "operator", Role: "operator", DeliveryState: record.Accepted, SchemaVersion: 1},
+		Headers: map[string]string{
+			"PHASE":            "SITREP",
+			"AUTHORITY":        "report-only",
+			"SUBJECT":          "owed",
+			"record_kind":      "owed_item",
+			"owner":            "s1",
+			"source":           "review",
+			"target_surface":   "live table",
+			"disposition_path": "fold",
+		},
+	}
+	if _, err := st.Commit(owed, nil); err != nil {
+		t.Fatalf("Commit owed: %v", err)
+	}
+	tab, err := tables.Build(st)
+	if err != nil {
+		t.Fatalf("Build tables: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(st.Root, "records", "owed-base.json"), []byte(`{"corrupt":true}`), 0o644); err != nil {
+		t.Fatalf("corrupt owed record: %v", err)
+	}
+
+	handler := engine.SubmitHandler(st, reg, meta, tab)
+	payload := submitPayload(t, reg, meta, record.Record{
+		Headers: map[string]string{
+			"PHASE":         "SITREP",
+			"AUTHORITY":     "report-only",
+			"SUBJECT":       "owed disposition",
+			"record_kind":   "owed_disposition",
+			"disposes_owed": "owed-base",
+		},
+	})
+	rec, intents, err := handler(context.Background(), intake.Cmd{IntakeID: "owed-disposition", Seat: "operator", Role: "operator", IsOperator: true, Payload: payload})
+	if err != nil {
+		t.Fatalf("handler: %v", err)
+	}
+	if rec.Envelope.DeliveryState != record.Accepted {
+		t.Fatalf("state = %s, want accepted: %s", rec.Envelope.DeliveryState, rec.Body)
+	}
+	for _, intent := range intents {
+		if intent.Kind == store.IntentRender && intent.Path == filepath.Join("owed", "OPEN.md") {
+			return
+		}
+	}
+	t.Fatalf("missing owed OPEN.md render intent in %#v", intents)
+}
+
+func TestSubmitHandlerRejectsParentOutsideRenderedCandidateSet(t *testing.T) {
+	st, reg := submitDeps(t)
+	meta := seat.SeatMeta{Name: "s3-form.implementer", Role: "implementer"}
+	tab := tables.New()
+	tab.OnCommit(record.Record{
+		Envelope: record.Envelope{RelayID: "visible-but-unrelated", DispatchID: "unrelated", DeliveryState: record.Accepted, SchemaVersion: 1},
+		Headers:  map[string]string{"PHASE": "PLAN", "SUBJECT": "visible"},
+	})
+	env := fieldspec.RenderEnv{ParentCandidates: func(fieldspec.SeatMeta) ([]string, string) {
+		return []string{"allowed-parent"}, "allowed-parent"
+	}}
+	handler := engine.SubmitHandlerWithRender(st, reg, meta, env, tab)
+	payload := submitPayloadWithEnv(t, reg, meta, env, record.Record{
+		Headers: map[string]string{
+			"PHASE":              "PLAN",
+			"AUTHORITY":          "plan-only",
+			"SUBJECT":            "outside parent",
+			"PARENT_DISPATCH_ID": "visible-but-unrelated",
+		},
+	})
+	rec, _, err := handler(context.Background(), intake.Cmd{IntakeID: "outside-parent", Seat: meta.Name, Role: meta.Role, Payload: payload})
+	if err != nil {
+		t.Fatalf("handler: %v", err)
+	}
+	if rec.Envelope.DeliveryState != record.Rejected {
+		t.Fatalf("state = %s, want rejected", rec.Envelope.DeliveryState)
+	}
+	if !strings.Contains(rec.Body, "outside-active-lineage") {
+		t.Fatalf("body = %s, want outside-active-lineage", rec.Body)
+	}
+}
+
+func TestSubmitHandlerRejectsStalePositiveParentAfterRender(t *testing.T) {
+	st, reg := submitDeps(t)
+	meta := seat.SeatMeta{Name: "s3-form.implementer", Role: "implementer"}
+	env := fieldspec.RenderEnv{ParentCandidates: func(fieldspec.SeatMeta) ([]string, string) {
+		return []string{"parent-at-render"}, "parent-at-render"
+	}}
+	payload := submitPayloadWithEnv(t, reg, meta, env, record.Record{
+		Headers: map[string]string{
+			"PHASE":              "PLAN",
+			"AUTHORITY":          "plan-only",
+			"SUBJECT":            "stale parent",
+			"PARENT_DISPATCH_ID": "parent-at-render",
+		},
+	})
+
+	handler := engine.SubmitHandlerWithRender(st, reg, meta, env, tables.New())
+	rec, _, err := handler(context.Background(), intake.Cmd{IntakeID: "stale-parent", Seat: meta.Name, Role: meta.Role, Payload: payload})
+	if err != nil {
+		t.Fatalf("handler: %v", err)
+	}
+	if rec.Envelope.DeliveryState != record.Rejected {
+		t.Fatalf("state = %s, want rejected", rec.Envelope.DeliveryState)
+	}
+	if !strings.Contains(rec.Body, lineage.ParentUnknownRecompose) {
+		t.Fatalf("body = %s, want parent substrate bounce", rec.Body)
+	}
+}
+
 func requireIntent(t *testing.T, intents []store.Intent, kind string) {
 	t.Helper()
 	for _, intent := range intents {
@@ -179,5 +295,11 @@ func mustJSON(t *testing.T, v any) json.RawMessage {
 func submitPayload(t *testing.T, reg *fieldspec.Registry, meta seat.SeatMeta, rec record.Record) json.RawMessage {
 	t.Helper()
 	_, digest := reg.Render(fieldspec.RenderEnv{}, fieldspec.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator}, rec.Headers["PHASE"], rec.Headers["CEREMONY_TIER"], fieldspec.ClosedGrantState)
+	return mustJSON(t, fieldspec.SubmitPayload{Record: rec, FormDigest: digest})
+}
+
+func submitPayloadWithEnv(t *testing.T, reg *fieldspec.Registry, meta seat.SeatMeta, env fieldspec.RenderEnv, rec record.Record) json.RawMessage {
+	t.Helper()
+	_, digest := reg.Render(env, fieldspec.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator}, rec.Headers["PHASE"], rec.Headers["CEREMONY_TIER"], fieldspec.ClosedGrantState)
 	return mustJSON(t, fieldspec.SubmitPayload{Record: rec, FormDigest: digest})
 }

@@ -55,6 +55,9 @@ func (r *Registry) Validate(cand record.Record, seat SeatMeta, formDigest string
 		if len(spec.SeatScope) > 0 && !r.optionAllowedForSeat(spec.ID, seat, phase, raw, grants) {
 			violations = append(violations, Violation{Field: spec.ID, Class: "seat-scope", Reason: spec.ID + " absent from seat form"})
 		}
+		if spec.FillConstraints == "monotonic" && r.belowMonotonicFloor(spec, raw, env.MonotonicFloors[spec.ID]) {
+			violations = append(violations, Violation{Field: spec.ID, Class: "monotonic-floor", Reason: spec.ID + " below floor"})
+		}
 		if spec.ID == "gate_category" {
 			_, raised := r.ClassifyGateCategory(raw, false)
 			if raised {
@@ -62,7 +65,32 @@ func (r *Registry) Validate(cand record.Record, seat SeatMeta, formDigest string
 			}
 		}
 	}
+	if parent := cand.Headers["PARENT_DISPATCH_ID"]; parent != "" && env.ParentCandidates != nil {
+		candidates, _ := env.ParentCandidates(seat)
+		if len(candidates) == 0 {
+			violations = append(violations, Violation{Field: "PARENT_DISPATCH_ID", Class: "active-lineage-empty", Reason: "no active lineage candidates"})
+		} else if !containsString(candidates, parent) {
+			violations = append(violations, Violation{Field: "PARENT_DISPATCH_ID", Class: "outside-active-lineage", Reason: "parent outside active lineage candidate set"})
+		}
+	}
 	return violations
+}
+
+func (r *Registry) belowMonotonicFloor(spec *FieldSpec, raw, floor string) bool {
+	if floor == "" || raw == "" {
+		return false
+	}
+	options := r.baseOptions(spec)
+	rawIndex, floorIndex := -1, -1
+	for i, option := range options {
+		if option == raw {
+			rawIndex = i
+		}
+		if option == floor {
+			floorIndex = i
+		}
+	}
+	return rawIndex >= 0 && floorIndex >= 0 && rawIndex < floorIndex
 }
 
 func validateTyped(spec *FieldSpec, raw string) error {

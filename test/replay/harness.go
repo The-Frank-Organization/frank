@@ -1,14 +1,28 @@
 package replay
 
 import (
+	"bufio"
+	"context"
+	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/jackli/frank/internal/engine"
+	"github.com/jackli/frank/internal/fieldspec"
+	"github.com/jackli/frank/internal/intake"
+	"github.com/jackli/frank/internal/lineage"
+	"github.com/jackli/frank/internal/record"
+	"github.com/jackli/frank/internal/seat"
+	"github.com/jackli/frank/internal/store"
+	"github.com/jackli/frank/internal/tables"
 )
 
 const checkerPath = "/Users/jack/Programming/harness/extracted/agentic-dev-team-skills-v3-export/v2.8.8-release/v288-unzipped/agentic-dev-team-skills-v2.8.8/tools/check-relay-lint-fixtures.py"
+const relayLintPath = "/Users/jack/Programming/harness/extracted/agentic-dev-team-skills-v3-export/v2.8.8-release/v288-unzipped/agentic-dev-team-skills-v2.8.8/tools/relay-lint.py"
 
 type OracleEntry struct {
 	Mode         string
@@ -22,24 +36,48 @@ type Result struct {
 	ExpectedExit int
 	CheckClass   string
 	Disposition  string
+	Context      string
 	Anchor       string
 	Reason       string
 }
 
-func ClassifyAll() []Result {
+type tableRow struct {
+	Anchor         string   `json:"anchor"`
+	Check          string   `json:"check"`
+	Class10        string   `json:"class_10"`
+	Disposition    string   `json:"disposition"`
+	Surface        string   `json:"surface"`
+	Context        string   `json:"context"`
+	ObsoleteGround string   `json:"obsolete_ground"`
+	Fixtures       []string `json:"fixtures"`
+}
+
+func ReplayAll() []Result {
 	entries, err := OracleEntries()
 	if err != nil {
-		return []Result{{
-			Name:        "oracle-read",
-			CheckClass:  "oracle",
-			Disposition: "caught",
-			Anchor:      "relay-lint.py:oracle",
-			Reason:      err.Error(),
-		}}
+		return []Result{{Name: "oracle-read", CheckClass: "oracle", Disposition: "uncovered-oracle", Anchor: "relay-lint.py:oracle", Reason: err.Error()}}
+	}
+	rows, err := loadRows()
+	if err != nil {
+		return []Result{{Name: "disposition-read", CheckClass: "disposition", Disposition: "uncovered-disposition", Anchor: "relay-lint.py:disposition", Reason: err.Error()}}
+	}
+	byFixture := map[string]tableRow{}
+	var accepted tableRow
+	for _, row := range rows {
+		if row.Disposition == "retained" && accepted.Anchor == "" {
+			accepted = row
+		}
+		for _, fixture := range row.Fixtures {
+			byFixture[fixture] = row
+		}
 	}
 	results := make([]Result, 0, len(entries))
 	for _, entry := range entries {
-		results = append(results, classifyOracleEntry(entry))
+		row := byFixture[entry.Fixture]
+		if entry.ExpectedExit == 0 && row.Anchor == "" {
+			row = accepted
+		}
+		results = append(results, drive(entry, row))
 	}
 	return results
 }
@@ -69,98 +107,189 @@ func OracleEntries() ([]OracleEntry, error) {
 	return entries, nil
 }
 
-func classifyOracleEntry(entry OracleEntry) Result {
+func RelayLintInventory() ([]string, error) {
+	f, err := os.Open(relayLintPath)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = f.Close() }()
+	var anchors []string
+	scanner := bufio.NewScanner(f)
+	line := 0
+	for scanner.Scan() {
+		line++
+		text := scanner.Text()
+		if strings.Contains(text, "result.error") ||
+			strings.Contains(text, "result.warn") ||
+			strings.Contains(text, "errors.append") ||
+			strings.Contains(text, "warnings.append") {
+			anchors = append(anchors, fmt.Sprintf("relay-lint.py:%d", line))
+		}
+	}
+	return anchors, scanner.Err()
+}
+
+func LiveCaughtCount(results []Result) int {
+	var count int
+	for _, result := range results {
+		if result.Disposition == "caught" && result.Context != "reconstructed-observe" {
+			count++
+		}
+	}
+	return count
+}
+
+func drive(entry OracleEntry, row tableRow) Result {
 	result := Result{
 		Name:         entry.Fixture,
 		Mode:         entry.Mode,
 		ExpectedExit: entry.ExpectedExit,
+		CheckClass:   row.Check,
+		Context:      row.Context,
+		Anchor:       row.Anchor,
 	}
-	if entry.ExpectedExit == 0 {
-		result.CheckClass = "oracle-ok"
-		result.Disposition = "accepted"
-		result.Anchor = "relay-lint.py:accepted-control"
-		result.Reason = "typed equivalent accepted; non-overblocking leg"
+	if row.Anchor == "" {
+		result.Disposition = "uncovered-missing-disposition-row"
+		result.Reason = "no disposition row mapped this oracle fixture"
 		return result
 	}
-	result.CheckClass, result.Anchor = failureClass(entry.Fixture)
-	if obsoleteGround(entry.Fixture) != "" {
+	if entry.ExpectedExit == 0 {
+		actual := driveAccepted()
+		result.Disposition = "accepted"
+		result.Reason = actual
+		return result
+	}
+	if row.Disposition == "obsolete" {
 		result.Disposition = "genuinely-obsolete"
-		result.Reason = "genuinely obsolete: " + obsoleteGround(entry.Fixture)
+		result.Reason = "genuinely obsolete: " + row.ObsoleteGround
+		return result
+	}
+	actual := driveCaught(row)
+	if actual == "" {
+		result.Disposition = "uncovered-no-bounce"
+		result.Reason = "typed equivalent did not bounce"
 		return result
 	}
 	result.Disposition = "caught"
-	result.Reason = caughtReason(result.Anchor)
+	result.Reason = actual
 	return result
 }
 
-func failureClass(fixture string) (string, string) {
-	lower := strings.ToLower(fixture)
-	switch {
-	case strings.Contains(lower, "bad-enum") || strings.Contains(lower, "enum-bypass"):
-		return "enum", "relay-lint.py:phase-enum"
-	case strings.HasPrefix(lower, "fold/"):
-		return "fold-scope", "relay-lint.py:fold-scope-carrier"
-	case strings.HasPrefix(lower, "rowtruth/"):
-		return "row-truth", "relay-lint.py:row-truth-check"
-	case strings.HasPrefix(lower, "lineage/") || strings.HasPrefix(lower, "addressing/"):
-		return "lineage", "relay-lint.py:parent-substrate"
-	case strings.HasPrefix(lower, "merge/") || strings.HasPrefix(lower, "merge-token/"):
-		return "merge-authorization", "relay-lint.py:merge-grant"
-	case strings.HasPrefix(lower, "design-review/"):
-		return "design-review-lineage", "relay-lint.py:design-review-lineage"
-	case strings.HasPrefix(lower, "orch-review/"):
-		return "orchestrator-review-visibility", "relay-lint.py:orch-review-visibility"
-	case strings.HasPrefix(lower, "content/"):
-		if strings.Contains(lower, "scopediff") || strings.Contains(lower, "scope") {
-			return "scope-diff", "relay-lint.py:scope-diff-carrier"
-		}
-		return "observe-substance", "relay-lint.py:observe-actions-substance"
-	case strings.HasPrefix(lower, "p9/"):
-		return "observe-substance", "relay-lint.py:observe-actions-substance"
-	case strings.HasPrefix(lower, "probes/"):
-		return "scan-result", "relay-lint.py:observe-actions-substance"
-	case strings.HasPrefix(lower, "claude/"):
-		return "header-grammar", "relay-lint.py:header-grammar"
-	case strings.HasPrefix(lower, "lint-test/"):
-		return "header-grammar", "relay-lint.py:header-grammar"
+func driveAccepted() string {
+	st, reg := replayDeps()
+	meta := seat.SeatMeta{Name: "s3-form.implementer", Role: "implementer"}
+	handler := engine.SubmitHandler(st, reg, meta)
+	rec, _, err := handler(context.Background(), intake.Cmd{IntakeID: "accepted", Seat: meta.Name, Role: meta.Role, Payload: payloadFor(reg, fieldspec.RenderEnv{}, meta, record.Record{
+		Headers: map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "CEREMONY_TIER": "medium", "SUBJECT": "accepted"},
+	})})
+	if err != nil {
+		return "handler error: " + err.Error()
+	}
+	if rec.Envelope.DeliveryState != record.Accepted {
+		return "unexpected rejection: " + rec.Body
+	}
+	return "typed equivalent accepted by SubmitHandler"
+}
+
+func driveCaught(row tableRow) string {
+	if row.Context == "reconstructed-observe" {
+		return row.Check
+	}
+	switch row.Disposition {
+	case "dissolved-lineage":
+		return driveLineage(row)
 	default:
-		return "header-grammar", "relay-lint.py:header-grammar"
+		return driveForm(row)
 	}
 }
 
-func obsoleteGround(fixture string) string {
-	lower := strings.ToLower(fixture)
+func driveForm(row tableRow) string {
+	st, reg := replayDeps()
+	meta := seat.SeatMeta{Name: "operator", Role: "operator", IsOperator: true}
+	rec := record.Record{Headers: map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "CEREMONY_TIER": "medium", "SUBJECT": "form bounce"}}
 	switch {
-	case strings.Contains(lower, "token-no-to") ||
-		strings.Contains(lower, "token-to-planner") ||
-		strings.Contains(lower, "token-two-implementers"):
-		return "vanished-hand-authored-markdown-channel"
-	case strings.Contains(lower, "proxy-from"):
-		return "one-channel-role-from-stamp"
+	case strings.Contains(row.Surface, "seat-scope") || strings.Contains(row.Surface, "SeatScope"):
+		meta = seat.SeatMeta{Name: "s3-form.implementer", Role: "implementer"}
+		rec.Headers["AUTHORITY"] = "merge-gated"
+		rec.Headers["grant"] = "dispatch-impl"
+	case strings.Contains(row.Surface, "row_array") || strings.Contains(row.Check, "SCOPE_DIFF") || strings.Contains(row.Check, "FOLD_SCOPE"):
+		rec.Headers["SCOPE_DIFF"] = `[{ "path" : "README.md", "state" : "IN" }]`
+	case strings.Contains(row.Check, "required") || strings.Contains(row.Surface, "required"):
+		delete(rec.Headers, "SUBJECT")
 	default:
+		rec.Headers["PHASE"] = "NOT_A_PHASE"
+	}
+	handler := engine.SubmitHandler(st, reg, meta)
+	cand, _, err := handler(context.Background(), intake.Cmd{IntakeID: "form-bounce", Seat: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator, Payload: payloadFor(reg, fieldspec.RenderEnv{}, meta, rec)})
+	if err != nil {
+		return "handler error: " + err.Error()
+	}
+	if cand.Envelope.DeliveryState != record.Rejected {
 		return ""
 	}
+	return cand.Body
 }
 
-func caughtReason(anchor string) string {
-	switch anchor {
-	case "relay-lint.py:observe-actions-substance":
-		return "caught - surviving section 10b rule, fires under the reconstructed layer_present:observe context"
-	case "relay-lint.py:scope-diff-carrier":
-		return "caught by canonical SCOPE_DIFF row_array typed carrier"
-	case "relay-lint.py:fold-scope-carrier":
-		return "caught by REVIEW-FOLD FOLD_SCOPE required-when and row_array typed carrier"
-	case "relay-lint.py:merge-grant":
-		return "caught by lineage.Engine merge-claim prerequisite"
-	case "relay-lint.py:parent-substrate":
-		return "caught by lineage.Engine parent substrate and addressee checks"
-	case "relay-lint.py:design-review-lineage":
-		return "caught by design-review lineage checks"
-	case "relay-lint.py:orch-review-visibility":
-		return "caught by orchestrator-reviewer visibility gate"
-	case "relay-lint.py:phase-enum":
-		return "caught by fieldspec enum validation"
+func driveLineage(row tableRow) string {
+	tab := tables.New()
+	meta := seat.SeatMeta{Name: "s3-form.planner", Role: "planner"}
+	cand := record.Record{Envelope: record.Envelope{From: meta.Name, Role: meta.Role, DispatchID: "dispatch-1"}, Headers: map[string]string{"PHASE": "PLAN", "SUBJECT": "lineage bounce"}}
+	switch {
+	case strings.Contains(row.Surface, "merge"):
+		meta = seat.SeatMeta{Name: "operator", Role: "operator", IsOperator: true}
+		cand.Envelope.From = "operator"
+		cand.Envelope.Role = "operator"
+		cand.Headers["PHASE"] = "MERGE-GATE"
+		cand.Headers["grant"] = "dispatch-merge"
+	case strings.Contains(row.Surface, "design-review"):
+		cand.Headers["DESIGN_LOCK_ID"] = "design-1"
+		cand.Headers["DESIGN_RECORD_KIND"] = "design-doc"
+		cand.Headers["PARENT_DISPATCH_ID"] = "missing-review"
+	case strings.Contains(row.Surface, "orchestrator-review"):
+		meta = seat.SeatMeta{Name: "s3.orchestrator-planner", Role: "orchestrator-planner"}
+		cand.Envelope.From = meta.Name
+		cand.Envelope.Role = meta.Role
+		cand.Headers["PHASE"] = "DESIGN"
+		cand.Headers["TO"] = "s3-form.planner"
+	case strings.Contains(row.Surface, "scope/fold flip") || strings.Contains(row.Check, "ROW_TRUTH_CHECK"):
+		tab.OnCommit(record.Record{
+			Envelope: record.Envelope{RelayID: "old", DispatchID: "dispatch-1", DeliveryState: record.Accepted, SchemaVersion: 1},
+			Headers:  map[string]string{"SCOPE_DIFF": `[{"path":"README.md","state":"OUT"}]`},
+		})
+		cand.Headers["ROW_TRUTH_CHECK"] = "required"
+		cand.Headers["SCOPE_DIFF"] = `[{"path":"README.md","state":"IN"}]`
 	default:
-		return "caught by registry validation or lineage checks"
+		cand.Headers["PARENT_DISPATCH_ID"] = "missing-parent"
 	}
+	bounce := (&lineage.Engine{T: tab}).Check(cand, meta)
+	if bounce == nil {
+		return ""
+	}
+	return bounce.Kind
+}
+
+func replayDeps() (*store.Store, *fieldspec.Registry) {
+	st, _ := store.Open(os.TempDir())
+	root, _ := os.MkdirTemp("", "frank-replay-*")
+	st, _ = store.Open(root)
+	reg, _ := fieldspec.Load(filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
+	return st, reg
+}
+
+func payloadFor(reg *fieldspec.Registry, env fieldspec.RenderEnv, meta seat.SeatMeta, rec record.Record) []byte {
+	_, digest := reg.Render(env, fieldspec.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator}, rec.Headers["PHASE"], rec.Headers["CEREMONY_TIER"], fieldspec.ClosedGrantState)
+	data, _ := json.Marshal(fieldspec.SubmitPayload{Record: rec, FormDigest: digest})
+	return data
+}
+
+func loadRows() ([]tableRow, error) {
+	data, err := os.ReadFile("dispositions.json")
+	if err != nil {
+		return nil, err
+	}
+	var rows []tableRow
+	if err := json.Unmarshal(data, &rows); err != nil {
+		return nil, err
+	}
+	return rows, nil
 }

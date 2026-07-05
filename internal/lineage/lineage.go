@@ -12,11 +12,14 @@ import (
 )
 
 const (
-	ParentUnknownRecompose = "parent-unknown-recompose"
-	ParentInvalidDeadEdge  = "parent-invalid-dead-edge"
-	ParentNotAddressed     = "parent-not-addressed"
-	MergeGrantMissing      = "merge-grant-missing"
-	ScopeFlipDrift         = "scope-flip-drift"
+	ParentUnknownRecompose    = "parent-unknown-recompose"
+	ParentInvalidDeadEdge     = "parent-invalid-dead-edge"
+	ParentNotAddressed        = "parent-not-addressed"
+	MergeGrantMissing         = "merge-grant-missing"
+	ScopeFlipDrift            = "scope-flip-drift"
+	DesignReviewMissing       = "design-review-missing"
+	GrantParentMissing        = "grant-parent-missing"
+	ReviewerVisibilityMissing = "reviewer-visibility-missing"
 )
 
 type Bounce struct {
@@ -78,6 +81,15 @@ func (e *Engine) Check(cand record.Record, meta seat.SeatMeta) *Bounce {
 	if !e.AuthorityBearing(cand, meta) {
 		return nil
 	}
+	if bounce := e.checkDesignReviewChain(cand, meta); bounce != nil {
+		return bounce
+	}
+	if bounce := e.checkPairDispatchGrant(cand, meta); bounce != nil {
+		return bounce
+	}
+	if bounce := e.checkReviewerVisibility(cand, meta); bounce != nil {
+		return bounce
+	}
 	if bounce := e.checkParentSubstrate(cand); bounce != nil {
 		return bounce
 	}
@@ -91,6 +103,84 @@ func (e *Engine) Check(cand record.Record, meta seat.SeatMeta) *Bounce {
 		return bounce
 	}
 	return nil
+}
+
+func (e *Engine) checkDesignReviewChain(cand record.Record, meta seat.SeatMeta) *Bounce {
+	lockID := cand.Headers["DESIGN_LOCK_ID"]
+	kind := cand.Headers["DESIGN_RECORD_KIND"]
+	if lockID == "" || kind == "" {
+		return nil
+	}
+	switch kind {
+	case "design-doc":
+		parent := cand.Headers["PARENT_DISPATCH_ID"]
+		if parent == "" {
+			return &Bounce{Edge: "DESIGN_LOCK_ID", Kind: DesignReviewMissing}
+		}
+		for _, review := range e.parents(parent) {
+			if !accepted(review) || review.Headers["PHASE"] != "DESIGN-REVIEW" || review.Headers["DESIGN_DOC_ID"] != lockID || !approving(review) {
+				continue
+			}
+			for _, design := range e.parents(review.Headers["PARENT_DISPATCH_ID"]) {
+				if accepted(design) && design.Headers["PHASE"] == "DESIGN" && design.Headers["DESIGN_DOC_ID"] == lockID && design.Envelope.From == cand.Envelope.From {
+					return nil
+				}
+			}
+		}
+		return &Bounce{Edge: "DESIGN_LOCK_ID", Kind: DesignReviewMissing}
+	case "audit-record":
+		for _, rec := range e.records() {
+			if accepted(rec) && rec.Headers["PHASE"] == "DESIGN" && rec.Headers["DESIGN_DOC_ID"] == lockID && rec.Envelope.From == cand.Envelope.From {
+				return &Bounce{Edge: "DESIGN_RECORD_KIND", Kind: DesignReviewMissing}
+			}
+		}
+	case "direct-override":
+		if !(meta.IsOperator || meta.Role == "operator" || meta.Role == "orchestrator-planner" || meta.Name == "operator" || meta.Name == "orchestrator") {
+			return &Bounce{Edge: "DESIGN_RECORD_KIND", Kind: DesignReviewMissing}
+		}
+	}
+	return nil
+}
+
+func (e *Engine) checkPairDispatchGrant(cand record.Record, meta seat.SeatMeta) *Bounce {
+	if cand.Headers["grant"] != "dispatch-impl" || !isPairPlannerMeta(meta, cand) {
+		return nil
+	}
+	parent := cand.Headers["PARENT_DISPATCH_ID"]
+	if parent == "" {
+		return &Bounce{Edge: "PARENT_DISPATCH_ID", Kind: GrantParentMissing}
+	}
+	target := cand.Envelope.To
+	if target == "" {
+		target = cand.Headers["TO"]
+	}
+	for _, review := range e.parents(parent) {
+		if !accepted(review) || review.Headers["PHASE"] != "PLAN-REVIEW" || !approving(review) {
+			continue
+		}
+		for _, plan := range e.parents(review.Headers["PARENT_DISPATCH_ID"]) {
+			if accepted(plan) && plan.Headers["PHASE"] == "PLAN" && plan.Envelope.From == cand.Envelope.From && (target == "" || addressedTo(plan, target)) {
+				return nil
+			}
+		}
+	}
+	return &Bounce{Edge: "PARENT_DISPATCH_ID", Kind: GrantParentMissing}
+}
+
+func (e *Engine) checkReviewerVisibility(cand record.Record, meta seat.SeatMeta) *Bounce {
+	if !isOrchestratorPlanner(meta, cand) || !broadSet(cand) {
+		return nil
+	}
+	reviewer := reviewerFor(meta.Name)
+	if reviewer == "" || addressedTo(cand, reviewer) || addressedInHeader(cand.Headers["CC"], reviewer) {
+		return nil
+	}
+	for _, rec := range e.records() {
+		if accepted(rec) && rec.Headers["ORCH_REVIEW_WAIVER"] != "" && (rec.Envelope.From == "operator" || rec.Envelope.Role == "operator") {
+			return nil
+		}
+	}
+	return &Bounce{Edge: "ORCH_REVIEW_WAIVER", Kind: ReviewerVisibilityMissing}
 }
 
 func (e *Engine) checkParentSubstrate(cand record.Record) *Bounce {
@@ -227,13 +317,26 @@ func scopeRows(rec record.Record) map[string]string {
 }
 
 func RealGrantState(t *tables.T) fieldspec.GrantState {
-	return func(fieldspec.SeatMeta) bool {
+	return func(seat fieldspec.SeatMeta) bool {
 		if t == nil {
 			return false
 		}
-		for _, rec := range t.Records {
-			if rec.Envelope.DeliveryState == record.Accepted && rec.Headers["PHASE"] == "PLAN-REVIEW" && approving(rec) {
-				return true
+		for _, review := range t.Records {
+			if !accepted(review) || review.Headers["PHASE"] != "PLAN-REVIEW" || !approving(review) {
+				continue
+			}
+			parent := review.Headers["PARENT_DISPATCH_ID"]
+			if parent == "" {
+				continue
+			}
+			for _, plan := range (&Engine{T: t}).parents(parent) {
+				target := plan.Envelope.To
+				if target == "" {
+					target = plan.Headers["TO"]
+				}
+				if target != "" && accepted(plan) && plan.Headers["PHASE"] == "PLAN" && plan.Envelope.From == seat.Name && addressedTo(plan, target) {
+					return true
+				}
 			}
 		}
 		return false
@@ -272,6 +375,63 @@ func approving(rec record.Record) bool {
 	for _, field := range []string{"PLAN_REVIEW_VERDICT", "DESIGN_REVIEW_VERDICT", "verdict"} {
 		value := rec.Headers[field]
 		if value == "approve" || value == "approved" {
+			return true
+		}
+	}
+	return false
+}
+
+func accepted(rec record.Record) bool {
+	return rec.Envelope.DeliveryState == record.Accepted
+}
+
+func isPairPlannerMeta(meta seat.SeatMeta, cand record.Record) bool {
+	role := meta.Role
+	if role == "" {
+		role = cand.Envelope.Role
+	}
+	name := meta.Name
+	if name == "" {
+		name = cand.Envelope.From
+	}
+	return role == "planner" || strings.HasSuffix(name, ".planner")
+}
+
+func isOrchestratorPlanner(meta seat.SeatMeta, cand record.Record) bool {
+	role := meta.Role
+	if role == "" {
+		role = cand.Envelope.Role
+	}
+	name := meta.Name
+	if name == "" {
+		name = cand.Envelope.From
+	}
+	return role == "orchestrator-planner" || strings.HasSuffix(name, ".orchestrator-planner")
+}
+
+func broadSet(cand record.Record) bool {
+	switch cand.Headers["PHASE"] {
+	case "AUDIT", "DESIGN", "REVIEW-FOLD", "MERGE-GATE":
+		return true
+	case "PLAN":
+		return cand.Headers["grant"] != ""
+	case "IMPL":
+		return cand.Headers["grant"] == "dispatch-impl"
+	default:
+		return false
+	}
+}
+
+func reviewerFor(planner string) string {
+	if strings.HasSuffix(planner, ".orchestrator-planner") {
+		return strings.TrimSuffix(planner, ".orchestrator-planner") + ".orchestrator-reviewer"
+	}
+	return ""
+}
+
+func addressedInHeader(header, seatName string) bool {
+	for _, value := range strings.Split(header, ",") {
+		if strings.TrimSpace(value) == seatName {
 			return true
 		}
 	}

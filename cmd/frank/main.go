@@ -97,23 +97,37 @@ func run(ctx context.Context, cfg config) error {
 	if err != nil {
 		return err
 	}
-	liveTables, err := tables.Build(st)
-	if err != nil {
-		return err
+	liveTables := tables.NewLive(tables.New())
+	publishStoreTables := func() (*tables.T, error) {
+		tab, err := tables.Build(st)
+		if err != nil {
+			return nil, err
+		}
+		liveTables.Publish(tab)
+		return tab, nil
 	}
 	handler := func(ctx context.Context, cmd intake.Cmd) (record.Record, []store.Intent, error) {
 		meta := seat.SeatMeta{Name: cmd.Seat, Role: cmd.Role, IsOperator: cmd.IsOperator}
-		env := fieldspec.RenderEnv{ConfigDigest: pinned.Digest, ParentCandidates: lineage.ActiveLineageCandidates(liveTables, lineage.TurnContext{})}
-		return engine.SubmitHandlerWithRender(st, reg, meta, env, liveTables)(ctx, cmd)
+		tab := liveTables.Snapshot()
+		env := fieldspec.RenderEnv{ConfigDigest: pinned.Digest, ParentCandidates: lineage.ActiveLineageCandidates(tab, turnContextForSeat(st, tab, meta.Name))}
+		return engine.SubmitHandlerWithRender(st, reg, meta, env, tab)(ctx, cmd)
 	}
 	completeTurn := func(st *store.Store) error {
-		if err := obligation.CompleteAuto(st, liveTables); err != nil {
+		tab := liveTables.Snapshot()
+		if err := obligation.CompleteAuto(st, tab); err != nil {
 			return err
 		}
-		return frankgc.Pass(st, liveTables, pinned.Engine)
+		if err := frankgc.Pass(st, tab, pinned.Engine); err != nil {
+			return err
+		}
+		_, err := publishStoreTables()
+		return err
 	}
 
 	process := func(cmd intake.Cmd) error {
+		if _, err := publishStoreTables(); err != nil {
+			return err
+		}
 		rec, intents, err := handler(ctx, cmd)
 		if err != nil {
 			return err
@@ -124,10 +138,16 @@ func run(ctx context.Context, cfg config) error {
 		if _, err := st.Commit(rec, intents); err != nil {
 			return err
 		}
-		liveTables.OnCommit(rec)
+		tab := liveTables.Snapshot()
+		tab.OnCommit(rec)
+		liveTables.Publish(tab)
 		return completeTurn(st)
 	}
 	result, err := frankrecover.RunWithProcessor(cfg.Root, pinned, process)
+	if err != nil {
+		return err
+	}
+	postRecoveryTables, err := publishStoreTables()
 	if err != nil {
 		return err
 	}
@@ -141,9 +161,18 @@ func run(ctx context.Context, cfg config) error {
 	var writer *intake.Writer[engine.Outcome]
 	if result.Ready != nil {
 		loop = engine.New(st, handler, result.Ready)
-		loop.Tables = liveTables
+		loop.Tables = postRecoveryTables
 		loop.AfterCommit = func(st *store.Store) error {
-			return frankgc.Pass(st, liveTables, pinned.Engine)
+			if err := frankgc.Pass(st, loop.Tables, pinned.Engine); err != nil {
+				return err
+			}
+			tab, err := tables.Build(st)
+			if err != nil {
+				return err
+			}
+			loop.Tables = tab
+			liveTables.Publish(tab)
+			return nil
 		}
 		go loop.Run(ctx)
 		writer, err = intake.NewWriter[engine.Outcome](journal, pinned.Engine, result.Ready)
@@ -186,7 +215,7 @@ func run(ctx context.Context, cfg config) error {
 	return nil
 }
 
-func channelTools(ctx context.Context, st *store.Store, reg *fieldspec.Registry, configDigest string, liveTables *tables.T, meta seat.SeatMeta, writer *intake.Writer[engine.Outcome], loop *engine.Loop, nudge func()) channel.ToolSet {
+func channelTools(ctx context.Context, st *store.Store, reg *fieldspec.Registry, configDigest string, liveTables *tables.Live, meta seat.SeatMeta, writer *intake.Writer[engine.Outcome], loop *engine.Loop, nudge func()) channel.ToolSet {
 	return channel.ToolSet{
 		Describe: func(_ context.Context, payload json.RawMessage) (json.RawMessage, error) {
 			var req channel.DescribeRequest
@@ -197,12 +226,13 @@ func channelTools(ctx context.Context, st *store.Store, reg *fieldspec.Registry,
 			if req.Tier == "" {
 				req.Tier = "medium"
 			}
+			tab := liveTables.Snapshot()
 			form, digest := reg.Render(
-				fieldspec.RenderEnv{ConfigDigest: configDigest, ParentCandidates: lineage.ActiveLineageCandidates(liveTables, lineage.TurnContext{})},
+				fieldspec.RenderEnv{ConfigDigest: configDigest, ParentCandidates: lineage.ActiveLineageCandidates(tab, turnContextForSeat(st, tab, meta.Name))},
 				fieldspec.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator},
 				req.Phase,
 				req.Tier,
-				lineage.RealGrantState(liveTables),
+				lineage.RealGrantState(tab),
 			)
 			return json.Marshal(channel.DescriptionResponse{
 				Tools:        []string{"submit", "project", "read"},
@@ -280,6 +310,22 @@ func seatToolDescriptions() map[string]string {
 		"project": "List committed relay IDs currently visible to this seat mailbox.",
 		"read":    "Read an immutable committed relay record by relay ID.",
 	}
+}
+
+func turnContextForSeat(st *store.Store, tab *tables.T, seatName string) lineage.TurnContext {
+	if st == nil || tab == nil || seatName == "" {
+		return lineage.TurnContext{}
+	}
+	relayIDs, err := st.Project(seatName)
+	if err != nil || len(relayIDs) == 0 {
+		return lineage.TurnContext{}
+	}
+	wokenOn := relayIDs[len(relayIDs)-1]
+	ctx := lineage.TurnContext{WokenOn: wokenOn}
+	if rec, ok := tab.ByRelay[wokenOn]; ok {
+		ctx.ActiveDispatch = rec.Envelope.DispatchID
+	}
+	return ctx
 }
 
 func mintSeat(ctx context.Context, cfg config) error {

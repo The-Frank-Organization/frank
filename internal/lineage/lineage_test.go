@@ -135,8 +135,12 @@ func TestRealGrantStateAndActiveLineageCandidates(t *testing.T) {
 		t.Fatalf("grant state true before approving review")
 	}
 	tab.OnCommit(record.Record{
+		Envelope: record.Envelope{RelayID: "plan-1", DispatchID: "plan-1", From: "s1-core.planner", Role: "planner", To: "s1-core.implementer", DeliveryState: record.Accepted, SchemaVersion: 1},
+		Headers:  map[string]string{"PHASE": "PLAN", "TO": "s1-core.implementer"},
+	})
+	tab.OnCommit(record.Record{
 		Envelope: record.Envelope{RelayID: "review-1", DispatchID: "dispatch-1", DeliveryState: record.Accepted, SchemaVersion: 1},
-		Headers:  map[string]string{"PHASE": "PLAN-REVIEW", "PLAN_REVIEW_VERDICT": "approve"},
+		Headers:  map[string]string{"PHASE": "PLAN-REVIEW", "PLAN_REVIEW_VERDICT": "approve", "PARENT_DISPATCH_ID": "plan-1"},
 	})
 	if !grantState(fieldspec.SeatMeta{Name: "s1-core.planner", Role: "planner"}) {
 		t.Fatalf("grant state false after approving review")
@@ -144,5 +148,84 @@ func TestRealGrantStateAndActiveLineageCandidates(t *testing.T) {
 	candidates, dflt := lineage.ActiveLineageCandidates(tab, lineage.TurnContext{WokenOn: "wake-1", ActiveDispatch: "dispatch-1"})(fieldspec.SeatMeta{})
 	if dflt != "wake-1" || len(candidates) != 3 || candidates[1] != "dispatch-1" || candidates[2] != "review-1" {
 		t.Fatalf("candidates=%v default=%s", candidates, dflt)
+	}
+}
+
+func TestDesignDocPlanRequiresApprovedDesignReviewChain(t *testing.T) {
+	tab := tables.New()
+	tab.OnCommit(record.Record{
+		Envelope: record.Envelope{RelayID: "design", DispatchID: "design-dispatch", From: "s3-form.planner", Role: "planner", DeliveryState: record.Accepted, SchemaVersion: 1},
+		Headers:  map[string]string{"PHASE": "DESIGN", "DESIGN_DOC_ID": "design-1"},
+	})
+	eng := lineage.Engine{T: tab}
+	cand := record.Record{
+		Envelope: record.Envelope{From: "s3-form.planner", Role: "planner"},
+		Headers:  map[string]string{"PHASE": "PLAN", "DESIGN_LOCK_ID": "design-1", "DESIGN_RECORD_KIND": "design-doc", "PARENT_DISPATCH_ID": "review"},
+	}
+	if bounce := eng.Check(cand, seat.SeatMeta{Name: "s3-form.planner", Role: "planner"}); bounce == nil || bounce.Kind != "design-review-missing" {
+		t.Fatalf("missing design-review bounce = %+v", bounce)
+	}
+	tab.OnCommit(record.Record{
+		Envelope: record.Envelope{RelayID: "review", DispatchID: "review", From: "s3-form.implementer", Role: "implementer", DeliveryState: record.Accepted, SchemaVersion: 1},
+		Headers:  map[string]string{"PHASE": "DESIGN-REVIEW", "DESIGN_DOC_ID": "design-1", "DESIGN_REVIEW_VERDICT": "approve", "PARENT_DISPATCH_ID": "design"},
+	})
+	if bounce := eng.Check(cand, seat.SeatMeta{Name: "s3-form.planner", Role: "planner"}); bounce != nil {
+		t.Fatalf("approved design-review chain bounced: %+v", bounce)
+	}
+}
+
+func TestPairPlannerDispatchGrantRequiresApprovedPlanReviewChain(t *testing.T) {
+	tab := tables.New()
+	eng := lineage.Engine{T: tab}
+	cand := record.Record{
+		Envelope: record.Envelope{From: "s3-form.planner", Role: "planner", To: "s3-form.implementer"},
+		Headers:  map[string]string{"PHASE": "IMPL", "grant": "dispatch-impl"},
+	}
+	if bounce := eng.Check(cand, seat.SeatMeta{Name: "s3-form.planner", Role: "planner"}); bounce == nil || bounce.Kind != "grant-parent-missing" {
+		t.Fatalf("missing grant parent bounce = %+v", bounce)
+	}
+	tab.OnCommit(record.Record{
+		Envelope: record.Envelope{RelayID: "plan", DispatchID: "plan-lock", From: "s3-form.planner", Role: "planner", To: "s3-form.implementer", DeliveryState: record.Accepted, SchemaVersion: 1},
+		Headers:  map[string]string{"PHASE": "PLAN", "TO": "s3-form.implementer"},
+	})
+	tab.OnCommit(record.Record{
+		Envelope: record.Envelope{RelayID: "review", DispatchID: "review", From: "s3-form.implementer", Role: "implementer", DeliveryState: record.Accepted, SchemaVersion: 1},
+		Headers:  map[string]string{"PHASE": "PLAN-REVIEW", "PLAN_REVIEW_VERDICT": "approve", "PARENT_DISPATCH_ID": "plan"},
+	})
+	cand.Headers["PARENT_DISPATCH_ID"] = "review"
+	if bounce := eng.Check(cand, seat.SeatMeta{Name: "s3-form.planner", Role: "planner"}); bounce != nil {
+		t.Fatalf("approved plan-review chain bounced grant: %+v", bounce)
+	}
+
+	grantState := lineage.RealGrantState(tab)
+	if !grantState(fieldspec.SeatMeta{Name: "s3-form.planner", Role: "planner"}) {
+		t.Fatalf("grant state false for planner with own approved plan-review")
+	}
+	if grantState(fieldspec.SeatMeta{Name: "other.planner", Role: "planner"}) {
+		t.Fatalf("grant state true for unrelated planner")
+	}
+}
+
+func TestOrchestratorPlannerBroadSetRequiresReviewerVisibilityOrOperatorWaiver(t *testing.T) {
+	tab := tables.New()
+	eng := lineage.Engine{T: tab}
+	cand := record.Record{
+		Envelope: record.Envelope{From: "s3.orchestrator-planner", Role: "orchestrator-planner", DispatchID: "s3-form-design"},
+		Headers:  map[string]string{"PHASE": "DESIGN", "TO": "s3-form.planner"},
+	}
+	if bounce := eng.Check(cand, seat.SeatMeta{Name: "s3.orchestrator-planner", Role: "orchestrator-planner"}); bounce == nil || bounce.Kind != "reviewer-visibility-missing" {
+		t.Fatalf("missing reviewer visibility bounce = %+v", bounce)
+	}
+	cand.Headers["CC"] = "s3.orchestrator-reviewer, operator"
+	if bounce := eng.Check(cand, seat.SeatMeta{Name: "s3.orchestrator-planner", Role: "orchestrator-planner"}); bounce != nil {
+		t.Fatalf("reviewer-visible broad set bounced: %+v", bounce)
+	}
+	cand.Headers["CC"] = "operator"
+	tab.OnCommit(record.Record{
+		Envelope: record.Envelope{RelayID: "waiver", From: "operator", Role: "operator", DeliveryState: record.Accepted, SchemaVersion: 1},
+		Headers:  map[string]string{"ORCH_REVIEW_WAIVER": "operator approved no reviewer"},
+	})
+	if bounce := eng.Check(cand, seat.SeatMeta{Name: "s3.orchestrator-planner", Role: "orchestrator-planner"}); bounce != nil {
+		t.Fatalf("operator waiver did not satisfy visibility gate: %+v", bounce)
 	}
 }

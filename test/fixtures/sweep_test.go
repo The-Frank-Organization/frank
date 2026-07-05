@@ -48,6 +48,20 @@ func TestS3SweepGateCategoryAuthorityUsesRegistry(t *testing.T) {
 	}
 }
 
+func TestS3SweepMainThreadsActiveLineageTurnContext(t *testing.T) {
+	data, err := os.ReadFile("../../cmd/frank/main.go")
+	if err != nil {
+		t.Fatalf("read main.go: %v", err)
+	}
+	main := string(data)
+	if strings.Contains(main, "ActiveLineageCandidates(tab, lineage.TurnContext{})") {
+		t.Fatalf("main.go still passes an empty lineage turn context into ActiveLineageCandidates")
+	}
+	if !strings.Contains(main, "turnContextForSeat") {
+		t.Fatalf("main.go does not thread the conductor-derived turn context helper")
+	}
+}
+
 func hasExclusivityClaim(text string) bool {
 	for _, token := range []string{"only writer", "sole", "no lane can", "non-lane-writable", "unbypassable"} {
 		if strings.Contains(text, token) {

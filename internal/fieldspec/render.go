@@ -9,6 +9,7 @@ import (
 type RenderEnv struct {
 	ConfigDigest     string
 	ParentCandidates ParentCandidates
+	MonotonicFloors  map[string]string
 }
 
 type GrantState func(seat SeatMeta) bool
@@ -67,7 +68,7 @@ func (r *Registry) renderField(env RenderEnv, spec *FieldSpec, seat SeatMeta, ph
 	case "seat_allowed_values":
 		field.Options = r.optionsForSeat(spec, seat, phase, grants)
 	case "monotonic":
-		field.Options = r.baseOptions(spec)
+		field.Options = r.monotonicOptions(spec, env.MonotonicFloors[spec.ID])
 	default:
 		if spec.Owner == "seat_scoped_enum" {
 			field.Options = r.optionsForSeat(spec, seat, phase, grants)
@@ -79,6 +80,19 @@ func (r *Registry) renderField(env RenderEnv, spec *FieldSpec, seat SeatMeta, ph
 		return Field{}, false
 	}
 	return field, true
+}
+
+func (r *Registry) monotonicOptions(spec *FieldSpec, floor string) []string {
+	options := r.baseOptions(spec)
+	if floor == "" {
+		return options
+	}
+	for i, option := range options {
+		if option == floor {
+			return append([]string(nil), options[i:]...)
+		}
+	}
+	return options
 }
 
 func (r *Registry) baseOptions(spec *FieldSpec) []string {

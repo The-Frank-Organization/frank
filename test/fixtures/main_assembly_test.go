@@ -554,17 +554,102 @@ func TestFrankBinaryReadCorruptionQueuesLiveQuarantine(t *testing.T) {
 		t.Fatalf("first read = %s, want checksum-mismatch", first)
 	}
 	deadline := time.Now().Add(2 * time.Second)
+	quarantined := false
 	for time.Now().Before(deadline) {
 		second, err := client.Call(ctx, "read", readArgs)
 		if err != nil {
 			t.Fatalf("second read: %v", err)
 		}
 		if bytes.Contains(second, []byte("record-quarantined")) {
-			return
+			quarantined = true
+			break
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	t.Fatalf("read never returned record-quarantined for %s", out.RelayID)
+	if !quarantined {
+		t.Fatalf("read never returned record-quarantined for %s", out.RelayID)
+	}
+
+	owed := submitLiveRecord(t, ctx, client, stderr, reg, pinned.Digest, meta, record.Record{
+		Envelope: record.Envelope{To: "seat-a", DispatchID: "post-quarantine-owed"},
+		Headers: map[string]string{
+			"PHASE":            "SITREP",
+			"AUTHORITY":        "report-only",
+			"SUBJECT":          "owed after quarantine",
+			"record_kind":      "owed_item",
+			"owner":            "s3",
+			"source":           "live quarantine",
+			"target_surface":   "fresh table validation",
+			"disposition_path": "fold report",
+		},
+	})
+	disposition := submitLiveRecord(t, ctx, client, stderr, reg, pinned.Digest, meta, record.Record{
+		Envelope: record.Envelope{To: "seat-a", DispatchID: "post-quarantine-owed"},
+		Headers: map[string]string{
+			"PHASE":         "SITREP",
+			"AUTHORITY":     "report-only",
+			"SUBJECT":       "owed disposition after quarantine",
+			"record_kind":   "owed_disposition",
+			"disposes_owed": owed.RelayID,
+		},
+	})
+	if disposition.State != record.Accepted {
+		t.Fatalf("post-quarantine disposition = %+v, want accepted", disposition)
+	}
+}
+
+func TestFrankBinaryQuarantinesCorruptStoreBeforeServing(t *testing.T) {
+	root := t.TempDir()
+	initFixtureStore(t, root)
+	mgr, err := seat.Open(root)
+	if err != nil {
+		t.Fatalf("Open seats: %v", err)
+	}
+	cred, err := mgr.Mint("seat-a", "implementer", false)
+	if err != nil {
+		t.Fatalf("Mint: %v", err)
+	}
+	st, err := store.Open(root)
+	if err != nil {
+		t.Fatalf("Open store: %v", err)
+	}
+	if _, err := st.Commit(record.Record{
+		Envelope: record.Envelope{RelayID: "corrupt-at-start", From: "seat-a", Role: "implementer", DeliveryState: record.Accepted, SchemaVersion: 1},
+		Headers:  map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "SUBJECT": "corrupt at startup"},
+	}, nil); err != nil {
+		t.Fatalf("Commit corrupt-at-start: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "records", "corrupt-at-start.json"), []byte(`{"bad":true}`), 0o644); err != nil {
+		t.Fatalf("corrupt startup record: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	bin := buildFrank(t, ctx)
+	sock := filepath.Join(os.TempDir(), fmt.Sprintf("frank-startup-quarantine-%d.sock", time.Now().UnixNano()))
+	t.Cleanup(func() { _ = os.Remove(sock) })
+	cmd, stderr := startFrank(t, ctx, bin, root, sock)
+	t.Cleanup(func() {
+		cancel()
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+		_ = cmd.Wait()
+	})
+	waitForSocket(t, sock)
+	client, err := channel.DialAuthenticated(ctx, sock, cred.Value)
+	if err != nil {
+		t.Fatalf("DialAuthenticated stderr=%s: %v", stderr.String(), err)
+	}
+	defer func() { _ = client.Close() }()
+	readArgs, _ := json.Marshal(map[string]string{"relay_id": "corrupt-at-start"})
+	read, err := client.Call(ctx, "read", readArgs)
+	if err != nil {
+		t.Fatalf("read corrupt-at-start stderr=%s: %v", stderr.String(), err)
+	}
+	if !bytes.Contains(read, []byte("record-quarantined")) {
+		t.Fatalf("read corrupt-at-start = %s, want record-quarantined", read)
+	}
 }
 
 func waitForSocket(t *testing.T, sock string) {
@@ -598,6 +683,28 @@ func startFrank(t *testing.T, ctx context.Context, bin, root, sock string) (*exe
 		t.Fatalf("start frank: %v", err)
 	}
 	return cmd, &stderr
+}
+
+type liveSubmitOutcome struct {
+	State   string `json:"state"`
+	RelayID string `json:"relay_id"`
+}
+
+func submitLiveRecord(t *testing.T, ctx context.Context, client *channel.Client, stderr *bytes.Buffer, reg *fieldspec.Registry, configDigest string, meta seat.SeatMeta, rec record.Record) liveSubmitOutcome {
+	t.Helper()
+	payload := submitPayloadBytes(t, reg, configDigest, meta, rec)
+	result, err := client.Call(ctx, "submit", payload)
+	if err != nil {
+		t.Fatalf("submit stderr=%s: %v", stderr.String(), err)
+	}
+	var outcome liveSubmitOutcome
+	if err := json.Unmarshal(result, &outcome); err != nil {
+		t.Fatalf("decode submit outcome %s: %v", result, err)
+	}
+	if outcome.RelayID == "" {
+		t.Fatalf("submit outcome missing relay id: %+v", outcome)
+	}
+	return outcome
 }
 
 func containsString(values []string, want string) bool {
