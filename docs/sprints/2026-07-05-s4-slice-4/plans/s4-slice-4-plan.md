@@ -34,7 +34,7 @@
 | crash harness | `test/fixtures/f11_test.go`, `test/fixtures/s4_config_change_test.go` (new) |
 | shim | `cmd/frank-mcp/main.go`, `cmd/frank-mcp/mcp.go`, `cmd/frank-mcp/schema.go`, `cmd/frank-mcp/errors.go` (all new) + `cmd/frank-mcp/*_test.go` |
 | shim/bridge fixtures | `test/fixtures/s4_shim_test.go`, `test/fixtures/s4_iph_test.go` (new) |
-| docs | `docs/ops.md` (new), `cmd/frank-mcp/README.md` (new), `docs/usage-data.md` (new), **root `README.md` (ONE bounded delta — PENDING the orchestrator fence ruling; ASK filed with this plan)** |
+| docs | `docs/ops.md` (new), `cmd/frank-mcp/README.md` (new), `docs/usage-data.md` (new), **root `README.md` (ONE bounded delta — RULED-IN: `s4-wire-plan-fence-ask/SITREP-orchestrator-planner-20260705-042636.md`; the three standing conditions bind — delta lands ONLY with Tasks 4–6 green; SCOPE_DIFF row cites the ruling)** |
 | gate procedure | `docs/sprints/2026-07-05-s4-slice-4/results/e3-gate-procedure.md` (new) |
 
 Everything else is OUT for SCOPE_DIFF purposes. `internal/seat/binding.go` is deliberately ABSENT (no shape change — the credential hash is computed channel-side).
@@ -132,7 +132,7 @@ Everything else is OUT for SCOPE_DIFF purposes. `internal/seat/binding.go` is de
 
 ### Task 11 — ops surface + custody + usage docs + socket pre-flight (§7; honesty sweep)
 
-**Files:** Create `docs/ops.md`, `cmd/frank-mcp/README.md`, `docs/usage-data.md`; Modify `cmd/frank/main.go` (socket-path length pre-flight: `len(path) >= 100` ⇒ typed startup error naming the darwin limit — operator-facing stderr, allowed); root `README.md` **ONLY IF the fence ruling grants it** (the one bounded delta: refresh the fresh-store sentence to name the now-landed §7 record; ruling relay cited in the SCOPE_DIFF row).
+**Files:** Create `docs/ops.md`, `cmd/frank-mcp/README.md`, `docs/usage-data.md`; Modify `cmd/frank/main.go` (socket-path length pre-flight: `len(path) >= 100` ⇒ typed startup error naming the darwin limit — operator-facing stderr, allowed); root `README.md` — **RULED-IN** (`s4-wire-plan-fence-ask/SITREP-orchestrator-planner-20260705-042636.md`): exactly one bounded delta — the stale fresh-store sentence is replaced by the ruling's stated wording (registry/config evolution on an existing store live via the operator-authorized §7 record, **effective-at-restart**), transport-only qualifier untouched, nothing else in the README touched; lands ONLY in the same branch state where Tasks 4–6 are green (else the sentence stays and the gap is stated at the gate); the SCOPE_DIFF row cites the ruling relay.
 **Content contract (acceptance) [F-S4-M1-4 verbatim on every custody line]:** ops.md = start/stop/status + short-socket-path rule + team-store conventions + minting workflow end-to-end incl. **one seat = one credential = one config entry** and the two blessed wiring patterns (per-seat config scopes; `${VAR}` indirection) with per-host support pinned + the wedged-host remedy (guide Q5 condition 1, verbatim); shim README = custody posture (env-var default, 0600-file secondary, NO credential CLI flag, D5 note verbatim — "a local host compromise can steal the operator-provisioned secret"; no in-band rotation claims — compromised credential = stop conductor + admin-time surgery), poll-first posture, the transport-only line; usage-data.md = the store IS the record; read paths (`project`/`read`, records/, INDEX); "aggregation = s5". Sweep check: `rg` for the honesty line on every new claim surface; no "verifies/authorizes" anywhere in shim-visible text.
 **Steps:** [ ] 11.1 socket pre-flight failing test (assembly test with a >104-byte path asserts the typed error, not `bind: invalid argument`); [ ] 11.2 implement + docs; [ ] 11.3 sweep greps green; battery; [ ] 11.4 commit `s4: ops/custody/usage surfaces — claim-honest; socket-path pre-flight [F-W3]`.
 
@@ -158,4 +158,4 @@ s5 consumer content · observe (Step-2) · routing (Step-3) · TUI (Step-4) · f
 
 ## Operator-judgment items
 
-Live-seat designation (gate-day); the §7 authorization itself (the mechanism); the README fence ruling (ASK filed alongside this plan); s4-close (merge is never implied by green fixtures).
+Live-seat designation (gate-day); the §7 authorization itself (the mechanism); s4-close (merge is never implied by green fixtures). *(The README fence ruling: RESOLVED — RULED-IN, cited above; operator veto stands per the ruling's CC.)*
