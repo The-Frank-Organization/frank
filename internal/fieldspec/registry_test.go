@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -14,11 +15,17 @@ import (
 func TestRegistryV2MemberParsesAndExposesLockedEnums(t *testing.T) {
 	reg := loadRegistry(t)
 
-	if reg.Version == "" {
-		t.Fatalf("Version empty")
+	if reg.Version != "s5-fieldspec-v3" {
+		t.Fatalf("Version = %q, want s5-fieldspec-v3", reg.Version)
 	}
 	if reg.Provenance["owner"] == "" {
 		t.Fatalf("Provenance owner empty: %#v", reg.Provenance)
+	}
+	if len(reg.NamedEnums) != 24 {
+		t.Fatalf("named enum count = %d, want 24", len(reg.NamedEnums))
+	}
+	if len(reg.Fields) != 83 {
+		t.Fatalf("row count = %d, want 83", len(reg.Fields))
 	}
 
 	assertTokens(t, reg.NamedEnums["PHASE"], []string{
@@ -33,7 +40,7 @@ func TestRegistryV2MemberParsesAndExposesLockedEnums(t *testing.T) {
 	assertTokens(t, reg.NamedEnums["EVIDENCE_TARGET"], []string{"E1", "E2", "E3", "E4"})
 	assertTokens(t, reg.NamedEnums["gate_category_A"], []string{
 		"merge_to_protected", "irreversible_write", "residual_risk_acceptance", "live_verify_skip",
-		"ceremony_downgrade", "authz_security", "product_semantics", "scope_expansion",
+		"ceremony_downgrade", "authz_security", "product_semantics", "scope_expansion", "routing_escalation",
 	})
 	assertTokens(t, reg.NamedEnums["gate_category_B"], []string{
 		"merge_feature_to_feature", "routing", "sequencing", "scope_within_bounds",
@@ -41,10 +48,83 @@ func TestRegistryV2MemberParsesAndExposesLockedEnums(t *testing.T) {
 	assertTokens(t, reg.NamedEnums["gate_category"], []string{
 		"merge_to_protected", "irreversible_write", "residual_risk_acceptance", "live_verify_skip",
 		"ceremony_downgrade", "authz_security", "product_semantics", "scope_expansion",
-		"merge_feature_to_feature", "routing", "sequencing", "scope_within_bounds", "other",
+		"merge_feature_to_feature", "routing", "sequencing", "scope_within_bounds", "routing_escalation", "other",
 	})
+	assertTokens(t, reg.NamedEnums["achieved_evidence"], []string{"E0", "E1", "E2", "E3", "E4"})
+	assertTokens(t, reg.NamedEnums["target_gap_result"], []string{"met", "target_gt_achieved", "not_applicable"})
+	assertTokens(t, reg.NamedEnums["evidence_integrity"], []string{"observed", "self_reported"})
+	assertTokens(t, reg.NamedEnums["record_integrity"], []string{"observed", "self_reported", "mixed"})
+	assertTokens(t, reg.NamedEnums["executable_claim_result"], []string{"pass", "fail", "skipped", "unsafe"})
+	assertTokens(t, reg.NamedEnums["egress_scan_result"], []string{"pass", "blocked", "not_applicable"})
+	assertTokens(t, reg.NamedEnums["attestation_source"], []string{"conductor", "operator"})
+	assertTokens(t, reg.NamedEnums["deviation_reason_code"], []string{"capability_gap", "cost_budget", "latency_budget", "bucket_unavailable", "operator_directive", "experiment", "other"})
+	assertTokens(t, reg.NamedEnums["routing_record_kind"], []string{"routing_decision"})
+	assertTokens(t, reg.NamedEnums["surface_intent"], []string{"progress", "review_checkpoint", "advisory", "result"})
 	assertTokens(t, reg.NamedEnums["grant"], []string{"dispatch-impl", "dispatch-merge"})
 	assertTokens(t, reg.NamedEnums["delivery_state"], []string{"accepted", "rejected", "held"})
+}
+
+func TestRegistryS5MemberContainsRegistryPassRows(t *testing.T) {
+	reg := loadRegistry(t)
+
+	achieved := requireField(t, reg, "achieved_evidence")
+	if achieved.Type != "enum" ||
+		achieved.EnumSet != "achieved_evidence" ||
+		achieved.Owner != "system" ||
+		achieved.FillConstraints != "observed_value" ||
+		achieved.GateReferenceable {
+		t.Fatalf("achieved_evidence row = %+v", achieved)
+	}
+	assertPredicateRaw(t, achieved.RequiredWhen.Raw, `{"all_of":[{"layer_present":"observe"}]}`)
+	assertPredicateRaw(t, achieved.VisibleWhen.Raw, `{"all_of":[{"layer_present":"observe"}]}`)
+
+	onTimeout := requireField(t, reg, "on_timeout")
+	if onTimeout.Type != "enum" ||
+		onTimeout.EnumSet != "" ||
+		len(onTimeout.Options) != 0 ||
+		onTimeout.Owner != "system" ||
+		onTimeout.FillConstraints != "system_only" {
+		t.Fatalf("on_timeout row = %+v", onTimeout)
+	}
+
+	routingAssignments := requireField(t, reg, "routing_assignments")
+	if routingAssignments.Type != "row_array" ||
+		routingAssignments.Owner != "seat_scoped_enum" ||
+		routingAssignments.FillConstraints != "seat_allowed_values" ||
+		!routingAssignments.GateReferenceable ||
+		len(routingAssignments.SeatScope) != 0 {
+		t.Fatalf("routing_assignments row = %+v", routingAssignments)
+	}
+	assertPredicateRaw(t, routingAssignments.VisibleWhen.Raw, `{"all_of":[{"layer_present":"observe"}]}`)
+
+	gateCategoryPick := requireField(t, reg, "gate_category_pick")
+	if gateCategoryPick.Type != "enum" ||
+		gateCategoryPick.EnumSet != "gate_category" ||
+		gateCategoryPick.Owner != "system" ||
+		gateCategoryPick.FillConstraints != "computed_result" ||
+		gateCategoryPick.GateReferenceable {
+		t.Fatalf("gate_category_pick row = %+v", gateCategoryPick)
+	}
+
+	resolvesGate := requireField(t, reg, "resolves_gate")
+	if resolvesGate.Type != "id_ref" ||
+		resolvesGate.Owner != "free_text" ||
+		resolvesGate.FillConstraints != "free_text" ||
+		resolvesGate.GateReferenceable {
+		t.Fatalf("resolves_gate row = %+v", resolvesGate)
+	}
+	assertPredicateRaw(t, resolvesGate.VisibleWhen.Raw, `{"any_of":[{"seat_is":["operator"]},{"role_in":["operator"]}]}`)
+
+	evidenceTarget := requireField(t, reg, "EVIDENCE_TARGET")
+	assertPredicateRaw(t, evidenceTarget.RequiredWhen.Raw, `{"not":{"phase_in":[]}}`)
+	actions := requireField(t, reg, "ACTIONS_GIT_REF")
+	assertPredicateRaw(t, actions.VisibleWhen.Raw, `{"all_of":[{"layer_present":"observe"}]}`)
+	finalStatus := requireField(t, reg, "FINAL_GIT_STATUS_SHORT")
+	assertPredicateRaw(t, finalStatus.VisibleWhen.Raw, `{"all_of":[{"layer_present":"observe"}]}`)
+
+	recordKind := requireField(t, reg, "record_kind")
+	assertTokens(t, recordKind.SeatScope["*"], []string{"diagnostics"})
+	assertTokens(t, recordKind.SeatScope["operator"], []string{"owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change"})
 }
 
 func TestRegistryV2MemberContainsGrillRows(t *testing.T) {
@@ -247,6 +327,30 @@ func assertNoFieldViolations(t *testing.T, violations []fieldspec.Violation, fie
 				t.Fatalf("unexpected %s violation in %+v", field, violations)
 			}
 		}
+	}
+}
+
+func requireField(t *testing.T, reg *fieldspec.Registry, id string) *fieldspec.FieldSpec {
+	t.Helper()
+	field, ok := reg.ByID(id)
+	if !ok {
+		t.Fatalf("missing %s row", id)
+	}
+	return field
+}
+
+func assertPredicateRaw(t *testing.T, got json.RawMessage, want string) {
+	t.Helper()
+	var gotValue any
+	if err := json.Unmarshal(got, &gotValue); err != nil {
+		t.Fatalf("predicate decode %s: %v", got, err)
+	}
+	var wantValue any
+	if err := json.Unmarshal([]byte(want), &wantValue); err != nil {
+		t.Fatalf("want predicate decode %s: %v", want, err)
+	}
+	if !reflect.DeepEqual(gotValue, wantValue) {
+		t.Fatalf("predicate = %s, want %s", got, want)
 	}
 }
 

@@ -658,6 +658,9 @@ func commitOwedMutation(st *store.Store, kind, parent string) error {
 }
 
 func submitPayloadForRegistry(reg *fieldspec.Registry, meta seat.SeatMeta, rec record.Record) fieldspec.SubmitPayload {
+	if rec.Headers != nil && rec.Headers["PHASE"] != "" && rec.Headers["EVIDENCE_TARGET"] == "" {
+		rec.Headers["EVIDENCE_TARGET"] = "E1"
+	}
 	_, digest := reg.Render(fieldspec.RenderEnv{}, fieldspec.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator}, rec.Headers["PHASE"], rec.Headers["CEREMONY_TIER"], fieldspec.ClosedGrantState)
 	return fieldspec.SubmitPayload{Record: rec, FormDigest: digest}
 }

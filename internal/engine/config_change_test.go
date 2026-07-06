@@ -85,13 +85,14 @@ func configChangeRecord(t *testing.T, root, member string, body []byte) record.R
 	t.Helper()
 	return record.Record{
 		Headers: map[string]string{
-			"PHASE":         "SITREP",
-			"AUTHORITY":     "report-only",
-			"CEREMONY_TIER": "medium",
-			"SUBJECT":       "config change",
-			"record_kind":   "config_change",
-			"member":        member,
-			"new_digest":    engineDigestWithMember(t, root, member, body),
+			"PHASE":           "SITREP",
+			"AUTHORITY":       "report-only",
+			"CEREMONY_TIER":   "medium",
+			"EVIDENCE_TARGET": "E1",
+			"SUBJECT":         "config change",
+			"record_kind":     "config_change",
+			"member":          member,
+			"new_digest":      engineDigestWithMember(t, root, member, body),
 		},
 		Body: string(body),
 	}

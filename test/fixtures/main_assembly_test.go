@@ -77,7 +77,7 @@ func TestFrankBinaryAssemblesAuthenticatedSubmitProjectRead(t *testing.T) {
 	}
 	payload := mustJSONBytes(t, fieldspec.SubmitPayload{Record: record.Record{
 		Envelope: record.Envelope{To: "seat-a", DispatchID: "dispatch-main"},
-		Headers:  map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "CEREMONY_TIER": "medium", "SUBJECT": "binary path"},
+		Headers:  map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "CEREMONY_TIER": "medium", "EVIDENCE_TARGET": "E1", "SUBJECT": "binary path"},
 		Body:     "hello",
 	}, FormDigest: describe.FormDigest})
 	result, err := client.Call(ctx, "submit", payload)
@@ -532,6 +532,10 @@ func TestFrankBinaryReadCorruptionQueuesLiveQuarantine(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Mint: %v", err)
 	}
+	operatorCred, err := mgr.Mint("operator", "operator", true)
+	if err != nil {
+		t.Fatalf("Mint operator: %v", err)
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
 	bin := buildFrank(t, ctx)
@@ -595,8 +599,14 @@ func TestFrankBinaryReadCorruptionQueuesLiveQuarantine(t *testing.T) {
 		t.Fatalf("read never returned record-quarantined for %s", out.RelayID)
 	}
 
-	owed := submitLiveRecord(t, ctx, client, stderr, reg, pinned.Digest, meta, record.Record{
-		Envelope: record.Envelope{To: "seat-a", DispatchID: "post-quarantine-owed"},
+	operatorClient, err := channel.DialAuthenticated(ctx, sock, operatorCred.Value)
+	if err != nil {
+		t.Fatalf("DialAuthenticated operator stderr=%s: %v", stderr.String(), err)
+	}
+	defer func() { _ = operatorClient.Close() }()
+	operatorMeta := seat.SeatMeta{Name: "operator", Role: "operator", IsOperator: true}
+	owed := submitLiveRecord(t, ctx, operatorClient, stderr, reg, pinned.Digest, operatorMeta, record.Record{
+		Envelope: record.Envelope{To: "operator", DispatchID: "post-quarantine-owed"},
 		Headers: map[string]string{
 			"PHASE":            "SITREP",
 			"AUTHORITY":        "report-only",
@@ -608,8 +618,8 @@ func TestFrankBinaryReadCorruptionQueuesLiveQuarantine(t *testing.T) {
 			"disposition_path": "fold report",
 		},
 	})
-	disposition := submitLiveRecord(t, ctx, client, stderr, reg, pinned.Digest, meta, record.Record{
-		Envelope: record.Envelope{To: "seat-a", DispatchID: "post-quarantine-owed"},
+	disposition := submitLiveRecord(t, ctx, operatorClient, stderr, reg, pinned.Digest, operatorMeta, record.Record{
+		Envelope: record.Envelope{To: "operator", DispatchID: "post-quarantine-owed"},
 		Headers: map[string]string{
 			"PHASE":         "SITREP",
 			"AUTHORITY":     "report-only",
@@ -777,6 +787,9 @@ func loadAssemblyRegistry(t *testing.T) *fieldspec.Registry {
 
 func submitPayloadBytes(t *testing.T, reg *fieldspec.Registry, configDigest string, meta seat.SeatMeta, rec record.Record) []byte {
 	t.Helper()
+	if rec.Headers != nil && rec.Headers["PHASE"] != "" && rec.Headers["EVIDENCE_TARGET"] == "" {
+		rec.Headers["EVIDENCE_TARGET"] = "E1"
+	}
 	_, digest := reg.Render(fieldspec.RenderEnv{ConfigDigest: configDigest}, fieldspec.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator}, rec.Headers["PHASE"], rec.Headers["CEREMONY_TIER"], fieldspec.ClosedGrantState)
 	payload, err := json.Marshal(fieldspec.SubmitPayload{Record: rec, FormDigest: digest})
 	if err != nil {

@@ -317,10 +317,11 @@ func (h *s4ShimHarness) submit(t *testing.T, client *channel.Client, rec record.
 
 func s4Relay(to, cc, subject string) record.Record {
 	headers := map[string]string{
-		"PHASE":         "SITREP",
-		"AUTHORITY":     "report-only",
-		"CEREMONY_TIER": "medium",
-		"SUBJECT":       subject,
+		"PHASE":           "SITREP",
+		"AUTHORITY":       "report-only",
+		"CEREMONY_TIER":   "medium",
+		"EVIDENCE_TARGET": "E1",
+		"SUBJECT":         subject,
 	}
 	if cc != "" {
 		headers["CC"] = cc
