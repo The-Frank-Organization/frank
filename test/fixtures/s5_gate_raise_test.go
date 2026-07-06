@@ -138,6 +138,27 @@ func TestS5GateRaiseDoesNotPersistStampOnRejectedRecord(t *testing.T) {
 	}
 }
 
+func TestS5GateRaiseDoesNotPersistAddedCategoryOnRejectedAbsorb(t *testing.T) {
+	st, reg, meta := s5GateRaiseDeps(t)
+	rec := s5GateRaiseCandidate()
+	rec.Headers["PARENT_DISPATCH_ID"] = "not-rendered"
+	env := s5AFloorEnv(reg, "authz_security")
+	env.ParentCandidates = func(fieldspec.SeatMeta) ([]string, string) {
+		return []string{"rendered-parent"}, "rendered-parent"
+	}
+
+	committed := s5SubmitAndCommit(t, st, reg, meta, env, rec)
+	if committed.Envelope.DeliveryState != record.Rejected {
+		t.Fatalf("state = %s, want rejected", committed.Envelope.DeliveryState)
+	}
+	if committed.Headers["gate_category"] != "" {
+		t.Fatalf("rejected gate_category = %q, want absent", committed.Headers["gate_category"])
+	}
+	if committed.Headers["gate_category_raised"] != "" || committed.Headers["gate_category_pick"] != "" {
+		t.Fatalf("rejected record persisted raise headers: %+v", committed.Headers)
+	}
+}
+
 func s5GateRaiseDeps(t *testing.T) (*store.Store, *fieldspec.Registry, seat.SeatMeta) {
 	t.Helper()
 	st, err := store.Open(t.TempDir())

@@ -101,6 +101,8 @@ func clearGateRaiseHeaders(rec record.Record) record.Record {
 	}
 	if pick := rec.Headers["gate_category_pick"]; pick != "" {
 		rec.Headers["gate_category"] = pick
+	} else if rec.Headers["gate_category_raised"] != "" {
+		delete(rec.Headers, "gate_category")
 	}
 	delete(rec.Headers, "gate_category_raised")
 	delete(rec.Headers, "gate_category_pick")
