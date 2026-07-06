@@ -4,10 +4,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"strings"
+
+	"github.com/jackli/frank/internal/record"
 )
 
 type RenderEnv struct {
 	ConfigDigest     string
+	KnownA           KnownADetector
 	ParentCandidates ParentCandidates
 	MonotonicFloors  map[string]string
 }
@@ -19,6 +22,8 @@ func ClosedGrantState(SeatMeta) bool { return false }
 type ParentCandidates func(seat SeatMeta) (candidates []string, dflt string)
 
 func EmptyParentCandidates(SeatMeta) ([]string, string) { return nil, "" }
+
+type KnownADetector func(cand record.Record, fields map[string]string) (member string, hit bool)
 
 func (r *Registry) Render(env RenderEnv, seat SeatMeta, phase, tier string, grants GrantState) (Form, string) {
 	if grants == nil {

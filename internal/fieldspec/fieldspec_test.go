@@ -73,6 +73,103 @@ func TestGateCategoryEnumAndRaiseOnly(t *testing.T) {
 	if class, raised := reg.ClassifyGateCategory("routing", true); class != "A" || !raised {
 		t.Fatalf("known-A routing class=%s raised=%v, want A true", class, raised)
 	}
+	if class, raised := reg.ClassifyGateCategory("authz_security", true); class != "A" || raised {
+		t.Fatalf("known-A authz_security class=%s raised=%v, want A false", class, raised)
+	}
+}
+
+func TestValidateGateCategoryRaiseUsesKnownADetector(t *testing.T) {
+	reg := loadRegistry(t)
+	seat := fieldspec.SeatMeta{Name: "s5-b.implementer", Role: "implementer"}
+	env := fieldspec.RenderEnv{KnownA: func(record.Record, map[string]string) (string, bool) {
+		return "authz_security", true
+	}}
+	rec := validCandidate()
+	rec.Headers["gate_category"] = "routing"
+
+	violations := reg.Validate(rec, seat, digestForEnv(t, reg, seat, env, rec), env, fieldspec.ClosedGrantState)
+	if len(violations) != 0 {
+		t.Fatalf("violations = %+v, want none", violations)
+	}
+	if rec.Headers["gate_category"] != "authz_security" {
+		t.Fatalf("gate_category = %q, want detector A member", rec.Headers["gate_category"])
+	}
+	if rec.Headers["gate_category_raised"] != "yes" {
+		t.Fatalf("gate_category_raised = %q, want yes", rec.Headers["gate_category_raised"])
+	}
+	if rec.Headers["gate_category_pick"] != "routing" {
+		t.Fatalf("gate_category_pick = %q, want original B pick", rec.Headers["gate_category_pick"])
+	}
+}
+
+func TestValidateGateCategoryRaiseHandlesAbsentPick(t *testing.T) {
+	reg := loadRegistry(t)
+	seat := fieldspec.SeatMeta{Name: "s5-b.implementer", Role: "implementer"}
+	env := fieldspec.RenderEnv{KnownA: func(record.Record, map[string]string) (string, bool) {
+		return "authz_security", true
+	}}
+	rec := validCandidate()
+
+	violations := reg.Validate(rec, seat, digestForEnv(t, reg, seat, env, rec), env, fieldspec.ClosedGrantState)
+	if len(violations) != 0 {
+		t.Fatalf("violations = %+v, want none", violations)
+	}
+	if rec.Headers["gate_category"] != "authz_security" {
+		t.Fatalf("gate_category = %q, want detector A member", rec.Headers["gate_category"])
+	}
+	if rec.Headers["gate_category_raised"] != "yes" {
+		t.Fatalf("gate_category_raised = %q, want yes", rec.Headers["gate_category_raised"])
+	}
+	if _, ok := rec.Headers["gate_category_pick"]; ok {
+		t.Fatalf("gate_category_pick unexpectedly present: %q", rec.Headers["gate_category_pick"])
+	}
+}
+
+func TestValidateGateCategoryDoesNotLowerAOrIndexFloorB(t *testing.T) {
+	reg := loadRegistry(t)
+	seat := fieldspec.SeatMeta{Name: "s5-b.implementer", Role: "implementer"}
+	env := fieldspec.RenderEnv{
+		KnownA: func(record.Record, map[string]string) (string, bool) {
+			return "routing", true
+		},
+		MonotonicFloors: map[string]string{"gate_category": "authz_security"},
+	}
+	rec := validCandidate()
+	rec.Headers["gate_category"] = "authz_security"
+	violations := reg.Validate(rec, seat, digestForEnv(t, reg, seat, env, rec), env, fieldspec.ClosedGrantState)
+	if len(violations) != 0 {
+		t.Fatalf("A-pick violations = %+v, want none", violations)
+	}
+	if rec.Headers["gate_category"] != "authz_security" || rec.Headers["gate_category_raised"] != "" {
+		t.Fatalf("A-pick mutated headers = %+v", rec.Headers)
+	}
+
+	bPick := validCandidate()
+	bPick.Headers["gate_category"] = "routing"
+	noDetector := fieldspec.RenderEnv{MonotonicFloors: map[string]string{"gate_category": "authz_security"}}
+	violations = reg.Validate(bPick, seat, digestForEnv(t, reg, seat, noDetector, bPick), noDetector, fieldspec.ClosedGrantState)
+	assertNoViolation(t, violations, "gate_category", "monotonic-floor")
+	if bPick.Headers["gate_category"] != "routing" || bPick.Headers["gate_category_raised"] != "" {
+		t.Fatalf("B-pick without detector mutated headers = %+v", bPick.Headers)
+	}
+}
+
+func TestValidateGateCategoryOtherStampUsesYesByte(t *testing.T) {
+	reg := loadRegistry(t)
+	seat := fieldspec.SeatMeta{Name: "s5-b.implementer", Role: "implementer"}
+	rec := validCandidate()
+	rec.Headers["gate_category"] = "other"
+
+	violations := reg.Validate(rec, seat, digestFor(t, reg, seat, rec), fieldspec.RenderEnv{}, fieldspec.ClosedGrantState)
+	if len(violations) != 0 {
+		t.Fatalf("violations = %+v, want none", violations)
+	}
+	if rec.Headers["gate_category"] != "other" {
+		t.Fatalf("gate_category = %q, want other", rec.Headers["gate_category"])
+	}
+	if rec.Headers["gate_category_raised"] != "yes" {
+		t.Fatalf("gate_category_raised = %q, want yes", rec.Headers["gate_category_raised"])
+	}
 }
 
 func loadRegistry(t *testing.T) *fieldspec.Registry {
@@ -92,4 +189,10 @@ func assertViolation(t *testing.T, violations []fieldspec.Violation, field, clas
 		}
 	}
 	t.Fatalf("missing violation %s/%s in %+v", field, class, violations)
+}
+
+func digestForEnv(t *testing.T, reg *fieldspec.Registry, seat fieldspec.SeatMeta, env fieldspec.RenderEnv, rec record.Record) string {
+	t.Helper()
+	_, digest := reg.Render(env, seat, rec.Headers["PHASE"], rec.Headers["CEREMONY_TIER"], fieldspec.ClosedGrantState)
+	return digest
 }

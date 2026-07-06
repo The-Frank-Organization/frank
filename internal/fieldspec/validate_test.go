@@ -7,7 +7,7 @@ import (
 	"github.com/jackli/frank/internal/record"
 )
 
-func TestValidateV2SeatScopeAndSystemPayloadIgnore(t *testing.T) {
+func TestValidateV2SeatScopeAndSystemPayloadGuard(t *testing.T) {
 	reg := loadRegistry(t)
 	seat := fieldspec.SeatMeta{Name: "s1-core.implementer", Role: "implementer"}
 	rec := validCandidate()
@@ -18,7 +18,7 @@ func TestValidateV2SeatScopeAndSystemPayloadIgnore(t *testing.T) {
 	violations := reg.Validate(rec, seat, digestFor(t, reg, seat, rec), fieldspec.RenderEnv{}, fieldspec.ClosedGrantState)
 	assertViolation(t, violations, "AUTHORITY", "seat-scope")
 	assertViolation(t, violations, "grant", "seat-scope")
-	assertNoViolation(t, violations, "delivery_state", "enum")
+	assertViolation(t, violations, "delivery_state", "system-owned")
 }
 
 func TestValidateV2FullEnumSweep(t *testing.T) {
