@@ -59,15 +59,12 @@ func (r *Registry) Validate(cand record.Record, seat SeatMeta, formDigest string
 		if len(spec.SeatScope) > 0 && !r.optionAllowedForSeat(spec.ID, seat, phase, raw, grants) {
 			violations = append(violations, Violation{Field: spec.ID, Class: "seat-scope", Reason: spec.ID + " absent from seat form"})
 		}
-		if spec.FillConstraints == "monotonic" && r.belowMonotonicFloor(spec, raw, env.MonotonicFloors[spec.ID]) {
+		if spec.FillConstraints == "monotonic" && spec.EnumSet != "gate_category" && r.belowMonotonicFloor(spec, raw, env.MonotonicFloors[spec.ID]) {
 			violations = append(violations, Violation{Field: spec.ID, Class: "monotonic-floor", Reason: spec.ID + " below floor"})
 		}
-		if spec.ID == "gate_category" {
-			_, raised := r.ClassifyGateCategory(raw, false)
-			if raised {
-				cand.Headers["gate_category_raised"] = "true"
-			}
-		}
+	}
+	if len(violations) == 0 {
+		r.raiseGateCategory(cand, fields, env)
 	}
 	if parent := cand.Headers["PARENT_DISPATCH_ID"]; parent != "" && env.ParentCandidates != nil {
 		candidates, _ := env.ParentCandidates(seat)
@@ -95,6 +92,35 @@ func (r *Registry) belowMonotonicFloor(spec *FieldSpec, raw, floor string) bool 
 		}
 	}
 	return rawIndex >= 0 && floorIndex >= 0 && rawIndex < floorIndex
+}
+
+func (r *Registry) raiseGateCategory(cand record.Record, fields map[string]string, env RenderEnv) {
+	pick, picked := cand.Headers["gate_category"]
+	member, hit := "", false
+	if env.KnownA != nil {
+		member, hit = env.KnownA(cand, fields)
+	}
+	class, raised := r.ClassifyGateCategory(pick, hit)
+	if !raised {
+		return
+	}
+	switch {
+	case hit && (!picked || class == "A" && slices.Contains(r.GateCategory["B"], pick)):
+		cand.Headers["gate_category"] = r.knownAMemberOrOther(member)
+		cand.Headers["gate_category_raised"] = "yes"
+		if picked && pick != "" {
+			cand.Headers["gate_category_pick"] = pick
+		}
+	case picked && pick == "other":
+		cand.Headers["gate_category_raised"] = "yes"
+	}
+}
+
+func (r *Registry) knownAMemberOrOther(member string) string {
+	if slices.Contains(r.GateCategory["A"], member) {
+		return member
+	}
+	return "other"
 }
 
 func validateTyped(spec *FieldSpec, raw string) error {
@@ -188,11 +214,11 @@ func valueForSpec(cand record.Record, spec *FieldSpec) (string, bool) {
 }
 
 func (r *Registry) ClassifyGateCategory(token string, knownA bool) (string, bool) {
-	if knownA {
-		return "A", true
-	}
 	if slices.Contains(r.GateCategory["A"], token) {
 		return "A", false
+	}
+	if knownA {
+		return "A", true
 	}
 	if slices.Contains(r.GateCategory["B"], token) {
 		return "B", false
