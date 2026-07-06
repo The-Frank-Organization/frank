@@ -173,6 +173,44 @@ func TestFrankMCPInitializeEnvelopeDeclaresServerInfoVersion(t *testing.T) {
 	}
 }
 
+func TestOperatorDescribeToolsIncludesOwedRecordFields(t *testing.T) {
+	h := newS4ShimHarness(t)
+	cred := h.mint(t, "operator", "operator")
+	h.start(t)
+
+	operator := h.dial(t, cred)
+	defer func() { _ = operator.Close() }()
+	describe, err := operator.DescribeTools(h.ctx, channel.DescribeRequest{Phase: "SITREP", Tier: "medium"})
+	if err != nil {
+		t.Fatalf("DescribeTools stderr=%s: %v", h.stderr.String(), err)
+	}
+	if describe.SubmitSchema == nil || describe.FormDigest == "" {
+		t.Fatalf("describe missing form: %+v", describe)
+	}
+	if !describe.SubmitSchema.OptionAllowed("record_kind", "owed_item") ||
+		!describe.SubmitSchema.OptionAllowed("record_kind", "owed_disposition") {
+		t.Fatalf("record_kind options = %+v", describe.SubmitSchema.Fields["record_kind"].Options)
+	}
+	for _, want := range []struct {
+		Name string
+		Type string
+	}{
+		{Name: "owner", Type: "text"},
+		{Name: "source", Type: "text"},
+		{Name: "target_surface", Type: "text"},
+		{Name: "disposition_path", Type: "text"},
+		{Name: "disposes_owed", Type: "id_ref"},
+	} {
+		field, ok := describe.SubmitSchema.Fields[want.Name]
+		if !ok {
+			t.Fatalf("describe form missing %s; fields=%v", want.Name, describe.SubmitSchema.Fields)
+		}
+		if field.Type != want.Type {
+			t.Fatalf("%s field type = %q, want %q", want.Name, field.Type, want.Type)
+		}
+	}
+}
+
 type s4ShimHarness struct {
 	root   string
 	ctx    context.Context
