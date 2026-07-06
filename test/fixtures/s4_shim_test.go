@@ -130,6 +130,49 @@ func TestNoCrossSeatMetadata(t *testing.T) {
 	}
 }
 
+func TestFrankMCPInitializeEnvelopeDeclaresServerInfoVersion(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	mcpBin := buildFrankMCP(t, ctx)
+	out, errOut := runFrankMCP(t, ctx, mcpBin, "", "", `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}`+"\n")
+	if errOut != "" {
+		t.Fatalf("initialize stderr = %s", errOut)
+	}
+	var envelope struct {
+		JSONRPC string `json:"jsonrpc"`
+		ID      int    `json:"id"`
+		Result  struct {
+			ProtocolVersion string `json:"protocolVersion"`
+			Capabilities    struct {
+				Tools map[string]bool `json:"tools"`
+			} `json:"capabilities"`
+			ServerInfo struct {
+				Name    string `json:"name"`
+				Version string `json:"version"`
+			} `json:"serverInfo"`
+		} `json:"result"`
+		Error *struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(bytes.TrimSpace([]byte(out)), &envelope); err != nil {
+		t.Fatalf("decode initialize envelope %q: %v", out, err)
+	}
+	if envelope.JSONRPC != "2.0" || envelope.ID != 1 || envelope.Error != nil {
+		t.Fatalf("initialize envelope = %+v", envelope)
+	}
+	if envelope.Result.ProtocolVersion == "" {
+		t.Fatalf("initialize missing protocolVersion: %+v", envelope.Result)
+	}
+	if envelope.Result.Capabilities.Tools == nil || !envelope.Result.Capabilities.Tools["listChanged"] {
+		t.Fatalf("initialize tools capabilities = %#v", envelope.Result.Capabilities.Tools)
+	}
+	if envelope.Result.ServerInfo.Name == "" || envelope.Result.ServerInfo.Version == "" {
+		t.Fatalf("initialize serverInfo = %+v", envelope.Result.ServerInfo)
+	}
+}
+
 type s4ShimHarness struct {
 	root   string
 	ctx    context.Context

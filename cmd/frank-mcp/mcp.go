@@ -14,7 +14,10 @@ import (
 	"github.com/jackli/frank/internal/channel"
 )
 
-const mcpProtocolVersion = "2024-11-05"
+const (
+	mcpProtocolVersion = "2024-11-05"
+	mcpServerVersion   = "0.4.0"
+)
 
 type Options struct {
 	SocketPath string
@@ -117,7 +120,8 @@ func initializeResult() map[string]any {
 			"tools": map[string]any{"listChanged": true},
 		},
 		"serverInfo": map[string]any{
-			"name": "frank-mcp",
+			"name":    "frank-mcp",
+			"version": mcpServerVersion,
 		},
 	}
 }
