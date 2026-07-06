@@ -113,6 +113,7 @@ func (r *Registry) raiseGateCategory(cand record.Record, fields map[string]strin
 		}
 	case picked && pick == "other":
 		cand.Headers["gate_category_raised"] = "yes"
+		cand.Headers["gate_category_pick"] = pick
 	}
 }
 

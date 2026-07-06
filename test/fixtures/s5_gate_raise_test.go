@@ -91,6 +91,9 @@ func TestS5GateRaiseOtherUsesYesByteAndRegistryToken(t *testing.T) {
 	if committed.Headers["gate_category"] != "other" || committed.Headers["gate_category_raised"] != "yes" {
 		t.Fatalf("other pick headers = %+v", committed.Headers)
 	}
+	if committed.Headers["gate_category_pick"] != "other" {
+		t.Fatalf("gate_category_pick = %q, want other", committed.Headers["gate_category_pick"])
+	}
 	if class, raised := reg.ClassifyGateCategory(committed.Headers["gate_category"], false); class != "A" || !raised {
 		t.Fatalf("committed other class=(%s,%v), want A raised", class, raised)
 	}
@@ -153,6 +156,28 @@ func TestS5GateRaiseDoesNotPersistAddedCategoryOnRejectedAbsorb(t *testing.T) {
 	}
 	if committed.Headers["gate_category"] != "" {
 		t.Fatalf("rejected gate_category = %q, want absent", committed.Headers["gate_category"])
+	}
+	if committed.Headers["gate_category_raised"] != "" || committed.Headers["gate_category_pick"] != "" {
+		t.Fatalf("rejected record persisted raise headers: %+v", committed.Headers)
+	}
+}
+
+func TestS5GateRaiseDoesNotDropOtherPickOnRejectedRecord(t *testing.T) {
+	st, reg, meta := s5GateRaiseDeps(t)
+	rec := s5GateRaiseCandidate()
+	rec.Headers["gate_category"] = "other"
+	rec.Headers["PARENT_DISPATCH_ID"] = "not-rendered"
+	env := s5AFloorEnv(reg, "authz_security")
+	env.ParentCandidates = func(fieldspec.SeatMeta) ([]string, string) {
+		return []string{"rendered-parent"}, "rendered-parent"
+	}
+
+	committed := s5SubmitAndCommit(t, st, reg, meta, env, rec)
+	if committed.Envelope.DeliveryState != record.Rejected {
+		t.Fatalf("state = %s, want rejected", committed.Envelope.DeliveryState)
+	}
+	if committed.Headers["gate_category"] != "other" {
+		t.Fatalf("rejected gate_category = %q, want other", committed.Headers["gate_category"])
 	}
 	if committed.Headers["gate_category_raised"] != "" || committed.Headers["gate_category_pick"] != "" {
 		t.Fatalf("rejected record persisted raise headers: %+v", committed.Headers)
