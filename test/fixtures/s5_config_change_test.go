@@ -234,6 +234,7 @@ func s5SubmitConfigChange(t *testing.T, st *store.Store, reg *fieldspec.Registry
 
 func s5ALandedRegistryBytes(t *testing.T) []byte {
 	t.Helper()
+	var mismatches []string
 	for _, path := range s5ALandedRegistryPaths() {
 		data, err := os.ReadFile(path)
 		if err != nil {
@@ -242,12 +243,30 @@ func s5ALandedRegistryBytes(t *testing.T) []byte {
 		sum := sha256.Sum256(data)
 		got := hex.EncodeToString(sum[:])
 		if got != s5ARegistrySHA256 {
-			t.Fatalf("s5-a registry SHA256 = %s at %s, want %s from %s", got, path, s5ARegistrySHA256, s5ARegistryCommit)
+			mismatches = append(mismatches, path+"="+got)
+			continue
 		}
 		return data
 	}
+	if len(mismatches) > 0 {
+		t.Fatalf("no s5-a registry candidate matched SHA256 %s from %s; mismatches=%v", s5ARegistrySHA256, s5ARegistryCommit, mismatches)
+	}
 	t.Skipf("s5-a registry @ %s not found; set FRANK_S5_A_REGISTRY", s5ARegistryCommit)
 	return nil
+}
+
+func TestS5ALandedRegistryBytesSkipsMismatchedCandidateWhenLaterCandidateMatches(t *testing.T) {
+	mismatch := filepath.Join(t.TempDir(), "registry.json")
+	if err := os.WriteFile(mismatch, []byte(`{"version":"wrong"}`), 0o644); err != nil {
+		t.Fatalf("write mismatch registry: %v", err)
+	}
+	t.Setenv("FRANK_S5_A_REGISTRY", mismatch)
+
+	data := s5ALandedRegistryBytes(t)
+	sum := sha256.Sum256(data)
+	if got := hex.EncodeToString(sum[:]); got != s5ARegistrySHA256 {
+		t.Fatalf("registry SHA256 = %s, want %s", got, s5ARegistrySHA256)
+	}
 }
 
 func s5ALandedRegistry(t *testing.T) *fieldspec.Registry {
@@ -269,8 +288,8 @@ func s5ALandedRegistryPaths() []string {
 		paths = append(paths, path)
 	}
 	paths = append(paths,
+		filepath.Clean(filepath.Join("..", "..", "internal", "fieldspec", "registry.json")),
 		filepath.Clean(filepath.Join("..", "..", "..", "s5-a", "internal", "fieldspec", "registry.json")),
-		"/Users/jack/frank-s5-team/s5-a/internal/fieldspec/registry.json",
 	)
 	return paths
 }
