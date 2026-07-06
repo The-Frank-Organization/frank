@@ -95,6 +95,10 @@ func run(ctx context.Context, cfg config) error {
 		return err
 	}
 	reg := pinned.Registry
+	detectorConfig, err := engine.DetectorConfigFromPinned(pinned)
+	if err != nil {
+		return err
+	}
 	journal, err := intake.OpenWithConfig(cfg.Root, pinned.Engine)
 	if err != nil {
 		return err
@@ -111,7 +115,13 @@ func run(ctx context.Context, cfg config) error {
 	handler := func(ctx context.Context, cmd intake.Cmd) (record.Record, []store.Intent, error) {
 		meta := seat.SeatMeta{Name: cmd.Seat, Role: cmd.Role, IsOperator: cmd.IsOperator}
 		tab := liveTables.Snapshot()
-		env := fieldspec.RenderEnv{ConfigDigest: pinned.Digest, ParentCandidates: lineage.ActiveLineageCandidates(tab, turnContextForSeat(st, tab, meta.Name))}
+		// Step-1 detection is exactly S1 + S2 + S3 plus other->A. S3 is
+		// input-atom-pending until operator config names a declared target field.
+		env := fieldspec.RenderEnv{
+			ConfigDigest:     pinned.Digest,
+			KnownA:           engine.KnownADetector(reg, tab, detectorConfig),
+			ParentCandidates: lineage.ActiveLineageCandidates(tab, turnContextForSeat(st, tab, meta.Name)),
+		}
 		return engine.SubmitHandlerWithRender(st, reg, meta, env, tab)(ctx, cmd)
 	}
 	completeTurn := func(st *store.Store) error {
