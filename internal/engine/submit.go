@@ -72,7 +72,7 @@ func SubmitHandlerWithRender(st *store.Store, reg *fieldspec.Registry, meta seat
 			return cand, nil, nil
 		}
 		if cand.Headers["resolves_gate"] != "" {
-			cand = classifyVerdict(tab, cand)
+			cand = classifyVerdict(tab, cand, meta)
 			if cand.Envelope.DeliveryState == record.Accepted {
 				return cand, store.DefaultProjectionIntents(cand), nil
 			}
@@ -171,6 +171,8 @@ func validateRecordKind(t *tables.T, cand record.Record) *fieldspec.Violation {
 		return nil
 	case "config_change":
 		return nil
+	case "gate_resolution":
+		return nil
 	default:
 		return &fieldspec.Violation{Field: "record_kind", Class: "unknown", Reason: "unknown record_kind"}
 	}
@@ -232,7 +234,12 @@ func owedProjectionIntentsFromTable(t *tables.T, cand record.Record) []store.Int
 	return []store.Intent{store.OwedOpenProjectionIntent(records)}
 }
 
-func classifyVerdict(t *tables.T, cand record.Record) record.Record {
+func classifyVerdict(t *tables.T, cand record.Record, meta seat.SeatMeta) record.Record {
+	if !(meta.IsOperator || meta.Name == "operator" || meta.Role == "operator") {
+		cand.Envelope.DeliveryState = record.Rejected
+		cand.Body = bounce.Format(fieldspec.Violation{Field: "record_kind", Class: "seat-scope", Reason: "gate_resolution requires operator"})
+		return cand
+	}
 	gateRef := cand.Headers["resolves_gate"]
 	parent := cand.Headers["PARENT_DISPATCH_ID"]
 	if parent != gateRef {

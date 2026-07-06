@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/jackli/frank/internal/engine"
@@ -181,6 +182,41 @@ func TestS5GateRaiseDoesNotDropOtherPickOnRejectedRecord(t *testing.T) {
 	}
 	if committed.Headers["gate_category_raised"] != "" || committed.Headers["gate_category_pick"] != "" {
 		t.Fatalf("rejected record persisted raise headers: %+v", committed.Headers)
+	}
+}
+
+func TestS5GateResolutionRejectsNonOperatorSubmitPath(t *testing.T) {
+	st, reg, meta := s5GateRaiseDeps(t)
+	gateRec := record.Record{
+		Envelope: record.Envelope{
+			RelayID:       "gate-base",
+			From:          "s5-b.planner",
+			Role:          "planner",
+			DeliveryState: record.Accepted,
+			SchemaVersion: 1,
+		},
+		Headers: map[string]string{
+			"PHASE":               "SITREP",
+			"SUBJECT":             "human gate",
+			"HUMAN_GATE_REQUIRED": "yes",
+		},
+	}
+	if _, err := st.Commit(gateRec, nil); err != nil {
+		t.Fatalf("commit gate: %v", err)
+	}
+
+	rec := s5GateRaiseCandidate()
+	rec.Headers["SUBJECT"] = "gate resolution"
+	rec.Headers["record_kind"] = "gate_resolution"
+	rec.Headers["PARENT_DISPATCH_ID"] = gateRec.Envelope.RelayID
+	rec.Headers["resolves_gate"] = gateRec.Envelope.RelayID
+
+	committed := s5SubmitAndCommit(t, st, reg, meta, fieldspec.RenderEnv{}, rec)
+	if committed.Envelope.DeliveryState != record.Rejected {
+		t.Fatalf("state = %s, want rejected", committed.Envelope.DeliveryState)
+	}
+	if !strings.Contains(committed.Body, "record_kind:seat-scope") {
+		t.Fatalf("body = %q, want record_kind:seat-scope", committed.Body)
 	}
 }
 
