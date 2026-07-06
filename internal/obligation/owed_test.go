@@ -27,6 +27,7 @@ func TestOwedItemSubmitProjectsOpenAndDispositionClosesIt(t *testing.T) {
 		Headers: map[string]string{
 			"PHASE":            "SITREP",
 			"AUTHORITY":        "report-only",
+			"EVIDENCE_TARGET":  "E1",
 			"SUBJECT":          "owed",
 			"record_kind":      "owed_item",
 			"owner":            "s1",
@@ -51,11 +52,12 @@ func TestOwedItemSubmitProjectsOpenAndDispositionClosesIt(t *testing.T) {
 
 	disposition := submitAndCommitOwed(t, st, handler, reg, meta, record.Record{
 		Headers: map[string]string{
-			"PHASE":         "SITREP",
-			"AUTHORITY":     "report-only",
-			"SUBJECT":       "owed disposition",
-			"record_kind":   "owed_disposition",
-			"disposes_owed": owed.Envelope.RelayID,
+			"PHASE":           "SITREP",
+			"AUTHORITY":       "report-only",
+			"EVIDENCE_TARGET": "E1",
+			"SUBJECT":         "owed disposition",
+			"record_kind":     "owed_disposition",
+			"disposes_owed":   owed.Envelope.RelayID,
 		},
 	})
 	if disposition.Envelope.DeliveryState != record.Accepted {
@@ -68,11 +70,12 @@ func TestOwedItemSubmitProjectsOpenAndDispositionClosesIt(t *testing.T) {
 
 	second := submitOwed(t, handler, reg, meta, record.Record{
 		Headers: map[string]string{
-			"PHASE":         "SITREP",
-			"AUTHORITY":     "report-only",
-			"SUBJECT":       "second disposition",
-			"record_kind":   "owed_disposition",
-			"disposes_owed": owed.Envelope.RelayID,
+			"PHASE":           "SITREP",
+			"AUTHORITY":       "report-only",
+			"EVIDENCE_TARGET": "E1",
+			"SUBJECT":         "second disposition",
+			"record_kind":     "owed_disposition",
+			"disposes_owed":   owed.Envelope.RelayID,
 		},
 	})
 	if second.Envelope.DeliveryState != record.Rejected {
@@ -99,15 +102,16 @@ func TestOwedValidationRejectsUnknownKindsAndUnknownParents(t *testing.T) {
 	}
 }
 
-func TestOwedItemAcceptsNonOperatorSeat(t *testing.T) {
+func TestOwedItemRejectsNonOperatorSeat(t *testing.T) {
 	root := t.TempDir()
 	st, reg := owedDeps(t, root)
 	meta := seat.SeatMeta{Name: "s2-core.implementer", Role: "implementer"}
 	handler := engine.SubmitHandler(st, reg, meta)
-	owed := submitAndCommitOwed(t, st, handler, reg, meta, record.Record{
+	owed := submitOwed(t, handler, reg, meta, record.Record{
 		Headers: map[string]string{
 			"PHASE":            "SITREP",
 			"AUTHORITY":        "report-only",
+			"EVIDENCE_TARGET":  "E1",
 			"SUBJECT":          "owed from implementer",
 			"record_kind":      "owed_item",
 			"owner":            "s2",
@@ -116,12 +120,11 @@ func TestOwedItemAcceptsNonOperatorSeat(t *testing.T) {
 			"disposition_path": "fold report",
 		},
 	})
-	if owed.Envelope.DeliveryState != record.Accepted {
-		t.Fatalf("owed state = %s, want accepted", owed.Envelope.DeliveryState)
+	if owed.Envelope.DeliveryState != record.Rejected {
+		t.Fatalf("owed state = %s, want rejected", owed.Envelope.DeliveryState)
 	}
-	open := string(mustReadOwed(t, filepath.Join(root, "projections", "owed", "OPEN.md")))
-	if !strings.Contains(open, owed.Envelope.RelayID) {
-		t.Fatalf("OPEN.md missing non-operator owed item:\n%s", open)
+	if !strings.Contains(owed.Body, "record_kind") {
+		t.Fatalf("owed body = %q, want record_kind rejection", owed.Body)
 	}
 }
 

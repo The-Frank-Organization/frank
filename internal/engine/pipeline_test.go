@@ -24,7 +24,7 @@ func TestSubmitHandlerStampsAndAcceptsValidCandidate(t *testing.T) {
 	handler := engine.SubmitHandler(st, reg, meta)
 	payload := submitPayload(t, reg, meta, record.Record{
 		Envelope: record.Envelope{RelayID: "candidate-1", From: "victim.planner", Role: "planner"},
-		Headers:  map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "SUBJECT": "ok"},
+		Headers:  map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "EVIDENCE_TARGET": "E1", "SUBJECT": "ok"},
 		Body:     "hello",
 	})
 	rec, _, err := handler(context.Background(), intake.Cmd{IntakeID: "i1", Seat: "s1-core.implementer", Payload: payload})
@@ -68,7 +68,7 @@ func TestSubmitHandlerAssignsRelayIDAndProjectionIntents(t *testing.T) {
 			To:         "s1-core.planner",
 			Role:       "planner",
 		},
-		Headers: map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "SUBJECT": "projection"},
+		Headers: map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "EVIDENCE_TARGET": "E1", "SUBJECT": "projection"},
 		Body:    "hello",
 	})
 	rec, intents, err := handler(context.Background(), intake.Cmd{IntakeID: "i-proj", Seat: "s1-core.implementer", Role: "implementer", Payload: payload})
@@ -123,7 +123,7 @@ func TestOperatorVerdictOneShotRunsThroughSubmitHandler(t *testing.T) {
 	handler := engine.SubmitHandler(st, reg, meta)
 
 	firstPayload := submitPayload(t, reg, meta, record.Record{
-		Headers: map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "SUBJECT": "verdict 1", "PARENT_DISPATCH_ID": "gate-1", "resolves_gate": "gate-1"},
+		Headers: map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "EVIDENCE_TARGET": "E1", "SUBJECT": "verdict 1", "PARENT_DISPATCH_ID": "gate-1", "resolves_gate": "gate-1"},
 	})
 	first, _, err := handler(context.Background(), intake.Cmd{IntakeID: "v1", Seat: "operator", Role: "operator", IsOperator: true, Payload: firstPayload})
 	if err != nil {
@@ -137,7 +137,7 @@ func TestOperatorVerdictOneShotRunsThroughSubmitHandler(t *testing.T) {
 	}
 
 	secondPayload := submitPayload(t, reg, meta, record.Record{
-		Headers: map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "SUBJECT": "verdict 2", "PARENT_DISPATCH_ID": "gate-1", "resolves_gate": "gate-1"},
+		Headers: map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "EVIDENCE_TARGET": "E1", "SUBJECT": "verdict 2", "PARENT_DISPATCH_ID": "gate-1", "resolves_gate": "gate-1"},
 	})
 	second, _, err := handler(context.Background(), intake.Cmd{IntakeID: "v2", Seat: "operator", Role: "operator", IsOperator: true, Payload: secondPayload})
 	if err != nil {
@@ -178,11 +178,12 @@ func TestSubmitHandlerBuildsOwedProjectionFromProvidedTable(t *testing.T) {
 	handler := engine.SubmitHandler(st, reg, meta, tab)
 	payload := submitPayload(t, reg, meta, record.Record{
 		Headers: map[string]string{
-			"PHASE":         "SITREP",
-			"AUTHORITY":     "report-only",
-			"SUBJECT":       "owed disposition",
-			"record_kind":   "owed_disposition",
-			"disposes_owed": "owed-base",
+			"PHASE":           "SITREP",
+			"AUTHORITY":       "report-only",
+			"EVIDENCE_TARGET": "E1",
+			"SUBJECT":         "owed disposition",
+			"record_kind":     "owed_disposition",
+			"disposes_owed":   "owed-base",
 		},
 	})
 	rec, intents, err := handler(context.Background(), intake.Cmd{IntakeID: "owed-disposition", Seat: "operator", Role: "operator", IsOperator: true, Payload: payload})
@@ -242,6 +243,7 @@ func TestSubmitHandlerRejectsStalePositiveParentAfterRender(t *testing.T) {
 		Headers: map[string]string{
 			"PHASE":              "PLAN",
 			"AUTHORITY":          "plan-only",
+			"EVIDENCE_TARGET":    "E1",
 			"SUBJECT":            "stale parent",
 			"PARENT_DISPATCH_ID": "parent-at-render",
 		},

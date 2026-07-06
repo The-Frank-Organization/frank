@@ -36,13 +36,14 @@ func TestRunningConfigUnchangedUntilRestart(t *testing.T) {
 	body := mutatedRegistryBody(t, h.root)
 	rec := record.Record{
 		Headers: map[string]string{
-			"PHASE":         "SITREP",
-			"AUTHORITY":     "report-only",
-			"CEREMONY_TIER": "medium",
-			"SUBJECT":       "registry config_change",
-			"record_kind":   "config_change",
-			"member":        "fieldspec",
-			"new_digest":    fixtureDigestWithMember(t, h.root, "fieldspec", body),
+			"PHASE":           "SITREP",
+			"AUTHORITY":       "report-only",
+			"CEREMONY_TIER":   "medium",
+			"EVIDENCE_TARGET": "E1",
+			"SUBJECT":         "registry config_change",
+			"record_kind":     "config_change",
+			"member":          "fieldspec",
+			"new_digest":      fixtureDigestWithMember(t, h.root, "fieldspec", body),
 		},
 		Body: string(body),
 	}
@@ -230,10 +231,11 @@ func TestRestartWithNewRegistryBouncesStaleForm(t *testing.T) {
 	defer func() { _ = operator.Close() }()
 	stale := record.Record{
 		Headers: map[string]string{
-			"PHASE":         "SITREP",
-			"AUTHORITY":     "report-only",
-			"CEREMONY_TIER": "medium",
-			"SUBJECT":       "stale form",
+			"PHASE":           "SITREP",
+			"AUTHORITY":       "report-only",
+			"CEREMONY_TIER":   "medium",
+			"EVIDENCE_TARGET": "E1",
+			"SUBJECT":         "stale form",
 		},
 		Body: "stale",
 	}
@@ -304,13 +306,14 @@ func configChangeRelay(t *testing.T, root string, body []byte) record.Record {
 	t.Helper()
 	return record.Record{
 		Headers: map[string]string{
-			"PHASE":         "SITREP",
-			"AUTHORITY":     "report-only",
-			"CEREMONY_TIER": "medium",
-			"SUBJECT":       "registry config_change",
-			"record_kind":   "config_change",
-			"member":        "fieldspec",
-			"new_digest":    fixtureDigestWithMember(t, root, "fieldspec", body),
+			"PHASE":           "SITREP",
+			"AUTHORITY":       "report-only",
+			"CEREMONY_TIER":   "medium",
+			"EVIDENCE_TARGET": "E1",
+			"SUBJECT":         "registry config_change",
+			"record_kind":     "config_change",
+			"member":          "fieldspec",
+			"new_digest":      fixtureDigestWithMember(t, root, "fieldspec", body),
 		},
 		Body: string(body),
 	}

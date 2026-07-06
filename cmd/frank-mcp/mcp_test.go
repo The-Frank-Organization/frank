@@ -197,11 +197,12 @@ func TestSubmitArgumentsRoundTripStructuredStringCarrier(t *testing.T) {
 	canonical := `[{"path":"README.md","status":"in"}]`
 	acceptedArgs := map[string]any{
 		"headers": map[string]string{
-			"PHASE":         "SITREP",
-			"AUTHORITY":     "report-only",
-			"CEREMONY_TIER": "medium",
-			"SUBJECT":       "structured carrier",
-			"SCOPE_DIFF":    canonical,
+			"PHASE":           "SITREP",
+			"AUTHORITY":       "report-only",
+			"CEREMONY_TIER":   "medium",
+			"EVIDENCE_TARGET": "E1",
+			"SUBJECT":         "structured carrier",
+			"SCOPE_DIFF":      canonical,
 		},
 		"to":          "seat-a",
 		"dispatch_id": "schema-roundtrip",
@@ -228,11 +229,12 @@ func TestSubmitArgumentsRoundTripStructuredStringCarrier(t *testing.T) {
 
 	badArgs := acceptedArgs
 	badHeaders := map[string]string{
-		"PHASE":         "SITREP",
-		"AUTHORITY":     "report-only",
-		"CEREMONY_TIER": "medium",
-		"SUBJECT":       "structured carrier",
-		"SCOPE_DIFF":    `[{"path": "README.md","status":"in"}]`,
+		"PHASE":           "SITREP",
+		"AUTHORITY":       "report-only",
+		"CEREMONY_TIER":   "medium",
+		"EVIDENCE_TARGET": "E1",
+		"SUBJECT":         "structured carrier",
+		"SCOPE_DIFF":      `[{"path": "README.md","status":"in"}]`,
 	}
 	badArgs["headers"] = badHeaders
 	badInput := mcpCall("submit", 2, badArgs)
