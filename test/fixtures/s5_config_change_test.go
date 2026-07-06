@@ -21,7 +21,10 @@ import (
 const (
 	s5ARegistryCommit = "dd7d0b5"
 	// SHA-256 of internal/fieldspec/registry.json from s5-a-registry @ dd7d0b5.
-	s5ARegistrySHA256 = "827d24dafd0c1bc47e0968c9596aeae2f1575ad4b6e8c2f46a483b4187f1a9db"
+	s5ARegistrySHA256   = "827d24dafd0c1bc47e0968c9596aeae2f1575ad4b6e8c2f46a483b4187f1a9db"
+	s5PreRegistryCommit = "67ee23e"
+	// SHA-256 of internal/fieldspec/registry.json from main @ 67ee23e.
+	s5PreRegistrySHA256 = "e31c4b1e72b69699df7e100a9264ee9c10f0d9107c2dd645ddd58107244d7363"
 )
 
 func TestS5ConfigChangeOperatorAcceptsLandedRegistryShape(t *testing.T) {
@@ -185,7 +188,7 @@ func s5ConfigChangeDeps(t *testing.T) (*store.Store, *fieldspec.Registry) {
 	if err := os.WriteFile(enginePath, []byte(`{"gc_enabled":false,"segment_rotate_bytes":4194304}`), 0o644); err != nil {
 		t.Fatalf("write engine config: %v", err)
 	}
-	registryPath := filepath.Join("..", "..", "internal", "fieldspec", "registry.json")
+	registryPath := s5PreRegistryPath(t)
 	if err := store.Init(root, map[string]string{"engine": enginePath, "fieldspec": registryPath}); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
@@ -230,6 +233,20 @@ func s5SubmitConfigChange(t *testing.T, st *store.Store, reg *fieldspec.Registry
 		t.Fatalf("SubmitHandler config_change: %v", err)
 	}
 	return got, intents
+}
+
+func s5PreRegistryPath(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join("testdata", "s5_pre_registry.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read pre-s5 registry fixture: %v", err)
+	}
+	sum := sha256.Sum256(data)
+	if got := hex.EncodeToString(sum[:]); got != s5PreRegistrySHA256 {
+		t.Fatalf("pre-s5 registry SHA256 = %s at %s, want %s from %s", got, path, s5PreRegistrySHA256, s5PreRegistryCommit)
+	}
+	return path
 }
 
 func s5ALandedRegistryBytes(t *testing.T) []byte {
