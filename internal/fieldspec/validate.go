@@ -31,6 +31,10 @@ func (r *Registry) Validate(cand record.Record, seat SeatMeta, formDigest string
 	for i := range r.Fields {
 		spec := &r.Fields[i]
 		raw, present := valueForSpec(cand, spec)
+		if present && raw != "" && r.systemOwnedHeader(spec) {
+			violations = append(violations, Violation{Field: spec.ID, Class: "system-owned", Reason: spec.ID + " is system-owned"})
+			continue
+		}
 		if r.ignorePayloadField(spec) {
 			continue
 		}
@@ -117,6 +121,16 @@ func (r *Registry) ignorePayloadField(spec *FieldSpec) bool {
 		return false
 	}
 	return spec.Owner == "system" || spec.FillConstraints == "system_only"
+}
+
+func (r *Registry) systemOwnedHeader(spec *FieldSpec) bool {
+	if spec.Layer != "header" {
+		return false
+	}
+	return spec.Owner == "system" ||
+		spec.Owner == "computed" ||
+		spec.FillConstraints == "system_only" ||
+		spec.FillConstraints == "computed_result"
 }
 
 func (r *Registry) enumTokens(spec *FieldSpec) []string {
