@@ -25,7 +25,8 @@ func TestReplayConstructedStoreZeroLossIdentityAndCanonicalWins(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	corruptProjection(t, filepath.Join(root, "outbox", "gate-gate-1.json"))
+	outboxProjectionPath := filepath.Join(root, "outbox", "gate-gate-1.json")
+	corruptProjection(t, outboxProjectionPath)
 
 	report, err := zeroloss.Replay(root, migrate.New())
 	if err != nil {
@@ -53,6 +54,9 @@ func TestReplayConstructedStoreZeroLossIdentityAndCanonicalWins(t *testing.T) {
 	}
 	if outboxView.Record.Body == "corrupted projection" || !strings.Contains(outboxView.Record.Body, `"source_record_ref": "gate-1"`) {
 		t.Fatalf("canonical outbox view body = %q", outboxView.Record.Body)
+	}
+	if got := string(mustReadFile(t, outboxProjectionPath)); got != "corrupted projection" {
+		t.Fatalf("projection bytes = %q, want corrupted projection still on disk", got)
 	}
 	if _, ok := report.Views["config-change-1"]; !ok {
 		t.Fatalf("config_change record missing from replay")

@@ -49,6 +49,14 @@ func TestS5IPHNewSurfacesAreFieldClassOnlyAndPathClean(t *testing.T) {
 		migrate.ErrUnversioned.Error(),
 		fmt.Errorf("%w: 1->2", migrate.ErrMigrationGap).Error(),
 	}
+	drainSentinels := []string{
+		"outbox-read-error",
+		"outbox-item-read-error",
+		"outbox-item-decode-error",
+		"source-record-read-error",
+		"egress-render-error",
+		"outbox-item-id-empty",
+	}
 	reportStatus := fmt.Sprintf("zeroloss:read=%d lost=%d quarantined=%d", zeroloss.Report{Read: 1}.Read, zeroloss.Report{}.Lost, zeroloss.Report{}.Quarantined)
 
 	outputs := []string{
@@ -59,6 +67,7 @@ func TestS5IPHNewSurfacesAreFieldClassOnlyAndPathClean(t *testing.T) {
 		reportStatus,
 	}
 	outputs = append(outputs, refusals...)
+	outputs = append(outputs, drainSentinels...)
 	assertNoPathFamilies(t, outputs...)
 	assertNoS5IPHForbiddenTokens(t, outputs...)
 }

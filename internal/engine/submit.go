@@ -46,16 +46,19 @@ func SubmitHandlerWithRender(st *store.Store, reg *fieldspec.Registry, meta seat
 		}
 		violations := reg.Validate(cand, fieldspec.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator}, formDigest, env, lineage.RealGrantState(tab))
 		if len(violations) > 0 {
+			cand = clearGateRaiseHeaders(cand)
 			cand.Envelope.DeliveryState = record.Rejected
 			cand.Body = bounce.Format(anySlice(violations)...)
 			return cand, nil, nil
 		}
 		if lineageBounce := (&lineage.Engine{Reg: reg, T: tab}).Check(cand, seat.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator}); lineageBounce != nil {
+			cand = clearGateRaiseHeaders(cand)
 			cand.Envelope.DeliveryState = record.Rejected
 			cand.Body = bounce.Format(lineageBounce)
 			return cand, nil, nil
 		}
 		if violation := validateRecordKind(tab, cand); violation != nil {
+			cand = clearGateRaiseHeaders(cand)
 			cand.Envelope.DeliveryState = record.Rejected
 			cand.Body = bounce.Format(*violation)
 			return cand, nil, nil
@@ -65,6 +68,7 @@ func SubmitHandlerWithRender(st *store.Store, reg *fieldspec.Registry, meta seat
 			if cand.Envelope.DeliveryState == record.Accepted {
 				return cand, store.ConfigChangeIntents(cand), nil
 			}
+			cand = clearGateRaiseHeaders(cand)
 			return cand, nil, nil
 		}
 		if cand.Headers["resolves_gate"] != "" {
@@ -72,6 +76,7 @@ func SubmitHandlerWithRender(st *store.Store, reg *fieldspec.Registry, meta seat
 			if cand.Envelope.DeliveryState == record.Accepted {
 				return cand, store.DefaultProjectionIntents(cand), nil
 			}
+			cand = clearGateRaiseHeaders(cand)
 			return cand, nil, nil
 		}
 		cand.Envelope.DeliveryState = record.Accepted
@@ -88,6 +93,18 @@ func firstSubmitTable(existing []*tables.T) *tables.T {
 		return nil
 	}
 	return existing[0]
+}
+
+func clearGateRaiseHeaders(rec record.Record) record.Record {
+	if rec.Headers == nil {
+		return rec
+	}
+	if pick := rec.Headers["gate_category_pick"]; pick != "" {
+		rec.Headers["gate_category"] = pick
+	}
+	delete(rec.Headers, "gate_category_raised")
+	delete(rec.Headers, "gate_category_pick")
+	return rec
 }
 
 func rejected(cmd intake.Cmd, meta seat.SeatMeta, reason string) record.Record {
