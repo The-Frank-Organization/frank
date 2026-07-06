@@ -80,6 +80,35 @@ func TestS5GateRaiseDoesNotLowerAPick(t *testing.T) {
 	}
 }
 
+func TestS5GateRaiseFullMapRoutingEscalationFromLandedRegistry(t *testing.T) {
+	st, _, meta := s5GateRaiseDeps(t)
+	reg := s5ALandedRegistry(t)
+	assertGateCategorySetComplete(t, reg)
+	rec := s5GateRaiseCandidate()
+	rec.Headers["gate_category"] = "routing"
+
+	committed := s5SubmitAndCommit(t, st, reg, meta, s5AFloorEnv(reg, "routing_escalation"), rec)
+	if committed.Envelope.DeliveryState != record.Accepted {
+		t.Fatalf("state = %s, body=%s", committed.Envelope.DeliveryState, committed.Body)
+	}
+	if committed.Headers["gate_category"] != "routing_escalation" {
+		t.Fatalf("gate_category = %q, want routing_escalation", committed.Headers["gate_category"])
+	}
+	if committed.Headers["gate_category_raised"] != "yes" || committed.Headers["gate_category_pick"] != "routing" {
+		t.Fatalf("raise headers = %+v", committed.Headers)
+	}
+	if err := obligation.CompleteAuto(st); err != nil {
+		t.Fatalf("CompleteAuto: %v", err)
+	}
+	if _, err := st.Read("park-" + committed.Envelope.RelayID); err != nil {
+		t.Fatalf("missing park record: %v", err)
+	}
+	items := s5ReadOutboxItems(t, st.Root)
+	if len(items) != 1 || items[0].SourceRecordRef != committed.Envelope.RelayID || items[0].GateCategory != "routing_escalation" {
+		t.Fatalf("outbox items = %+v", items)
+	}
+}
+
 func TestS5GateRaiseOtherUsesYesByteAndRegistryToken(t *testing.T) {
 	st, reg, meta := s5GateRaiseDeps(t)
 	rec := s5GateRaiseCandidate()
@@ -305,4 +334,30 @@ func committedBoolTokenAllowed(t *testing.T, reg *fieldspec.Registry, value stri
 		}
 	}
 	return false
+}
+
+func assertGateCategorySetComplete(t *testing.T, reg *fieldspec.Registry) {
+	t.Helper()
+	want := map[string]bool{"other": true}
+	for _, token := range reg.NamedEnums["gate_category_A"] {
+		want[token] = true
+	}
+	for _, token := range reg.NamedEnums["gate_category_B"] {
+		want[token] = true
+	}
+	got := map[string]bool{}
+	for _, token := range reg.NamedEnums["gate_category"] {
+		got[token] = true
+		if !want[token] {
+			t.Fatalf("gate_category token %q is outside A/B/other", token)
+		}
+	}
+	for token := range want {
+		if !got[token] {
+			t.Fatalf("gate_category missing A/B/other token %q", token)
+		}
+	}
+	if !got["routing_escalation"] || !want["routing_escalation"] {
+		t.Fatalf("routing_escalation missing from landed gate_category maps")
+	}
 }
