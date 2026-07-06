@@ -84,6 +84,16 @@ func TestF11CrashMatrixDrivesRealMutationsAndRecovery(t *testing.T) {
 		{name: "submit-accept-post-rename", mutation: "submit-accept", crashpoint: "post_rename"},
 		{name: "submit-accept-delivery", mutation: "submit-accept", crashpoint: "pre_delivery_write"},
 		{name: "submit-reject-pre-rename", mutation: "submit-reject", crashpoint: "pre_rename"},
+		{name: "config-change-pre-record-pivot", mutation: "config-change", crashpoint: "pre_rename"},
+		{name: "config-change-post-record-pivot", mutation: "config-change", crashpoint: "post_rename"},
+		{name: "config-change-pre-materialize", mutation: "config-change", crashpoint: "pre_projection_write"},
+		{name: "config-change-post-materialize-index", mutation: "config-change", crashpoint: "post_projection_write"},
+		{name: "config-change-pre-member-fsync", mutation: "config-change", crashpoint: "pre_record_fsync:2"},
+		{name: "config-change-post-member-fsync", mutation: "config-change", crashpoint: "post_record_fsync:2"},
+		{name: "config-change-pre-member-rename", mutation: "config-change", crashpoint: "pre_rename:2"},
+		{name: "config-change-post-member-rename", mutation: "config-change", crashpoint: "post_rename:2"},
+		{name: "config-change-pre-member-dir-fsync", mutation: "config-change", crashpoint: "pre_dir_fsync:2"},
+		{name: "config-change-post-member-dir-fsync", mutation: "config-change", crashpoint: "post_dir_fsync:2"},
 		{name: "held-pre-rename", mutation: "held", crashpoint: "pre_rename"},
 		{name: "operator-verdict-pre-rename", mutation: "operator-verdict", crashpoint: "pre_rename"},
 		{name: "outbox-enqueue-pre-projection", mutation: "outbox-enqueue", crashpoint: "pre_projection_write"},
@@ -304,6 +314,7 @@ func f11Classes() []string {
 	return []string{
 		"submit-accept",
 		"submit-reject",
+		"config-change",
 		"held",
 		"operator-verdict",
 		"park",
@@ -434,6 +445,27 @@ func runF11Mutation(root, mutation string) error {
 		}
 		_, err := st.Commit(rec, nil)
 		return err
+	case "config-change":
+		reg, err := fieldspec.Load(filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
+		if err != nil {
+			return err
+		}
+		meta := seat.SeatMeta{Name: "operator", Role: "operator", IsOperator: true}
+		handler := engine.SubmitHandler(st, reg, meta)
+		cand, err := f11ConfigChangeRecord(root)
+		if err != nil {
+			return err
+		}
+		payload, _ := json.Marshal(submitPayloadForRegistry(reg, meta, cand))
+		rec, intents, err := handler(context.Background(), intake.Cmd{IntakeID: "config-change-intake", Seat: "operator", Role: "operator", IsOperator: true, Payload: payload})
+		if err != nil {
+			return err
+		}
+		if rec.Envelope.DeliveryState != record.Accepted {
+			return errors.New("config-change rejected: " + rec.Body)
+		}
+		_, err = st.Commit(rec, intents)
+		return err
 	case "held":
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
@@ -539,6 +571,62 @@ func runF11Mutation(root, mutation string) error {
 	}
 }
 
+const f11ConfigChangeMarker = "f11-config-change"
+
+func f11ConfigChangeRecord(root string) (record.Record, error) {
+	body, err := f11MutatedRegistryBody(root)
+	if err != nil {
+		return record.Record{}, err
+	}
+	digest, err := f11DigestWithMember(root, "fieldspec", body)
+	if err != nil {
+		return record.Record{}, err
+	}
+	return record.Record{
+		Headers: map[string]string{
+			"PHASE":         "SITREP",
+			"AUTHORITY":     "report-only",
+			"CEREMONY_TIER": "medium",
+			"SUBJECT":       "F11 registry config_change",
+			"record_kind":   "config_change",
+			"member":        "fieldspec",
+			"new_digest":    digest,
+		},
+		Body: string(body),
+	}, nil
+}
+
+func f11MutatedRegistryBody(root string) ([]byte, error) {
+	data, err := os.ReadFile(filepath.Join(root, "config", "fieldspec", "registry.json"))
+	if err != nil {
+		return nil, err
+	}
+	var doc map[string]any
+	if err := json.Unmarshal(data, &doc); err != nil {
+		return nil, err
+	}
+	provenance, ok := doc["provenance"].(map[string]any)
+	if !ok {
+		provenance = map[string]any{}
+		doc["provenance"] = provenance
+	}
+	provenance["s4_test_marker"] = f11ConfigChangeMarker
+	return json.Marshal(doc)
+}
+
+func f11DigestWithMember(root, member string, body []byte) (string, error) {
+	pinned, err := config.Load(store.StoreRootConfigPaths(root))
+	if err != nil {
+		return "", err
+	}
+	members := make(map[string][]byte, len(pinned.Members))
+	for name, data := range pinned.Members {
+		members[name] = append([]byte(nil), data...)
+	}
+	members[member] = append([]byte(nil), body...)
+	return config.Digest(members), nil
+}
+
 func commitOwedMutation(st *store.Store, kind, parent string) error {
 	reg, err := fieldspec.Load(filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
 	if err != nil {
@@ -619,8 +707,44 @@ func assertF11Converged(t *testing.T, root, mutation string) {
 			t.Fatalf("GC convergence pass: %v", err)
 		}
 	}
-	if _, err := st.Records(); err != nil {
+	records, err := st.Records()
+	if err != nil {
 		t.Fatalf("Records did not verify after %s: %v", mutation, err)
+	}
+	if mutation == "config-change" {
+		assertF11ConfigChangeConverged(t, root, records)
+	}
+}
+
+func assertF11ConfigChangeConverged(t *testing.T, root string, records []record.Record) {
+	t.Helper()
+	body, err := os.ReadFile(filepath.Join(root, "config", "fieldspec", "registry.json"))
+	if err != nil {
+		t.Fatalf("read materialized registry: %v", err)
+	}
+	var cfg record.Record
+	var found bool
+	for _, rec := range records {
+		if rec.Headers["record_kind"] == "config_change" && rec.Envelope.DeliveryState == record.Accepted {
+			cfg = rec
+			found = true
+		}
+	}
+	if !found {
+		if strings.Contains(string(body), f11ConfigChangeMarker) {
+			t.Fatalf("config_change marker materialized without an accepted config_change record")
+		}
+		return
+	}
+	if string(body) != cfg.Body {
+		t.Fatalf("materialized config does not match config_change record body")
+	}
+	pinned, err := config.Load(store.StoreRootConfigPaths(root))
+	if err != nil {
+		t.Fatalf("load materialized config: %v", err)
+	}
+	if pinned.Digest != cfg.Headers["new_digest"] {
+		t.Fatalf("materialized digest = %s, want %s", pinned.Digest, cfg.Headers["new_digest"])
 	}
 }
 
@@ -643,7 +767,7 @@ func assertAtMostOneCanonicalRename(t *testing.T, counter, mutation string) {
 
 func mutationHasSingleCanonicalRecord(mutation string) bool {
 	switch mutation {
-	case "submit-accept", "submit-reject", "held", "operator-verdict", "outbox-enqueue", "owed-item", "owed-disposition":
+	case "submit-accept", "submit-reject", "config-change", "held", "operator-verdict", "outbox-enqueue", "owed-item", "owed-disposition":
 		return true
 	default:
 		return false

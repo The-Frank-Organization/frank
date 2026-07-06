@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jackli/frank/internal/bounce"
+	frankconfig "github.com/jackli/frank/internal/config"
 	"github.com/jackli/frank/internal/fieldspec"
 	"github.com/jackli/frank/internal/intake"
 	"github.com/jackli/frank/internal/lineage"
@@ -57,6 +58,13 @@ func SubmitHandlerWithRender(st *store.Store, reg *fieldspec.Registry, meta seat
 		if violation := validateRecordKind(tab, cand); violation != nil {
 			cand.Envelope.DeliveryState = record.Rejected
 			cand.Body = bounce.Format(*violation)
+			return cand, nil, nil
+		}
+		if cand.Headers["record_kind"] == "config_change" {
+			cand = classifyConfigChange(st, cand, meta)
+			if cand.Envelope.DeliveryState == record.Accepted {
+				return cand, store.ConfigChangeIntents(cand), nil
+			}
 			return cand, nil, nil
 		}
 		if cand.Headers["resolves_gate"] != "" {
@@ -142,6 +150,8 @@ func validateRecordKind(t *tables.T, cand record.Record) *fieldspec.Violation {
 			return &fieldspec.Violation{Field: "disposes_owed", Class: lineage.ParentUnknownRecompose, Reason: "owed item unknown"}
 		}
 		return nil
+	case "config_change":
+		return nil
 	default:
 		return &fieldspec.Violation{Field: "record_kind", Class: "unknown", Reason: "unknown record_kind"}
 	}
@@ -149,6 +159,49 @@ func validateRecordKind(t *tables.T, cand record.Record) *fieldspec.Violation {
 
 func isOwedKind(rec record.Record) bool {
 	return rec.Headers["record_kind"] == "owed_item" || rec.Headers["record_kind"] == "owed_disposition"
+}
+
+func classifyConfigChange(st *store.Store, cand record.Record, meta seat.SeatMeta) record.Record {
+	reject := func(field, class, reason string) record.Record {
+		cand.Envelope.DeliveryState = record.Rejected
+		cand.Body = bounce.Format(fieldspec.Violation{Field: field, Class: class, Reason: reason})
+		return cand
+	}
+	if !(meta.IsOperator || meta.Name == "operator" || meta.Role == "operator") {
+		return reject("record_kind", "seat-scope", "config_change requires operator")
+	}
+	member := cand.Headers["member"]
+	if member != "fieldspec" && member != "engine" {
+		return reject("member", "enum", "member must be fieldspec or engine")
+	}
+	if cand.Headers["new_digest"] == "" {
+		return reject("new_digest", "required", "new_digest required")
+	}
+	digest, err := configDigestWithMember(st, member, []byte(cand.Body))
+	if err != nil {
+		return reject("new_digest", "config-read-error", "could not recompute config digest")
+	}
+	if cand.Headers["new_digest"] != digest {
+		return reject("new_digest", "digest-mismatch", "new_digest does not match recomputed config digest")
+	}
+	cand.Envelope.DeliveryState = record.Accepted
+	return cand
+}
+
+func configDigestWithMember(st *store.Store, member string, body []byte) (string, error) {
+	if st == nil {
+		return "", fmt.Errorf("store required")
+	}
+	pinned, err := frankconfig.Load(store.StoreRootConfigPaths(st.Root))
+	if err != nil {
+		return "", err
+	}
+	members := make(map[string][]byte, len(pinned.Members))
+	for name, data := range pinned.Members {
+		members[name] = append([]byte(nil), data...)
+	}
+	members[member] = append([]byte(nil), body...)
+	return frankconfig.Digest(members), nil
 }
 
 func owedProjectionIntentsFromTable(t *tables.T, cand record.Record) []store.Intent {

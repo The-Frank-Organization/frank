@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/jackli/frank/internal/fieldspec"
+	"github.com/jackli/frank/internal/record"
 )
 
 func TestRegistryV2MemberParsesAndExposesLockedEnums(t *testing.T) {
@@ -75,6 +76,75 @@ func TestRegistryV2MemberContainsGrillRows(t *testing.T) {
 	if len(grillLock.RequiredWhen.Raw) == 0 {
 		t.Fatalf("GRILL_LOCK_ID missing required_when")
 	}
+}
+
+func TestRegistryV2MemberContainsOwedRecordRows(t *testing.T) {
+	reg := loadRegistry(t)
+
+	for _, id := range []string{"owner", "source", "target_surface", "disposition_path"} {
+		field, ok := reg.ByID(id)
+		if !ok {
+			t.Fatalf("missing %s row", id)
+		}
+		if field.Layer != "header" ||
+			field.Owner != "free_text" ||
+			field.Type != "text" ||
+			field.FillConstraints != "free_text" ||
+			field.LineageRole != "none" ||
+			field.GateReferenceable {
+			t.Fatalf("%s row = %+v", id, field)
+		}
+		assertRecordKindRequiredWhen(t, field, "owed_item")
+	}
+
+	field, ok := reg.ByID("disposes_owed")
+	if !ok {
+		t.Fatalf("missing disposes_owed row")
+	}
+	if field.Layer != "header" ||
+		field.Owner != "free_text" ||
+		field.Type != "id_ref" ||
+		field.FillConstraints != "free_text" ||
+		field.LineageRole != "none" ||
+		field.GateReferenceable {
+		t.Fatalf("disposes_owed row = %+v", field)
+	}
+	assertRecordKindRequiredWhen(t, field, "owed_disposition")
+}
+
+func TestOwedRecordRequiredWhenPredicatesValidate(t *testing.T) {
+	reg := loadRegistry(t)
+	meta := fieldspec.SeatMeta{Name: "operator", Role: "operator", IsOperator: true}
+	base := map[string]string{
+		"PHASE":         "SITREP",
+		"AUTHORITY":     "report-only",
+		"CEREMONY_TIER": "medium",
+		"SUBJECT":       "owed predicates",
+	}
+	validate := func(headers map[string]string) []fieldspec.Violation {
+		for key, value := range base {
+			if _, ok := headers[key]; !ok {
+				headers[key] = value
+			}
+		}
+		_, digest := reg.Render(fieldspec.RenderEnv{}, meta, headers["PHASE"], headers["CEREMONY_TIER"], fieldspec.ClosedGrantState)
+		return reg.Validate(record.Record{Headers: headers}, meta, digest, fieldspec.RenderEnv{}, fieldspec.ClosedGrantState)
+	}
+
+	for _, missing := range []string{"owner", "source", "target_surface", "disposition_path"} {
+		headers := map[string]string{
+			"record_kind":      "owed_item",
+			"owner":            "s4",
+			"source":           "gate",
+			"target_surface":   "form",
+			"disposition_path": "fold",
+		}
+		delete(headers, missing)
+		assertViolation(t, validate(headers), missing, "required")
+	}
+
+	assertViolation(t, validate(map[string]string{"record_kind": "owed_disposition"}), "disposes_owed", "required")
+	assertNoFieldViolations(t, validate(map[string]string{}), "owner", "source", "target_surface", "disposition_path", "disposes_owed")
 }
 
 func TestRegistryLoadRejectsBadPredicateReferences(t *testing.T) {
@@ -152,6 +222,32 @@ func TestRegistryLoadRejectsInvalidRows(t *testing.T) {
 		}))
 		assertLoadReject(t, path, "TRIGGER", "enum_set")
 	})
+}
+
+func assertRecordKindRequiredWhen(t *testing.T, field *fieldspec.FieldSpec, want string) {
+	t.Helper()
+	var pred struct {
+		AllOf []struct {
+			RecordKindIn []string `json:"record_kind_in"`
+		} `json:"all_of"`
+	}
+	if err := json.Unmarshal(field.RequiredWhen.Raw, &pred); err != nil {
+		t.Fatalf("%s required_when decode %s: %v", field.ID, field.RequiredWhen.Raw, err)
+	}
+	if len(pred.AllOf) != 1 || len(pred.AllOf[0].RecordKindIn) != 1 || pred.AllOf[0].RecordKindIn[0] != want {
+		t.Fatalf("%s required_when = %s, want record_kind_in %s", field.ID, field.RequiredWhen.Raw, want)
+	}
+}
+
+func assertNoFieldViolations(t *testing.T, violations []fieldspec.Violation, fields ...string) {
+	t.Helper()
+	for _, violation := range violations {
+		for _, field := range fields {
+			if violation.Field == field {
+				t.Fatalf("unexpected %s violation in %+v", field, violations)
+			}
+		}
+	}
 }
 
 func assertTokens(t *testing.T, got, want []string) {

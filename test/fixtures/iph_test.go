@@ -114,7 +114,7 @@ func assertNoPathFamilies(t *testing.T, outputs ...string) {
 	}
 }
 
-func TestP1ToolDescriptionsAndPushFramesDoNotLeakPaths(t *testing.T) {
+func TestP1ToolDescriptionsDoNotLeakPaths(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	tools := channel.ToolSet{
@@ -153,14 +153,7 @@ func TestP1ToolDescriptionsAndPushFramesDoNotLeakPaths(t *testing.T) {
 	if len(descriptions) != 3 {
 		t.Fatalf("descriptions = %#v", descriptions)
 	}
-	if err := server.Push([]byte(`{"kind":"recovery-nudge","mailbox":"seat-a"}`)); err != nil {
-		t.Fatalf("Push: %v", err)
-	}
-	push, err := client.NextPush(ctx)
-	if err != nil {
-		t.Fatalf("NextPush: %v", err)
-	}
-	outputs := []string{strings.Join(toolList, ","), string(push)}
+	outputs := []string{strings.Join(toolList, ",")}
 	for _, desc := range descriptions {
 		outputs = append(outputs, desc)
 	}

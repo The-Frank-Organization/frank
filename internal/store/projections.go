@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/jackli/frank/internal/crashpoint"
+	"github.com/jackli/frank/internal/fieldspec"
 	"github.com/jackli/frank/internal/fsio"
 	"github.com/jackli/frank/internal/record"
 )
@@ -78,6 +79,12 @@ func (s *Store) applyIntents(intents []Intent) error {
 				return err
 			}
 			crashpoint.Hit("post_projection_write")
+		case IntentConfig:
+			crashpoint.Hit("pre_projection_write")
+			if err := fsio.WriteFileAtomic(s.Root, intent.Path, intent.Payload); err != nil {
+				return err
+			}
+			crashpoint.Hit("post_projection_write")
 		}
 	}
 	return nil
@@ -106,13 +113,63 @@ func DefaultProjectionIntents(rec record.Record) []Intent {
 		{Kind: IntentIndex, Path: "INDEX.md", Payload: []byte(fmt.Sprintf("| %s | %s | %s | %s | %s |\n", relayID, rec.Headers["PHASE"], rec.Envelope.From, rec.Envelope.To, rec.Envelope.DeliveryState))},
 		{Kind: IntentRender, Path: renderPath, Payload: render},
 	}
-	if rec.Envelope.To != "" {
-		intents = append(intents, Intent{Kind: IntentMailbox, Path: safeMailbox(rec.Envelope.To) + ".jsonl", Payload: []byte(relayID + "\n")})
+	for _, recipient := range DeliveryRecipients(rec) {
+		intents = append(intents, Intent{Kind: IntentMailbox, Path: safeMailbox(recipient) + ".jsonl", Payload: []byte(relayID + "\n")})
 	}
 	return intents
 }
 
+func DeliveryRecipients(rec record.Record) []string {
+	seen := map[string]bool{}
+	var recipients []string
+	add := func(value string) {
+		value = strings.TrimSpace(value)
+		if value == "" || seen[value] {
+			return
+		}
+		seen[value] = true
+		recipients = append(recipients, value)
+	}
+	add(rec.Envelope.To)
+	headerRecipients, ok := addressListHeaders(rec)
+	if !ok {
+		return recipients
+	}
+	for _, value := range headerRecipients {
+		add(value)
+	}
+	return recipients
+}
+
+func addressListHeaders(rec record.Record) ([]string, bool) {
+	var recipients []string
+	for _, header := range []string{"TO", "CC"} {
+		values, ok := addressList(header, rec.Headers[header])
+		if !ok {
+			return nil, false
+		}
+		recipients = append(recipients, values...)
+	}
+	return recipients, true
+}
+
+func addressList(header, raw string) ([]string, bool) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, true
+	}
+	value, err := fieldspec.ParseTyped(&fieldspec.FieldSpec{ID: header, Type: "address_list"}, raw)
+	if err != nil {
+		return nil, false
+	}
+	values, ok := value.([]string)
+	return values, ok
+}
+
 func canonicalProjectionIntents(rec record.Record) []Intent {
+	if rec.Headers["record_kind"] == "config_change" {
+		return ConfigChangeIntents(rec)
+	}
 	intents := DefaultProjectionIntents(rec)
 	if rec.Body == "" {
 		return intents

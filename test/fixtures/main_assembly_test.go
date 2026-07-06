@@ -59,7 +59,11 @@ func TestFrankBinaryAssemblesAuthenticatedSubmitProjectRead(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DialAuthenticated stderr=%s: %v", stderr.String(), err)
 	}
-	defer func() { _ = client.Close() }()
+	defer func() {
+		if client != nil {
+			_ = client.Close()
+		}
+	}()
 
 	describe, err := client.DescribeTools(ctx, channel.DescribeRequest{Phase: "SITREP", Tier: "medium"})
 	if err != nil {
@@ -122,11 +126,11 @@ func TestFrankBinaryAssemblesAuthenticatedSubmitProjectRead(t *testing.T) {
 	if err := os.WriteFile(payloadFile, payload, 0o644); err != nil {
 		t.Fatalf("write operator payload: %v", err)
 	}
-	operator := exec.CommandContext(ctx, bin, "-socket", sock, "-operator-submit", payloadFile, "-credential", cred.Value)
-	operatorOut, err := operator.CombinedOutput()
-	if err != nil {
-		t.Fatalf("operator-submit failed: %v\n%s", err, operatorOut)
+	if err := client.Close(); err != nil {
+		t.Fatalf("close authenticated client before operator-submit: %v", err)
 	}
+	client = nil
+	operatorOut := runOperatorSubmit(t, ctx, bin, sock, payloadFile, cred.Value)
 	var operatorOutcome struct {
 		State   string `json:"state"`
 		RelayID string `json:"relay_id"`
@@ -387,6 +391,27 @@ func TestFrankInitTwiceRejectsExistingGenesis(t *testing.T) {
 	}
 	if !strings.Contains(string(out), "genesis") {
 		t.Fatalf("second init output = %s, want genesis error", out)
+	}
+}
+
+func TestFrankBinarySocketPathPreflight(t *testing.T) {
+	root := t.TempDir()
+	initFixtureStore(t, root)
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	bin := buildFrank(t, ctx)
+	longSock := filepath.Join(os.TempDir(), strings.Repeat("s", 120)+".sock")
+	cmd := exec.CommandContext(ctx, bin, "-root", root, "-socket", longSock, "-registry", filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("frank unexpectedly started with long socket path")
+	}
+	text := string(out)
+	if !strings.Contains(text, "socket path too long") || !strings.Contains(text, "darwin") {
+		t.Fatalf("socket preflight output = %s, want typed darwin length error", text)
+	}
+	if strings.Contains(text, "bind: invalid argument") {
+		t.Fatalf("socket preflight leaked raw bind error: %s", text)
 	}
 }
 
@@ -683,6 +708,22 @@ func startFrank(t *testing.T, ctx context.Context, bin, root, sock string) (*exe
 		t.Fatalf("start frank: %v", err)
 	}
 	return cmd, &stderr
+}
+
+func runOperatorSubmit(t *testing.T, ctx context.Context, bin, sock, payloadFile, credential string) []byte {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		operator := exec.CommandContext(ctx, bin, "-socket", sock, "-operator-submit", payloadFile, "-credential", credential)
+		out, err := operator.CombinedOutput()
+		if err == nil {
+			return out
+		}
+		if !bytes.Contains(out, []byte("auth:channel-active")) || time.Now().After(deadline) {
+			t.Fatalf("operator-submit failed: %v\n%s", err, out)
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
 }
 
 type liveSubmitOutcome struct {

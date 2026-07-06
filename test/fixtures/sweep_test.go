@@ -19,7 +19,7 @@ func TestSweepReadmeClaimHonesty(t *testing.T) {
 		"D5 residual",
 		"pair-Planner grant rendering lands in S3",
 		"the S3 registry rides `store.Init`",
-		"registry evolution on an existing store awaits the §7 config-change record",
+		"registry/config evolution on an existing store is live through the operator-authorized §7 record, effective at restart",
 	} {
 		if !strings.Contains(readme, want) {
 			t.Fatalf("README missing honesty phrase %q", want)

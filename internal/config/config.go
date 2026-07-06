@@ -24,6 +24,14 @@ type Pinned struct {
 type EngineConfig struct {
 	GCEnabled          bool  `json:"gc_enabled"`
 	SegmentRotateBytes int64 `json:"segment_rotate_bytes"`
+	MaxFrameBytes      int   `json:"max_frame_bytes,omitempty"`
+}
+
+func (c EngineConfig) FrameBytes() int {
+	if c.MaxFrameBytes > 0 {
+		return c.MaxFrameBytes
+	}
+	return 1 << 20
 }
 
 func Load(members map[string]string) (*Pinned, error) {
