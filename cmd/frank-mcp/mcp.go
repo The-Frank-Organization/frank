@@ -340,8 +340,10 @@ func mcpTools(submitSchema map[string]any) []mcpTool {
 			Name:        "project",
 			Description: "Lists visible governance relay IDs (" + honesty + ").",
 			InputSchema: map[string]any{
-				"type":                 "object",
-				"properties":           map[string]any{},
+				"type": "object",
+				"properties": map[string]any{
+					"view": map[string]any{"type": "string", "enum": []string{"default", "audit", "roster"}},
+				},
 				"additionalProperties": false,
 			},
 		},
