@@ -111,12 +111,71 @@ func TestRenderV2ParentCandidatesDigestExempt(t *testing.T) {
 	}
 	parentA := formA.Fields["PARENT_DISPATCH_ID"]
 	parentB := formB.Fields["PARENT_DISPATCH_ID"]
-	if !parentA.DigestExempt || !parentB.DigestExempt {
+	if !parentA.DigestExempt || !parentB.DigestExempt || !parentA.ConductorVolatile || !parentB.ConductorVolatile {
 		t.Fatalf("parent picker not marked digest-exempt: %#v %#v", parentA, parentB)
 	}
 	if slices.Equal(parentA.Options, parentB.Options) || parentA.Default == parentB.Default {
 		t.Fatalf("parent candidate contents did not render distinctly: %#v %#v", parentA, parentB)
 	}
+}
+
+func TestRenderStableDigestIgnoresConductorVolatileClasses(t *testing.T) {
+	reg := loadRegistry(t)
+	seat := fieldspec.SeatMeta{Name: "s3-form.planner", Role: "planner"}
+	baseEnv := fieldspec.RenderEnv{
+		ConfigDigest: "cfg-1",
+		ParentCandidates: func(fieldspec.SeatMeta) ([]string, string) {
+			return []string{"parent-a"}, "parent-a"
+		},
+		RecipientCandidates: func(fieldspec.SeatMeta) []string {
+			return []string{"seat-a", "seat-b"}
+		},
+	}
+	volatileEnv := fieldspec.RenderEnv{
+		ConfigDigest: "cfg-1",
+		ParentCandidates: func(fieldspec.SeatMeta) ([]string, string) {
+			return []string{"parent-c", "parent-d"}, "parent-c"
+		},
+		RecipientCandidates: func(fieldspec.SeatMeta) []string {
+			return []string{"seat-c"}
+		},
+		MonotonicFloors: map[string]string{"HUMAN_GATE_REQUIRED": "yes", "GRILL_REQUIRED": "yes"},
+	}
+
+	closedForm, closedDigest := reg.Render(baseEnv, seat, "IMPL", "medium", fieldspec.ClosedGrantState)
+	openForm, openDigest := reg.Render(volatileEnv, seat, "IMPL", "medium", func(fieldspec.SeatMeta) bool { return true })
+	if closedDigest != openDigest {
+		t.Fatalf("volatile options changed digest: %s vs %s", closedDigest, openDigest)
+	}
+	if closedForm.HasField("grant") {
+		t.Fatalf("grant rendered before grant state opened")
+	}
+	grant := openForm.Fields["grant"]
+	if !grant.ConductorVolatile || !grant.DigestExempt || len(grant.Options) == 0 {
+		t.Fatalf("open grant field = %#v, want volatile options in rendered form", grant)
+	}
+	for _, id := range []string{"PARENT_DISPATCH_ID", "TO", "CC", "HUMAN_GATE_REQUIRED", "GRILL_REQUIRED"} {
+		field, ok := openForm.Fields[id]
+		if !ok {
+			t.Fatalf("open form missing %s", id)
+		}
+		if !field.ConductorVolatile || !field.DigestExempt {
+			t.Fatalf("%s field = %#v, want conductor volatile digest-exempt", id, field)
+		}
+	}
+	if slices.Equal(closedForm.Fields["PARENT_DISPATCH_ID"].Options, openForm.Fields["PARENT_DISPATCH_ID"].Options) ||
+		slices.Equal(closedForm.Fields["TO"].Options, openForm.Fields["TO"].Options) ||
+		slices.Equal(closedForm.Fields["HUMAN_GATE_REQUIRED"].Options, openForm.Fields["HUMAN_GATE_REQUIRED"].Options) {
+		t.Fatalf("volatile rendered options did not differ: closed=%#v open=%#v", closedForm.Fields, openForm.Fields)
+	}
+
+	_, byConfig := reg.Render(fieldspec.RenderEnv{ConfigDigest: "cfg-2"}, seat, "IMPL", "medium", fieldspec.ClosedGrantState)
+	assertDigestChanged(t, closedDigest, byConfig, "config digest")
+	changed := loadRegistry(t)
+	changed.NamedEnums["PHASE"] = append(append([]string(nil), changed.NamedEnums["PHASE"]...), "EXTRA")
+	changed.Phase = append([]string(nil), changed.NamedEnums["PHASE"]...)
+	_, byStaticEnum := changed.Render(baseEnv, seat, "IMPL", "medium", fieldspec.ClosedGrantState)
+	assertDigestChanged(t, closedDigest, byStaticEnum, "static enum shape")
 }
 
 func assertDigestChanged(t *testing.T, before, after, dimension string) {
