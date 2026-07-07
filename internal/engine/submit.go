@@ -45,7 +45,7 @@ func SubmitHandlerWithRender(st *store.Store, reg *fieldspec.Registry, meta seat
 				return cand, nil, nil
 			}
 		}
-		if env.PreActive || looksLikeBoot(cand) {
+		if env.PreActive {
 			if rec, intents, handled, err := classifyBootAdmission(reg, cand, meta, formDigest, env); handled {
 				return rec, intents, err
 			}
@@ -104,10 +104,6 @@ func SubmitHandlerWithRender(st *store.Store, reg *fieldspec.Registry, meta seat
 		}
 		return cand, intents, nil
 	}
-}
-
-func looksLikeBoot(cand record.Record) bool {
-	return cand.Headers["charter_loaded"] != "" || cand.Headers["dispatch_status"] != ""
 }
 
 func classifyBootAdmission(reg *fieldspec.Registry, cand record.Record, meta seat.SeatMeta, formDigest string, env fieldspec.RenderEnv) (record.Record, []store.Intent, bool, error) {

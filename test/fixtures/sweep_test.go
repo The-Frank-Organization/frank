@@ -6,12 +6,15 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/jackli/frank/internal/channel"
+	"github.com/jackli/frank/internal/fieldspec"
+	"github.com/jackli/frank/internal/record"
+	"github.com/jackli/frank/internal/seat"
+	"github.com/jackli/frank/internal/store"
 )
 
 func TestSweepReadmeClaimHonesty(t *testing.T) {
@@ -71,19 +74,26 @@ func TestS3SweepMainThreadsActiveLineageTurnContext(t *testing.T) {
 }
 
 func TestS6SweepEnumFloorAndThreeVerbSurface(t *testing.T) {
-	outputs := []string{
-		`{"state":"accepted"}`,
-		`{"state":"rejected","detail":"PHASE:enum"}`,
-		`{"state":"held","reason":"system:internal-fault"}`,
-		`{"error_class":"root-lock-held"}`,
-		`{"error":"roster:seat-scope"}`,
+	reg, err := fieldspec.Load(filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
+	if err != nil {
+		t.Fatalf("load registry: %v", err)
 	}
-	for _, output := range outputs {
-		for _, forbidden := range []string{"bounced", "submitted"} {
-			if strings.Contains(output, forbidden) {
-				t.Fatalf("output contains forbidden enum token %q: %s", forbidden, output)
-			}
-		}
+	registryEnums, err := json.Marshal(reg.NamedEnums)
+	if err != nil {
+		t.Fatalf("marshal registry enums: %v", err)
+	}
+	sources := map[string][]byte{
+		"record-delivery-state-consts": []byte(strings.Join([]string{record.Accepted, record.Rejected, record.Held}, "\n")),
+		"registry-named-enums":         registryEnums,
+	}
+	for name, data := range s6RealSerializedOutcomeCorpus(t) {
+		sources[name] = data
+	}
+	if leaks := forbiddenEnumLeaks(sources); len(leaks) > 0 {
+		t.Fatalf("forbidden enum tokens leaked from real surfaces: %v", leaks)
+	}
+	if leaks := forbiddenEnumLeaks(map[string][]byte{"plant": []byte(`{"state":"bounced"}`)}); len(leaks) == 0 {
+		t.Fatalf("forbidden enum scanner did not bite on planted leak")
 	}
 
 	tools := channel.ToolSet{
@@ -107,26 +117,98 @@ func TestS6SweepEnumFloorAndThreeVerbSurface(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListTools: %v", err)
 	}
-	if !reflect.DeepEqual(got, []string{"submit", "project", "read"}) {
+	if strings.Join(got, ",") != "submit,project,read" {
 		t.Fatalf("tool names = %v", got)
 	}
 }
 
 func TestS6SweepProjectParamsCarryAuditAndRosterWithoutNewVerb(t *testing.T) {
-	described := []string{"submit", "project", "read"}
-	if !reflect.DeepEqual(described, []string{"submit", "project", "read"}) {
-		t.Fatalf("tool names = %v", described)
+	root := t.TempDir()
+	initFixtureStore(t, root)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	bin := buildFrank(t, ctx)
+	mgr, err := seat.Open(root)
+	if err != nil {
+		t.Fatalf("Open seats: %v", err)
 	}
-	projectPayloads := []map[string]string{{"view": "audit"}, {"view": "roster"}}
-	for _, payload := range projectPayloads {
-		data, err := json.Marshal(payload)
+	operatorCred, err := mgr.Mint("operator", "operator", true)
+	if err != nil {
+		t.Fatalf("Mint operator: %v", err)
+	}
+	sock := filepath.Join(os.TempDir(), "frank-s6-sweep-project-"+filepath.Base(root)+".sock")
+	t.Cleanup(func() { _ = os.Remove(sock) })
+	cmd, stderr := startFrank(t, ctx, bin, root, sock)
+	t.Cleanup(func() {
+		cancel()
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+		_ = cmd.Wait()
+	})
+	waitForSocket(t, sock)
+	operator, err := channel.DialAuthenticated(ctx, sock, operatorCred.Value)
+	if err != nil {
+		t.Fatalf("operator dial stderr=%s: %v", stderr.String(), err)
+	}
+	defer func() { _ = operator.Close() }()
+
+	describe, err := operator.DescribeTools(ctx, channel.DescribeRequest{Phase: "SITREP", Tier: "medium"})
+	if err != nil {
+		t.Fatalf("DescribeTools: %v", err)
+	}
+	if strings.Join(describe.Tools, ",") != "submit,project,read" {
+		t.Fatalf("tool names = %v", describe.Tools)
+	}
+	for _, view := range []string{"audit", "roster"} {
+		result, err := operator.Call(ctx, "project", mustJSONBytes(t, map[string]string{"view": view}))
 		if err != nil {
-			t.Fatalf("marshal project payload: %v", err)
+			t.Fatalf("project %s: %v", view, err)
 		}
-		if !strings.Contains(string(data), "view") {
-			t.Fatalf("project payload lost view parameter: %s", data)
+		var decoded any
+		if err := json.Unmarshal(result, &decoded); err != nil {
+			t.Fatalf("project %s returned non-json %s: %v", view, result, err)
 		}
 	}
+}
+
+func s6RealSerializedOutcomeCorpus(t *testing.T) map[string][]byte {
+	t.Helper()
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("Open store: %v", err)
+	}
+	for _, rec := range []record.Record{
+		{Envelope: record.Envelope{RelayID: "accepted-outcome", From: "seat-a", Role: "implementer", DeliveryState: record.Accepted, SchemaVersion: 1}, Headers: map[string]string{"PHASE": "SITREP", "SUBJECT": "accepted"}},
+		{Envelope: record.Envelope{RelayID: "rejected-outcome", From: "system", Role: "system", DeliveryState: record.Rejected, SchemaVersion: 1}, Headers: map[string]string{"PHASE": "SITREP", "SUBJECT": "rejected"}, Body: "PHASE:enum"},
+		{Envelope: record.Envelope{RelayID: "held-outcome", From: "system", Role: "system", DeliveryState: record.Held, SchemaVersion: 1}, Headers: map[string]string{"PHASE": "SITREP", "SUBJECT": "held"}, Body: "system:internal-fault"},
+	} {
+		if _, err := st.Commit(rec, nil); err != nil {
+			t.Fatalf("Commit %s: %v", rec.Envelope.RelayID, err)
+		}
+	}
+	out := map[string][]byte{}
+	for _, relayID := range []string{"accepted-outcome", "rejected-outcome", "held-outcome"} {
+		data, err := os.ReadFile(filepath.Join(st.Root, "records", relayID+".json"))
+		if err != nil {
+			t.Fatalf("read serialized outcome %s: %v", relayID, err)
+		}
+		out["serialized-"+relayID] = data
+	}
+	return out
+}
+
+func forbiddenEnumLeaks(sources map[string][]byte) []string {
+	var leaks []string
+	for name, data := range sources {
+		text := string(data)
+		for _, forbidden := range []string{"bounced", "submitted"} {
+			if strings.Contains(text, forbidden) {
+				leaks = append(leaks, name+":"+forbidden)
+			}
+		}
+	}
+	return leaks
 }
 
 func hasExclusivityClaim(text string) bool {

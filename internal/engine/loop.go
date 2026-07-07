@@ -190,6 +190,9 @@ func (l *Loop) supersededCredentialOutcome(cmd intake.Cmd) (Outcome, bool) {
 		return Outcome{}, false
 	}
 	rec := CredentialSupersededRecord(cmd)
+	if existing, ok := l.existingOutcome(rec.Envelope.IntakeID); ok {
+		return outcomeFromRecord(existing), true
+	}
 	relayID, err := l.Store.Commit(rec, nil)
 	if err != nil {
 		return Outcome{State: record.Rejected, IntakeID: cmd.IntakeID, Reason: safeReason("commit-error")}, true
@@ -296,6 +299,9 @@ func (l *Loop) completeTurn() error {
 }
 
 func (l *Loop) faultOutcome(cmd intake.Cmd, reason string) Outcome {
+	if existing, ok := l.existingOutcome(cmd.IntakeID); ok {
+		return outcomeFromRecord(existing)
+	}
 	var cand record.Record
 	_ = json.Unmarshal(cmd.Payload, &cand)
 	meta := seat.SeatMeta{Name: cmd.Seat, Role: commandRole(cmd), IsOperator: cmd.IsOperator}
@@ -311,6 +317,9 @@ func (l *Loop) faultOutcome(cmd intake.Cmd, reason string) Outcome {
 			},
 			Headers: map[string]string{"PHASE": "SITREP", "SUBJECT": "authority-bearing candidate held after internal fault"},
 			Body:    string(cmd.Payload),
+		}
+		if existing, ok := l.existingOutcome(held.Envelope.IntakeID); ok {
+			return outcomeFromRecord(existing)
 		}
 		relayID, err := l.Store.Commit(held, nil)
 		if err != nil {
@@ -332,6 +341,9 @@ func (l *Loop) faultOutcome(cmd intake.Cmd, reason string) Outcome {
 		},
 		Headers: map[string]string{"PHASE": "SITREP", "SUBJECT": "candidate rejected after internal fault"},
 		Body:    safeReason("internal-fault"),
+	}
+	if existing, ok := l.existingOutcome(rejected.Envelope.IntakeID); ok {
+		return outcomeFromRecord(existing)
 	}
 	relayID, err := l.Store.Commit(rejected, nil)
 	if err != nil {

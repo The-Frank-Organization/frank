@@ -152,6 +152,45 @@ func TestLoopReplaysExistingOutcomeForDuplicateIntake(t *testing.T) {
 	}
 }
 
+func TestCommitGuardBlocksSecondOutcome(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("Open store: %v", err)
+	}
+	loop := engine.New(st, func(context.Context, intake.Cmd) (record.Record, []store.Intent, error) {
+		return record.Record{
+			Envelope: record.Envelope{From: "seat-a", Role: "implementer", DeliveryState: record.Accepted, SchemaVersion: 1},
+			Headers:  map[string]string{"PHASE": "SITREP", "SUBJECT": "accepted-before-derived-panic"},
+		}, nil, nil
+	}, engine.TestReady())
+	loop.AfterAccepted = func(record.Record) (engine.OutcomeExtras, error) {
+		panic("derived work panic after commit")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go loop.Run(ctx)
+
+	reply := make(chan engine.Outcome, 1)
+	loop.In <- engine.Job{Cmd: intake.Cmd{IntakeID: "intake-guard", Seat: "seat-a", Role: "implementer", Verb: "submit", Payload: json.RawMessage(`{"ok":true}`)}, ReplyCh: reply}
+	out := <-reply
+	if out.State != record.Accepted {
+		t.Fatalf("outcome = %+v, want replay of committed accepted outcome", out)
+	}
+	records, err := st.Records()
+	if err != nil {
+		t.Fatalf("Records: %v", err)
+	}
+	var outcomes []record.Record
+	for _, rec := range records {
+		if rec.Envelope.IntakeID == "intake-guard" {
+			outcomes = append(outcomes, rec)
+		}
+	}
+	if len(outcomes) != 1 || outcomes[0].Envelope.DeliveryState != record.Accepted {
+		t.Fatalf("outcomes for intake-guard = %+v, want exactly one accepted record", outcomes)
+	}
+}
+
 func TestLoopReplaysExistingOutcomeForDuplicateContentHash(t *testing.T) {
 	root := t.TempDir()
 	st, err := store.Open(root)
@@ -269,6 +308,46 @@ func TestLoopDoesNotPersistAuthGenerationOnAcceptedRecord(t *testing.T) {
 	}
 	if strings.Contains(string(data), "auth_generation") || strings.Contains(string(data), "pivot-1") {
 		t.Fatalf("accepted record leaked auth generation:\n%s", data)
+	}
+}
+
+func TestTagNeverInAcceptedRecords(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("Open store: %v", err)
+	}
+	loop := engine.New(st, func(_ context.Context, cmd intake.Cmd) (record.Record, []store.Intent, error) {
+		return record.Record{
+			Envelope: record.Envelope{From: cmd.Seat, Role: cmd.Role, DeliveryState: record.Accepted, IntakeID: cmd.IntakeID, SchemaVersion: 1},
+			Headers:  map[string]string{"PHASE": "SITREP", "SUBJECT": "accepted"},
+		}, nil, nil
+	}, engine.TestReady())
+	loop.CurrentAuthGeneration = func(seatName string) string {
+		return "pivot-1"
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go loop.Run(ctx)
+
+	reply := make(chan engine.Outcome, 1)
+	loop.In <- engine.Job{Cmd: intake.Cmd{IntakeID: "tag-negative", Seat: "seat-a", Role: "implementer", Verb: "submit", AuthGeneration: "pivot-1", Payload: json.RawMessage(`{"ok":true}`)}, ReplyCh: reply}
+	out := <-reply
+	if out.State != record.Accepted || out.RelayID == "" {
+		t.Fatalf("outcome = %+v, want accepted", out)
+	}
+	recordsDir := filepath.Join(st.Root, "records")
+	entries, err := os.ReadDir(recordsDir)
+	if err != nil {
+		t.Fatalf("read records dir: %v", err)
+	}
+	for _, entry := range entries {
+		data, err := os.ReadFile(filepath.Join(recordsDir, entry.Name()))
+		if err != nil {
+			t.Fatalf("read record %s: %v", entry.Name(), err)
+		}
+		if strings.Contains(string(data), "auth_generation") || strings.Contains(string(data), "pivot-1") {
+			t.Fatalf("accepted record leaked auth generation tag in %s:\n%s", entry.Name(), data)
+		}
 	}
 }
 

@@ -86,6 +86,30 @@ func TestS6LiveMintBootActivationAndRoster(t *testing.T) {
 		t.Fatalf("non-boot outcome = %+v", rejected)
 	}
 
+	smuggled := mustJSONBytes(t, fieldspec.SubmitPayload{Record: record.Record{
+		Headers: map[string]string{
+			"PHASE":           "SITREP",
+			"CEREMONY_TIER":   "medium",
+			"SUBJECT":         "smuggled boot",
+			"charter_loaded":  "yes",
+			"dispatch_status": "read",
+			"AUTHORITY":       "report-only",
+			"X-BOOT-SMUGGLE":  "unregistered",
+		},
+	}, FormDigest: pre.FormDigest})
+	result, err = lifeSeat.Call(ctx, "submit", smuggled)
+	if err != nil {
+		t.Fatalf("smuggled boot submit call: %v", err)
+	}
+	if err := json.Unmarshal(result, &rejected); err != nil {
+		t.Fatalf("decode smuggled boot outcome %s: %v", result, err)
+	}
+	if rejected.State != record.Rejected ||
+		!strings.Contains(rejected.Detail, "AUTHORITY:non-boot-before-active") ||
+		!strings.Contains(rejected.Detail, "X-BOOT-SMUGGLE:non-boot-before-active") {
+		t.Fatalf("smuggled boot outcome = %+v, want per-field registered and unregistered details", rejected)
+	}
+
 	boot := mustJSONBytes(t, fieldspec.SubmitPayload{Record: record.Record{
 		Headers: map[string]string{"PHASE": "SITREP", "CEREMONY_TIER": "medium", "SUBJECT": "boot", "charter_loaded": "yes", "dispatch_status": "read"},
 	}, FormDigest: pre.FormDigest})
@@ -104,7 +128,39 @@ func TestS6LiveMintBootActivationAndRoster(t *testing.T) {
 		t.Fatalf("boot outcome = %+v", booted)
 	}
 
-	waitForS6OrdinaryForm(t, ctx, lifeSeat)
+	activeForm := waitForS6OrdinaryForm(t, ctx, lifeSeat)
+	for _, id := range []string{"charter_loaded", "dispatch_status"} {
+		if activeForm.SubmitSchema.HasField(id) {
+			t.Fatalf("active form rendered boot-only field %s: %+v", id, activeForm.SubmitSchema.Fields)
+		}
+	}
+
+	activeBootShaped := mustJSONBytes(t, fieldspec.SubmitPayload{Record: record.Record{
+		Headers: map[string]string{
+			"PHASE":           "SITREP",
+			"AUTHORITY":       "report-only",
+			"CEREMONY_TIER":   "medium",
+			"EVIDENCE_TARGET": "E1",
+			"SUBJECT":         "active ordinary with boot-shaped fields",
+			"charter_loaded":  "yes",
+			"dispatch_status": "read",
+		},
+	}, FormDigest: activeForm.FormDigest})
+	result, err = lifeSeat.Call(ctx, "submit", activeBootShaped)
+	if err != nil {
+		t.Fatalf("active boot-shaped submit call: %v", err)
+	}
+	var activeBoot struct {
+		State   string `json:"state"`
+		RelayID string `json:"relay_id"`
+		Detail  string `json:"detail"`
+	}
+	if err := json.Unmarshal(result, &activeBoot); err != nil {
+		t.Fatalf("decode active boot-shaped outcome %s: %v", result, err)
+	}
+	if activeBoot.State != record.Accepted {
+		t.Fatalf("active boot-shaped outcome = %+v, want accepted", activeBoot)
+	}
 
 	rosterRaw, err := operator.Call(ctx, "project", mustJSONBytes(t, map[string]string{"view": "roster"}))
 	if err != nil {
@@ -129,8 +185,8 @@ func TestS6LiveMintBootActivationAndRoster(t *testing.T) {
 		}
 		found = true
 		if row.ActivationState != "active" || !row.BoundNow || row.Role != "implementer" ||
-			row.MintedAt != mint.RelayID || row.ActivationRecordRef != booted.RelayID || row.LastAcceptedAt != booted.RelayID {
-			t.Fatalf("roster row = %+v; mint=%s boot=%s", row, mint.RelayID, booted.RelayID)
+			row.MintedAt != mint.RelayID || row.ActivationRecordRef != booted.RelayID || row.LastAcceptedAt != activeBoot.RelayID {
+			t.Fatalf("roster row = %+v; mint=%s boot=%s active=%s", row, mint.RelayID, booted.RelayID, activeBoot.RelayID)
 		}
 	}
 	if !found {
@@ -143,6 +199,62 @@ func TestS6LiveMintBootActivationAndRoster(t *testing.T) {
 	}
 	if !strings.Contains(string(refused), "roster:seat-scope") {
 		t.Fatalf("non-operator roster response = %s", refused)
+	}
+}
+
+func TestStaleNonSubmitRefusalIsNotLifecycleGating(t *testing.T) {
+	root := t.TempDir()
+	initFixtureStore(t, root)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	bin := buildFrank(t, ctx)
+	mgr, err := seat.Open(root)
+	if err != nil {
+		t.Fatalf("Open seats: %v", err)
+	}
+	operatorCred, err := mgr.Mint("operator", "operator", true)
+	if err != nil {
+		t.Fatalf("Mint operator: %v", err)
+	}
+	sock := filepath.Join(os.TempDir(), "frank-s6-stale-non-submit-"+filepath.Base(root)+".sock")
+	t.Cleanup(func() { _ = os.Remove(sock) })
+	cmd, stderr := startFrank(t, ctx, bin, root, sock)
+	t.Cleanup(func() {
+		cancel()
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+		_ = cmd.Wait()
+	})
+	waitForSocket(t, sock)
+	operator, err := channel.DialAuthenticated(ctx, sock, operatorCred.Value)
+	if err != nil {
+		t.Fatalf("operator dial stderr=%s: %v", stderr.String(), err)
+	}
+	defer func() { _ = operator.Close() }()
+
+	mint := submitS6LiveMint(t, ctx, operator, "stale-non-submit.implementer", "implementer", false)
+	current, err := channel.DialAuthenticated(ctx, sock, mint.Credential)
+	if err != nil {
+		t.Fatalf("current minted credential dial stderr=%s: %v", stderr.String(), err)
+	}
+	defer func() { _ = current.Close() }()
+	if _, err := current.Call(ctx, "project", nil); err != nil {
+		t.Fatalf("current minted project was lifecycle-gated: %v", err)
+	}
+	if _, err := current.Call(ctx, "read", mustJSONBytes(t, map[string]string{"relay_id": mint.RelayID})); err != nil {
+		t.Fatalf("current minted read was lifecycle-gated: %v", err)
+	}
+
+	next := submitS6LiveMint(t, ctx, operator, "stale-non-submit.implementer", "planner", false)
+	if next.Credential == "" || next.Credential == mint.Credential {
+		t.Fatalf("remint did not rotate credential: old=%q next=%q", mint.Credential, next.Credential)
+	}
+	if _, err := current.Call(ctx, "project", nil); err == nil {
+		t.Fatalf("superseded credential project unexpectedly succeeded")
+	}
+	if _, err := current.Call(ctx, "read", mustJSONBytes(t, map[string]string{"relay_id": mint.RelayID})); err == nil {
+		t.Fatalf("superseded credential read unexpectedly succeeded")
 	}
 }
 

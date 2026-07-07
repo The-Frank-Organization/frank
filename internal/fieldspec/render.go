@@ -55,7 +55,7 @@ func (r *Registry) Render(env RenderEnv, seat SeatMeta, phase, tier string, gran
 	form := Form{Fields: map[string]Field{}}
 	for i := range r.Fields {
 		spec := &r.Fields[i]
-		if !r.renderable(spec, fields, ctx) {
+		if !r.renderable(spec, fields, ctx, env) {
 			continue
 		}
 		field, ok := r.renderField(env, spec, seat, phase, grants)
@@ -85,8 +85,11 @@ func bootForm(form Form) Form {
 	return out
 }
 
-func (r *Registry) renderable(spec *FieldSpec, fields map[string]string, ctx EvalContext) bool {
+func (r *Registry) renderable(spec *FieldSpec, fields map[string]string, ctx EvalContext, env RenderEnv) bool {
 	if spec.Owner == "system" || spec.Owner == "computed" || spec.FillConstraints == "system_only" || spec.FillConstraints == "computed_result" {
+		return false
+	}
+	if !env.PreActive && (spec.ID == "charter_loaded" || spec.ID == "dispatch_status") {
 		return false
 	}
 	if len(spec.VisibleWhen.Raw) > 0 && !spec.VisibleWhen.Eval(fields, nil, ctx) {
@@ -253,7 +256,7 @@ func (r *Registry) addGrantDigestShape(fields map[string]Field, seat SeatMeta, p
 		return
 	}
 	spec, ok := r.ByID("grant")
-	if !ok || !r.renderable(spec, map[string]string{"PHASE": phase}, EvalContext{Seat: seat, Phase: phase, PresentLayers: DefaultLayers()}) {
+	if !ok || !r.renderable(spec, map[string]string{"PHASE": phase}, EvalContext{Seat: seat, Phase: phase, PresentLayers: DefaultLayers()}, RenderEnv{}) {
 		return
 	}
 	options := r.scopeOptions(spec, seat)
