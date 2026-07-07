@@ -26,6 +26,7 @@ type Outcome struct {
 	RelayID  string `json:"relay_id,omitempty"`
 	IntakeID string `json:"intake_id,omitempty"`
 	Reason   string `json:"reason,omitempty"`
+	Detail   string `json:"detail,omitempty"`
 }
 
 type Handler func(context.Context, intake.Cmd) (record.Record, []store.Intent, error)
@@ -140,11 +141,15 @@ func (l *Loop) process(ctx context.Context, cmd intake.Cmd) (out Outcome) {
 	if err := l.completeTurn(); err != nil {
 		return Outcome{State: record.Rejected, RelayID: relayID, IntakeID: rec.Envelope.IntakeID, Reason: safeReason("obligation-error")}
 	}
-	return Outcome{
+	out = Outcome{
 		State:    rec.Envelope.DeliveryState,
 		RelayID:  relayID,
 		IntakeID: rec.Envelope.IntakeID,
 	}
+	if rec.Envelope.DeliveryState == record.Rejected {
+		out.Detail = rec.Body
+	}
+	return out
 }
 
 func (l *Loop) completeTurn() error {
@@ -202,7 +207,8 @@ func (l *Loop) faultOutcome(cmd intake.Cmd, reason string) Outcome {
 	if l.Tables != nil {
 		l.Tables.OnCommit(rejected)
 	}
-	return Outcome{State: record.Rejected, RelayID: relayID, IntakeID: cmd.IntakeID, Reason: safeReason("internal-fault")}
+	detail := safeReason("internal-fault")
+	return Outcome{State: record.Rejected, RelayID: relayID, IntakeID: cmd.IntakeID, Reason: detail, Detail: detail}
 }
 
 func safeReason(class string) string {

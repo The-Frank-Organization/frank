@@ -163,7 +163,7 @@ func (s *MCPServer) handleToolCall(params json.RawMessage) (mcpToolResult, bool)
 		s.closeClient()
 		return errorToolResult(scrubError(err)), false
 	}
-	if call.Name == "submit" && s.submitNeedsReRender(client, result) {
+	if call.Name == "submit" && submitNeedsReRender(result) {
 		phase, tier := declaredPhaseTier(submitArgs)
 		return textToolResult(string(reRenderResult(result)), false), s.refreshSubmitSchema(client, phase, tier)
 	}
@@ -218,22 +218,15 @@ func declaredPhaseTier(args submitArguments) (string, string) {
 	return phase, tier
 }
 
-func (s *MCPServer) submitNeedsReRender(client *channel.Client, result json.RawMessage) bool {
-	if containsReRender(result) {
-		return true
-	}
+func submitNeedsReRender(result json.RawMessage) bool {
 	var outcome struct {
-		State   string `json:"state"`
-		RelayID string `json:"relay_id"`
+		State  string `json:"state"`
+		Detail string `json:"detail"`
 	}
-	if err := json.Unmarshal(result, &outcome); err != nil || outcome.State != "rejected" || outcome.RelayID == "" {
+	if err := json.Unmarshal(result, &outcome); err != nil || outcome.State != "rejected" {
 		return false
 	}
-	read, err := client.Call(s.opts.Context, "read", mustJSON(map[string]string{"relay_id": outcome.RelayID}))
-	if err != nil {
-		return false
-	}
-	return containsReRender(read)
+	return containsReRender([]byte(outcome.Detail))
 }
 
 func containsReRender(data []byte) bool {

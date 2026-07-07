@@ -9,8 +9,10 @@ import (
 	"time"
 
 	"github.com/jackli/frank/internal/engine"
+	"github.com/jackli/frank/internal/fieldspec"
 	"github.com/jackli/frank/internal/intake"
 	"github.com/jackli/frank/internal/record"
+	"github.com/jackli/frank/internal/seat"
 	"github.com/jackli/frank/internal/store"
 )
 
@@ -100,6 +102,176 @@ func TestLoopCompletesObligationsOnSerializedTurn(t *testing.T) {
 	}
 	if !parked || !outbox {
 		t.Fatalf("serialized obligation turn parked=%v outbox=%v records=%+v", parked, outbox, records)
+	}
+}
+
+func TestLoopOutcomeDetailEqualsRecordedRejectionDetailPerClass(t *testing.T) {
+	cases := []struct {
+		name       string
+		meta       seat.SeatMeta
+		candidate  record.Record
+		digest     string
+		setupStore func(*testing.T, *store.Store)
+	}{
+		{
+			name: "re-render",
+			meta: seat.SeatMeta{Name: "seat-a", Role: "implementer"},
+			candidate: record.Record{Headers: map[string]string{
+				"PHASE":           "SITREP",
+				"AUTHORITY":       "report-only",
+				"CEREMONY_TIER":   "medium",
+				"EVIDENCE_TARGET": "E1",
+				"SUBJECT":         "stale digest",
+			}},
+			digest: "stale",
+		},
+		{
+			name: "required",
+			meta: seat.SeatMeta{Name: "seat-a", Role: "implementer"},
+			candidate: record.Record{Headers: map[string]string{
+				"PHASE":           "SITREP",
+				"AUTHORITY":       "report-only",
+				"CEREMONY_TIER":   "medium",
+				"EVIDENCE_TARGET": "E1",
+			}},
+		},
+		{
+			name: "enum",
+			meta: seat.SeatMeta{Name: "seat-a", Role: "implementer"},
+			candidate: record.Record{Headers: map[string]string{
+				"PHASE":           "SITREP",
+				"AUTHORITY":       "not-authority",
+				"CEREMONY_TIER":   "medium",
+				"EVIDENCE_TARGET": "E1",
+				"SUBJECT":         "bad enum",
+			}},
+		},
+		{
+			name: "seat-scope",
+			meta: seat.SeatMeta{Name: "seat-a", Role: "implementer"},
+			candidate: record.Record{Headers: map[string]string{
+				"PHASE":           "SITREP",
+				"AUTHORITY":       "report-only",
+				"CEREMONY_TIER":   "medium",
+				"EVIDENCE_TARGET": "E1",
+				"SUBJECT":         "bad scope",
+				"record_kind":     "genesis",
+			}},
+		},
+		{
+			name: "canonical-encoding",
+			meta: seat.SeatMeta{Name: "seat-a", Role: "implementer"},
+			candidate: record.Record{Headers: map[string]string{
+				"PHASE":           "SITREP",
+				"AUTHORITY":       "report-only",
+				"CEREMONY_TIER":   "medium",
+				"EVIDENCE_TARGET": "E1",
+				"SUBJECT":         "bad canonical",
+				"SCOPE_DIFF":      `[{ "path":"README.md","status":"in"}]`,
+			}},
+		},
+		{
+			name: "lineage",
+			meta: seat.SeatMeta{Name: "seat-a.planner", Role: "planner"},
+			candidate: record.Record{Headers: map[string]string{
+				"PHASE":              "PLAN",
+				"AUTHORITY":          "plan-only",
+				"CEREMONY_TIER":      "medium",
+				"EVIDENCE_TARGET":    "E1",
+				"SUBJECT":            "bad parent",
+				"PARENT_DISPATCH_ID": "missing-parent",
+			}},
+		},
+		{
+			name: "layer-3",
+			meta: seat.SeatMeta{Name: "operator", Role: "operator", IsOperator: true},
+			candidate: record.Record{Headers: map[string]string{
+				"PHASE":           "SITREP",
+				"AUTHORITY":       "report-only",
+				"CEREMONY_TIER":   "medium",
+				"EVIDENCE_TARGET": "E1",
+				"SUBJECT":         "unknown owed",
+				"record_kind":     "owed_disposition",
+				"disposes_owed":   "owed-missing",
+			}},
+		},
+		{
+			name: "already-resolved",
+			meta: seat.SeatMeta{Name: "operator", Role: "operator", IsOperator: true},
+			setupStore: func(t *testing.T, st *store.Store) {
+				t.Helper()
+				if _, err := st.Commit(record.Record{
+					Envelope: record.Envelope{RelayID: "owed-target", From: "operator", Role: "operator", DeliveryState: record.Accepted, SchemaVersion: 1},
+					Headers: map[string]string{
+						"PHASE":            "SITREP",
+						"SUBJECT":          "owed",
+						"record_kind":      "owed_item",
+						"owner":            "s6",
+						"source":           "test",
+						"target_surface":   "detail",
+						"disposition_path": "done",
+					},
+				}, nil); err != nil {
+					t.Fatalf("commit owed: %v", err)
+				}
+				if _, err := st.Commit(record.Record{
+					Envelope: record.Envelope{RelayID: "owed-disposed", From: "operator", Role: "operator", DeliveryState: record.Accepted, SchemaVersion: 1},
+					Headers: map[string]string{
+						"PHASE":         "SITREP",
+						"SUBJECT":       "disposed",
+						"record_kind":   "owed_disposition",
+						"disposes_owed": "owed-target",
+					},
+				}, nil); err != nil {
+					t.Fatalf("commit disposition: %v", err)
+				}
+			},
+			candidate: record.Record{Headers: map[string]string{
+				"PHASE":           "SITREP",
+				"AUTHORITY":       "report-only",
+				"CEREMONY_TIER":   "medium",
+				"EVIDENCE_TARGET": "E1",
+				"SUBJECT":         "duplicate disposition",
+				"record_kind":     "owed_disposition",
+				"disposes_owed":   "owed-target",
+			}},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			st, reg := submitDeps(t)
+			if tc.setupStore != nil {
+				tc.setupStore(t, st)
+			}
+			payload := submitPayload(t, reg, tc.meta, tc.candidate)
+			if tc.digest != "" {
+				var submit fieldspec.SubmitPayload
+				if err := json.Unmarshal(payload, &submit); err != nil {
+					t.Fatalf("decode submit payload: %v", err)
+				}
+				submit.FormDigest = tc.digest
+				payload = mustJSON(t, submit)
+			}
+			loop := engine.New(st, engine.SubmitHandler(st, reg, tc.meta), engine.TestReady())
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			go loop.Run(ctx)
+
+			reply := make(chan engine.Outcome, 1)
+			loop.In <- engine.Job{Cmd: intake.Cmd{IntakeID: "detail-" + tc.name, Seat: tc.meta.Name, Role: tc.meta.Role, IsOperator: tc.meta.IsOperator, Verb: "submit", Payload: payload}, ReplyCh: reply}
+			out := <-reply
+			if out.State != record.Rejected || out.RelayID == "" {
+				t.Fatalf("outcome = %+v, want rejected relay", out)
+			}
+			rec, err := st.Read(out.RelayID)
+			if err != nil {
+				t.Fatalf("read rejected relay: %v", err)
+			}
+			if out.Detail != rec.Body {
+				t.Fatalf("detail = %q, want committed body %q", out.Detail, rec.Body)
+			}
+		})
 	}
 }
 

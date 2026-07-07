@@ -295,6 +295,113 @@ func TestToolsListUsesRenderedSubmitSchemaWhenReachable(t *testing.T) {
 	}
 }
 
+func TestShimRefreshUsesTypedReRenderDetailWithoutReadback(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	root := t.TempDir()
+	mgr, err := seat.Open(root)
+	if err != nil {
+		t.Fatalf("seat.Open: %v", err)
+	}
+	cred, err := mgr.Mint("seat-a", "implementer", false)
+	if err != nil {
+		t.Fatalf("Mint: %v", err)
+	}
+	form := fieldspec.Form{Fields: map[string]fieldspec.Field{"PHASE": {Type: "enum", Options: []string{"PLAN"}}}}
+	var readCalls int
+	sock := filepath.Join(os.TempDir(), fmt.Sprintf("frank-mcp-detail-%d.sock", time.Now().UnixNano()))
+	t.Cleanup(func() { _ = os.Remove(sock) })
+	srv, err := channel.ServeAuthenticated(sock, mgr, func(seat.SeatMeta) channel.ToolSet {
+		return channel.ToolSet{
+			Describe: func(context.Context, json.RawMessage) (json.RawMessage, error) {
+				return mustJSON(channel.DescriptionResponse{Tools: []string{"submit", "project", "read"}, SubmitSchema: &form, FormDigest: "plan-digest"}), nil
+			},
+			Submit: func(context.Context, json.RawMessage) (json.RawMessage, error) {
+				return json.RawMessage(`{"state":"rejected","relay_id":"relay-stale","intake_id":"i-stale","detail":"form_digest:re-render"}`), nil
+			},
+			Project: func(context.Context, json.RawMessage) (json.RawMessage, error) { return json.RawMessage(`[]`), nil },
+			Read: func(context.Context, json.RawMessage) (json.RawMessage, error) {
+				readCalls++
+				return json.RawMessage(`{"record":{"body":"form_digest:re-render"}}`), nil
+			},
+		}
+	})
+	if err != nil {
+		t.Fatalf("ServeAuthenticated: %v", err)
+	}
+	defer func() { _ = srv.Close() }()
+
+	args := map[string]any{"headers": map[string]string{"PHASE": "PLAN", "SUBJECT": "stale"}, "form_digest": "old-digest"}
+	stdout, stderr := runMCPGolden(t, Options{SocketPath: sock, Credential: cred.Value, Context: ctx}, mcpCall("submit", 1, args))
+	if stderr != "" {
+		t.Fatalf("stderr = %s", stderr)
+	}
+	if readCalls != 0 {
+		t.Fatalf("shim issued %d read calls; refresh must key on typed detail", readCalls)
+	}
+	lines := decodeRPCOutput(t, stdout)
+	if len(lines) != 2 || lines[0]["method"] != "notifications/tools/list_changed" {
+		t.Fatalf("output = %s, want list_changed plus submit result", stdout)
+	}
+	text := lines[1]["result"].(map[string]any)["content"].([]any)[0].(map[string]any)["text"].(string)
+	if !strings.Contains(text, `"class":"re-render"`) || !strings.Contains(text, "form refreshed") {
+		t.Fatalf("submit text = %s, want re-render refresh payload", text)
+	}
+}
+
+func TestShimDoesNotUseReadbackToInferReRender(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	root := t.TempDir()
+	mgr, err := seat.Open(root)
+	if err != nil {
+		t.Fatalf("seat.Open: %v", err)
+	}
+	cred, err := mgr.Mint("seat-a", "implementer", false)
+	if err != nil {
+		t.Fatalf("Mint: %v", err)
+	}
+	var readCalls int
+	sock := filepath.Join(os.TempDir(), fmt.Sprintf("frank-mcp-no-readback-%d.sock", time.Now().UnixNano()))
+	t.Cleanup(func() { _ = os.Remove(sock) })
+	srv, err := channel.ServeAuthenticated(sock, mgr, func(seat.SeatMeta) channel.ToolSet {
+		return channel.ToolSet{
+			Describe: func(context.Context, json.RawMessage) (json.RawMessage, error) {
+				return mustJSON(channel.DescriptionResponse{Tools: []string{"submit", "project", "read"}, SubmitSchema: &fieldspec.Form{}, FormDigest: "digest"}), nil
+			},
+			Submit: func(context.Context, json.RawMessage) (json.RawMessage, error) {
+				return json.RawMessage(`{"state":"rejected","relay_id":"relay-without-detail","intake_id":"i-stale"}`), nil
+			},
+			Project: func(context.Context, json.RawMessage) (json.RawMessage, error) { return json.RawMessage(`[]`), nil },
+			Read: func(context.Context, json.RawMessage) (json.RawMessage, error) {
+				readCalls++
+				return json.RawMessage(`{"record":{"body":"form_digest:re-render"}}`), nil
+			},
+		}
+	})
+	if err != nil {
+		t.Fatalf("ServeAuthenticated: %v", err)
+	}
+	defer func() { _ = srv.Close() }()
+
+	args := map[string]any{"headers": map[string]string{"PHASE": "PLAN", "SUBJECT": "stale"}, "form_digest": "old-digest"}
+	stdout, stderr := runMCPGolden(t, Options{SocketPath: sock, Credential: cred.Value, Context: ctx}, mcpCall("submit", 1, args))
+	if stderr != "" {
+		t.Fatalf("stderr = %s", stderr)
+	}
+	if readCalls != 0 {
+		t.Fatalf("shim used rejected-relay readback %d times", readCalls)
+	}
+	lines := decodeRPCOutput(t, stdout)
+	if len(lines) != 1 {
+		t.Fatalf("output = %s, want only submit result", stdout)
+	}
+	text := lines[0]["result"].(map[string]any)["content"].([]any)[0].(map[string]any)["text"].(string)
+	if strings.Contains(text, "form refreshed") {
+		t.Fatalf("submit text = %s, refresh inferred without typed detail", text)
+	}
+}
+
 func TestPhaseSwitchDriftLoop(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -337,11 +444,8 @@ func TestPhaseSwitchDriftLoop(t *testing.T) {
 				want := strings.ToLower(payload.Headers["PHASE"]) + "-digest"
 				if payload.FormDigest != want {
 					return mustJSON(map[string]any{
-						"state": record.Rejected,
-						"violations": []map[string]string{{
-							"field": "form_digest",
-							"class": "re-render",
-						}},
+						"state":  record.Rejected,
+						"detail": "form_digest:re-render",
 					}), nil
 				}
 				return mustJSON(map[string]any{"state": record.Accepted}), nil
