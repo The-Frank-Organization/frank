@@ -192,6 +192,45 @@ func TestReadAllIgnoresTornTrailingLine(t *testing.T) {
 	}
 }
 
+func TestSegmentHeaderHighWaterPreventsIDReuseAfterOldSegmentRemoval(t *testing.T) {
+	root := t.TempDir()
+	j, err := intake.OpenWithConfig(root, config.EngineConfig{SegmentRotateBytes: 96})
+	if err != nil {
+		t.Fatalf("OpenWithConfig: %v", err)
+	}
+	var last string
+	for i := 0; i < 5; i++ {
+		id, err := j.Append(intake.Cmd{Seat: "seat-a", Verb: "submit", Payload: json.RawMessage(`{"n":` + string(rune('0'+i)) + `}`), ContentHash: "hash-" + string(rune('0'+i))})
+		if err != nil {
+			t.Fatalf("Append %d: %v", i, err)
+		}
+		last = id
+	}
+	segments, err := j.Segments()
+	if err != nil {
+		t.Fatalf("Segments: %v", err)
+	}
+	if len(segments) < 2 {
+		t.Fatalf("test setup did not rotate: %+v", segments)
+	}
+	for _, segment := range segments[:len(segments)-1] {
+		if err := os.Remove(segment.Path); err != nil {
+			t.Fatalf("remove old segment: %v", err)
+		}
+	}
+	reopened, err := intake.OpenWithConfig(root, config.EngineConfig{SegmentRotateBytes: 96})
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	next, err := reopened.Append(intake.Cmd{Seat: "seat-a", Verb: "submit", Payload: json.RawMessage(`{"n":99}`), ContentHash: "hash-new"})
+	if err != nil {
+		t.Fatalf("Append after removal: %v", err)
+	}
+	if next <= last {
+		t.Fatalf("next id = %s after last %s; want monotonic after removed segments", next, last)
+	}
+}
+
 func formatSegmentName(seq int) string {
 	return "00000" + string(rune('0'+seq)) + ".jsonl"
 }

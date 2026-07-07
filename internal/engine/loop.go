@@ -121,6 +121,9 @@ func (l *Loop) process(ctx context.Context, cmd intake.Cmd) (out Outcome) {
 			out = l.faultOutcome(cmd, fmt.Sprint(recovered))
 		}
 	}()
+	if rec, ok := l.existingOutcomeForCommand(cmd); ok {
+		return outcomeFromRecord(rec)
+	}
 	if l.Handler == nil {
 		return Outcome{State: record.Rejected, IntakeID: cmd.IntakeID, Reason: "no handler"}
 	}
@@ -131,10 +134,15 @@ func (l *Loop) process(ctx context.Context, cmd intake.Cmd) (out Outcome) {
 	if rec.Envelope.IntakeID == "" {
 		rec.Envelope.IntakeID = cmd.IntakeID
 	}
+	cmd.IntakeID = rec.Envelope.IntakeID
+	if rec, ok := l.existingOutcomeForCommand(cmd); ok {
+		return outcomeFromRecord(rec)
+	}
 	relayID, err := l.Store.Commit(rec, intents)
 	if err != nil {
 		return Outcome{State: record.Rejected, IntakeID: rec.Envelope.IntakeID, Reason: safeReason("commit-error")}
 	}
+	rec.Envelope.RelayID = relayID
 	if l.Tables != nil {
 		l.Tables.OnCommit(rec)
 	}
@@ -148,6 +156,73 @@ func (l *Loop) process(ctx context.Context, cmd intake.Cmd) (out Outcome) {
 	}
 	if rec.Envelope.DeliveryState == record.Rejected {
 		out.Detail = rec.Body
+	}
+	return out
+}
+
+func (l *Loop) existingOutcomeForCommand(cmd intake.Cmd) (record.Record, bool) {
+	if rec, ok := l.existingOutcome(cmd.IntakeID); ok {
+		return rec, true
+	}
+	if cmd.ContentHash == "" {
+		return record.Record{}, false
+	}
+	tab := l.ensureTables()
+	if tab == nil {
+		return record.Record{}, false
+	}
+	intakeID := tab.ContentHash[cmd.ContentHash]
+	if intakeID == "" {
+		return record.Record{}, false
+	}
+	return l.existingOutcome(intakeID)
+}
+
+func (l *Loop) existingOutcome(intakeID string) (record.Record, bool) {
+	if intakeID == "" {
+		return record.Record{}, false
+	}
+	if l.Tables != nil {
+		if rec, ok := l.Tables.OutcomeByIntake[intakeID]; ok {
+			return rec, true
+		}
+	}
+	tab := l.ensureTables()
+	if tab == nil {
+		return record.Record{}, false
+	}
+	rec, ok := tab.OutcomeByIntake[intakeID]
+	return rec, ok
+}
+
+func (l *Loop) ensureTables() *tables.T {
+	if l.Tables != nil {
+		return l.Tables
+	}
+	tab, err := tables.Build(l.Store)
+	if err != nil {
+		return nil
+	}
+	l.Tables = tab
+	return tab
+}
+
+func outcomeFromRecord(rec record.Record) Outcome {
+	out := Outcome{
+		State:    rec.Envelope.DeliveryState,
+		RelayID:  rec.Envelope.RelayID,
+		IntakeID: rec.Envelope.IntakeID,
+	}
+	switch rec.Envelope.DeliveryState {
+	case record.Rejected:
+		out.Detail = rec.Body
+		if rec.Envelope.From == "system" && rec.Headers["SUBJECT"] == "candidate rejected after internal fault" {
+			out.Reason = rec.Body
+		}
+	case record.Held:
+		if rec.Envelope.From == "system" && rec.Headers["SUBJECT"] == "authority-bearing candidate held after internal fault" {
+			out.Reason = safeReason("internal-fault")
+		}
 	}
 	return out
 }

@@ -121,3 +121,50 @@ func TestNewWriterRequiresReadyToken(t *testing.T) {
 		t.Fatalf("NewWriter err = %v, want ErrWriterNotReady", err)
 	}
 }
+
+func TestWriterInFlightCoalescesSingleExecution(t *testing.T) {
+	j, err := intake.Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	w, err := intake.NewWriter[writerOutcome](j, config.EngineConfig{}, struct{}{})
+	if err != nil {
+		t.Fatalf("NewWriter: %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	out := make(chan intake.Job[writerOutcome], 2)
+	go w.Run(ctx, out)
+
+	cmd := intake.Cmd{Seat: "seat-a", Role: "implementer", Verb: "submit", Payload: json.RawMessage(`{"same":true}`)}
+	firstReply, firstID, err := w.Submit(ctx, cmd)
+	if err != nil {
+		t.Fatalf("first Submit: %v", err)
+	}
+	secondReply, secondID, err := w.Submit(ctx, cmd)
+	if err != nil {
+		t.Fatalf("second Submit: %v", err)
+	}
+	if firstID != secondID {
+		t.Fatalf("ids = %s/%s, want same", firstID, secondID)
+	}
+	job := <-out
+	select {
+	case extra := <-out:
+		t.Fatalf("duplicate emitted extra job %+v", extra.Cmd)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	want := writerOutcome{IntakeID: job.Cmd.IntakeID}
+	job.ReplyCh <- want
+	for name, reply := range map[string]<-chan writerOutcome{"first": firstReply, "second": secondReply} {
+		select {
+		case got := <-reply:
+			if got != want {
+				t.Fatalf("%s reply = %+v, want %+v", name, got, want)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatalf("timed out waiting for %s coalesced reply", name)
+		}
+	}
+}

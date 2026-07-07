@@ -22,7 +22,7 @@ func TestLoopProcessesFIFOAndRepliesAfterCommit(t *testing.T) {
 		t.Fatalf("Open store: %v", err)
 	}
 	var order []string
-	loop := engine.New(st, func(context.Context, intake.Cmd) (record.Record, []store.Intent, error) {
+	loop := engine.New(st, func(_ context.Context, cmd intake.Cmd) (record.Record, []store.Intent, error) {
 		order = append(order, string([]byte(orderName(len(order)))))
 		id := ""
 		return record.Record{
@@ -32,7 +32,7 @@ func TestLoopProcessesFIFOAndRepliesAfterCommit(t *testing.T) {
 				From:          "seat-a",
 				Role:          "implementer",
 				DeliveryState: record.Accepted,
-				IntakeID:      "intake-" + orderName(len(order)),
+				IntakeID:      cmd.IntakeID,
 				SchemaVersion: 1,
 			},
 			Headers: map[string]string{"PHASE": "SITREP", "SUBJECT": id},
@@ -44,8 +44,8 @@ func TestLoopProcessesFIFOAndRepliesAfterCommit(t *testing.T) {
 
 	reply1 := make(chan engine.Outcome, 1)
 	reply2 := make(chan engine.Outcome, 1)
-	loop.In <- engine.Job{Cmd: intake.Cmd{Seat: "seat-a", Verb: "submit", Payload: json.RawMessage(`1`)}, ReplyCh: reply1}
-	loop.In <- engine.Job{Cmd: intake.Cmd{Seat: "seat-a", Verb: "submit", Payload: json.RawMessage(`2`)}, ReplyCh: reply2}
+	loop.In <- engine.Job{Cmd: intake.Cmd{IntakeID: "intake-1", Seat: "seat-a", Verb: "submit", Payload: json.RawMessage(`1`)}, ReplyCh: reply1}
+	loop.In <- engine.Job{Cmd: intake.Cmd{IntakeID: "intake-2", Seat: "seat-a", Verb: "submit", Payload: json.RawMessage(`2`)}, ReplyCh: reply2}
 
 	out1 := <-reply1
 	out2 := <-reply2
@@ -102,6 +102,95 @@ func TestLoopCompletesObligationsOnSerializedTurn(t *testing.T) {
 	}
 	if !parked || !outbox {
 		t.Fatalf("serialized obligation turn parked=%v outbox=%v records=%+v", parked, outbox, records)
+	}
+}
+
+func TestLoopReplaysExistingOutcomeForDuplicateIntake(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("Open store: %v", err)
+	}
+	var calls int
+	loop := engine.New(st, func(context.Context, intake.Cmd) (record.Record, []store.Intent, error) {
+		calls++
+		return record.Record{
+			Envelope: record.Envelope{From: "seat-a", Role: "implementer", DeliveryState: record.Accepted, SchemaVersion: 1},
+			Headers:  map[string]string{"PHASE": "SITREP", "SUBJECT": "duplicate"},
+		}, nil, nil
+	}, engine.TestReady())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go loop.Run(ctx)
+
+	cmd := intake.Cmd{IntakeID: "intake-duplicate", Seat: "seat-a", Role: "implementer", Verb: "submit", Payload: json.RawMessage(`{"same":true}`)}
+	firstReply := make(chan engine.Outcome, 1)
+	loop.In <- engine.Job{Cmd: cmd, ReplyCh: firstReply}
+	first := <-firstReply
+	secondReply := make(chan engine.Outcome, 1)
+	loop.In <- engine.Job{Cmd: cmd, ReplyCh: secondReply}
+	second := <-secondReply
+
+	if calls != 1 {
+		t.Fatalf("handler calls = %d, want one execution", calls)
+	}
+	if first != second {
+		t.Fatalf("duplicate outcome = %+v, want original %+v", second, first)
+	}
+	records, err := st.Records()
+	if err != nil {
+		t.Fatalf("Records: %v", err)
+	}
+	var outcomes int
+	for _, rec := range records {
+		if rec.Envelope.IntakeID == cmd.IntakeID {
+			outcomes++
+		}
+	}
+	if outcomes != 1 {
+		t.Fatalf("outcomes for %s = %d, want 1", cmd.IntakeID, outcomes)
+	}
+}
+
+func TestLoopReplaysExistingOutcomeForDuplicateContentHash(t *testing.T) {
+	root := t.TempDir()
+	st, err := store.Open(root)
+	if err != nil {
+		t.Fatalf("Open store: %v", err)
+	}
+	journal, err := intake.Open(root)
+	if err != nil {
+		t.Fatalf("Open journal: %v", err)
+	}
+	originalID, err := journal.Append(intake.Cmd{Seat: "seat-a", Role: "implementer", Verb: "submit", Payload: json.RawMessage(`{"same":true}`), ContentHash: "same-hash"})
+	if err != nil {
+		t.Fatalf("Append original: %v", err)
+	}
+	if _, err := st.Commit(record.Record{
+		Envelope: record.Envelope{RelayID: "original-outcome", From: "seat-a", Role: "implementer", DeliveryState: record.Accepted, IntakeID: originalID, SchemaVersion: 1},
+		Headers:  map[string]string{"PHASE": "SITREP", "SUBJECT": "original"},
+	}, nil); err != nil {
+		t.Fatalf("Commit original outcome: %v", err)
+	}
+	var calls int
+	loop := engine.New(st, func(context.Context, intake.Cmd) (record.Record, []store.Intent, error) {
+		calls++
+		return record.Record{
+			Envelope: record.Envelope{From: "seat-a", Role: "implementer", DeliveryState: record.Accepted, SchemaVersion: 1},
+			Headers:  map[string]string{"PHASE": "SITREP", "SUBJECT": "should not execute"},
+		}, nil, nil
+	}, engine.TestReady())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go loop.Run(ctx)
+
+	reply := make(chan engine.Outcome, 1)
+	loop.In <- engine.Job{Cmd: intake.Cmd{IntakeID: "intake-retry", Seat: "seat-a", Role: "implementer", Verb: "submit", Payload: json.RawMessage(`{"same":true}`), ContentHash: "same-hash"}, ReplyCh: reply}
+	out := <-reply
+	if calls != 0 {
+		t.Fatalf("handler calls = %d, want replay without execution", calls)
+	}
+	if out.RelayID != "original-outcome" || out.IntakeID != originalID || out.State != record.Accepted {
+		t.Fatalf("outcome = %+v, want original outcome", out)
 	}
 }
 

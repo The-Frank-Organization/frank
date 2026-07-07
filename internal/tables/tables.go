@@ -5,6 +5,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/jackli/frank/internal/intake"
 	"github.com/jackli/frank/internal/record"
 	"github.com/jackli/frank/internal/store"
 )
@@ -112,7 +113,27 @@ func Build(st *store.Store) (*T, error) {
 	for _, rec := range records {
 		t.OnCommit(rec)
 	}
+	t.hydrateContentHashes(st)
 	return t, nil
+}
+
+func (t *T) hydrateContentHashes(st *store.Store) {
+	journal, err := intake.Open(st.Root)
+	if err != nil {
+		return
+	}
+	entries, err := journal.ReadAll()
+	if err != nil {
+		return
+	}
+	for _, entry := range entries {
+		if entry.IntakeID == "" || entry.ContentHash == "" {
+			continue
+		}
+		if _, ok := t.OutcomeByIntake[entry.IntakeID]; ok {
+			t.ContentHash[entry.ContentHash] = entry.IntakeID
+		}
+	}
 }
 
 func (t *T) OnCommit(rec record.Record) {

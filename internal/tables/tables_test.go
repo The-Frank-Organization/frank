@@ -1,10 +1,12 @@
 package tables_test
 
 import (
+	"encoding/json"
 	"reflect"
 	"sync"
 	"testing"
 
+	"github.com/jackli/frank/internal/intake"
 	"github.com/jackli/frank/internal/record"
 	"github.com/jackli/frank/internal/store"
 	"github.com/jackli/frank/internal/tables"
@@ -85,4 +87,33 @@ func TestLiveSnapshotConcurrentPublishAndRead(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+}
+
+func TestBuildHydratesContentHashForCommittedOutcomes(t *testing.T) {
+	root := t.TempDir()
+	st, err := store.Open(root)
+	if err != nil {
+		t.Fatalf("Open store: %v", err)
+	}
+	journal, err := intake.Open(root)
+	if err != nil {
+		t.Fatalf("Open journal: %v", err)
+	}
+	intakeID, err := journal.Append(intake.Cmd{Seat: "seat-a", Verb: "submit", Payload: json.RawMessage(`{"same":true}`), ContentHash: "content-hash-1"})
+	if err != nil {
+		t.Fatalf("Append: %v", err)
+	}
+	if _, err := st.Commit(record.Record{
+		Envelope: record.Envelope{RelayID: "outcome", From: "seat-a", Role: "implementer", DeliveryState: record.Accepted, IntakeID: intakeID, SchemaVersion: 1},
+		Headers:  map[string]string{"PHASE": "SITREP", "SUBJECT": "outcome"},
+	}, nil); err != nil {
+		t.Fatalf("Commit outcome: %v", err)
+	}
+	tab, err := tables.Build(st)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if got := tab.ContentHash["content-hash-1"]; got != intakeID {
+		t.Fatalf("ContentHash = %q, want %q", got, intakeID)
+	}
 }
