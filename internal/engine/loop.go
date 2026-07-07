@@ -22,23 +22,32 @@ import (
 type Job = intake.Job[Outcome]
 
 type Outcome struct {
-	State    string `json:"state"`
-	RelayID  string `json:"relay_id,omitempty"`
-	IntakeID string `json:"intake_id,omitempty"`
-	Reason   string `json:"reason,omitempty"`
-	Detail   string `json:"detail,omitempty"`
+	State      string `json:"state"`
+	RelayID    string `json:"relay_id,omitempty"`
+	IntakeID   string `json:"intake_id,omitempty"`
+	Reason     string `json:"reason,omitempty"`
+	Detail     string `json:"detail,omitempty"`
+	Credential string `json:"credential,omitempty"`
+	Endpoint   string `json:"endpoint,omitempty"`
 }
 
 type Handler func(context.Context, intake.Cmd) (record.Record, []store.Intent, error)
 
+type OutcomeExtras struct {
+	Credential string
+	Endpoint   string
+}
+
 type Loop struct {
-	In          chan Job
-	Store       *store.Store
-	Handler     Handler
-	Tables      *tables.T
-	Timeout     time.Duration
-	AfterCommit func(*store.Store) error
-	quarantine  chan string
+	In                    chan Job
+	Store                 *store.Store
+	Handler               Handler
+	Tables                *tables.T
+	Timeout               time.Duration
+	AfterCommit           func(*store.Store) error
+	AfterAccepted         func(record.Record) (OutcomeExtras, error)
+	CurrentAuthGeneration func(seatName string) string
+	quarantine            chan string
 }
 
 func New(st *store.Store, handler Handler, ready *Ready) *Loop {
@@ -124,6 +133,9 @@ func (l *Loop) process(ctx context.Context, cmd intake.Cmd) (out Outcome) {
 	if rec, ok := l.existingOutcomeForCommand(cmd); ok {
 		return outcomeFromRecord(rec)
 	}
+	if out, superseded := l.supersededCredentialOutcome(cmd); superseded {
+		return out
+	}
 	if l.Handler == nil {
 		return Outcome{State: record.Rejected, IntakeID: cmd.IntakeID, Reason: "no handler"}
 	}
@@ -149,15 +161,61 @@ func (l *Loop) process(ctx context.Context, cmd intake.Cmd) (out Outcome) {
 	if err := l.completeTurn(); err != nil {
 		return Outcome{State: record.Rejected, RelayID: relayID, IntakeID: rec.Envelope.IntakeID, Reason: safeReason("obligation-error")}
 	}
+	var extras OutcomeExtras
+	if rec.Envelope.DeliveryState == record.Accepted && l.AfterAccepted != nil {
+		extras, err = l.AfterAccepted(rec)
+		if err != nil {
+			return Outcome{State: record.Rejected, RelayID: relayID, IntakeID: rec.Envelope.IntakeID, Reason: safeReason("derived-work-error")}
+		}
+	}
 	out = Outcome{
-		State:    rec.Envelope.DeliveryState,
-		RelayID:  relayID,
-		IntakeID: rec.Envelope.IntakeID,
+		State:      rec.Envelope.DeliveryState,
+		RelayID:    relayID,
+		IntakeID:   rec.Envelope.IntakeID,
+		Credential: extras.Credential,
+		Endpoint:   extras.Endpoint,
 	}
 	if rec.Envelope.DeliveryState == record.Rejected {
 		out.Detail = rec.Body
 	}
 	return out
+}
+
+func (l *Loop) supersededCredentialOutcome(cmd intake.Cmd) (Outcome, bool) {
+	if cmd.AuthGeneration == "" || l.CurrentAuthGeneration == nil {
+		return Outcome{}, false
+	}
+	current := l.CurrentAuthGeneration(cmd.Seat)
+	if current == "" || current == cmd.AuthGeneration {
+		return Outcome{}, false
+	}
+	rec := CredentialSupersededRecord(cmd)
+	relayID, err := l.Store.Commit(rec, nil)
+	if err != nil {
+		return Outcome{State: record.Rejected, IntakeID: cmd.IntakeID, Reason: safeReason("commit-error")}, true
+	}
+	rec.Envelope.RelayID = relayID
+	if l.Tables != nil {
+		l.Tables.OnCommit(rec)
+	}
+	if err := l.completeTurn(); err != nil {
+		return Outcome{State: record.Rejected, RelayID: relayID, IntakeID: cmd.IntakeID, Reason: safeReason("obligation-error")}, true
+	}
+	return outcomeFromRecord(rec), true
+}
+
+func CredentialSupersededRecord(cmd intake.Cmd) record.Record {
+	return record.Record{
+		Envelope: record.Envelope{
+			From:          cmd.Seat,
+			Role:          commandRole(cmd),
+			DeliveryState: record.Rejected,
+			IntakeID:      cmd.IntakeID,
+			SchemaVersion: 1,
+		},
+		Headers: map[string]string{"PHASE": "SITREP", "SUBJECT": "candidate rejected after credential superseded"},
+		Body:    bounce.Format(fieldspec.Violation{Field: "auth_generation", Class: "credential-superseded"}),
+	}
 }
 
 func (l *Loop) existingOutcomeForCommand(cmd intake.Cmd) (record.Record, bool) {

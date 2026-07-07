@@ -24,9 +24,10 @@ type Cred struct {
 }
 
 type SeatMeta struct {
-	Name       string `json:"name"`
-	Role       string `json:"role"`
-	IsOperator bool   `json:"is_operator"`
+	Name           string `json:"name"`
+	Role           string `json:"role"`
+	IsOperator     bool   `json:"is_operator"`
+	AuthGeneration string `json:"-"`
 }
 
 type Manager struct {
@@ -84,6 +85,32 @@ func (m *Manager) Mint(name, role string, isOperator bool) (Cred, error) {
 	}
 	if err := m.persist(); err != nil {
 		delete(m.table.Seats, name)
+		return Cred{}, err
+	}
+	return Cred{Value: value}, nil
+}
+
+func (m *Manager) MintOrReplace(name, role string, isOperator bool) (Cred, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if name == "system" {
+		return Cred{}, ErrReservedSeatName
+	}
+	value, err := randomCredential()
+	if err != nil {
+		return Cred{}, err
+	}
+	previous, hadPrevious := m.table.Seats[name]
+	m.table.Seats[name] = binding{
+		Credential: value,
+		Meta:       SeatMeta{Name: name, Role: role, IsOperator: isOperator},
+	}
+	if err := m.persist(); err != nil {
+		if hadPrevious {
+			m.table.Seats[name] = previous
+		} else {
+			delete(m.table.Seats, name)
+		}
 		return Cred{}, err
 	}
 	return Cred{Value: value}, nil

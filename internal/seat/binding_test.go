@@ -59,6 +59,39 @@ func TestDuplicateMintRejectsWithoutSecondCredential(t *testing.T) {
 	}
 }
 
+func TestMintOrReplaceReplacesCredentialAndKeepsSingleBinding(t *testing.T) {
+	root := t.TempDir()
+	mgr, err := seat.Open(root)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	cred, err := mgr.Mint("seat-a", "implementer", false)
+	if err != nil {
+		t.Fatalf("Mint first: %v", err)
+	}
+
+	replacement, err := mgr.MintOrReplace("seat-a", "planner", true)
+	if err != nil {
+		t.Fatalf("MintOrReplace: %v", err)
+	}
+	if replacement.Value == "" || replacement.Value == cred.Value {
+		t.Fatalf("replacement credential = %q, original = %q", replacement.Value, cred.Value)
+	}
+	if _, ok := mgr.Resolve(cred.Value); ok {
+		t.Fatalf("old credential still resolves after replacement")
+	}
+	meta, ok := mgr.Resolve(replacement.Value)
+	if !ok {
+		t.Fatalf("replacement credential did not resolve")
+	}
+	if meta.Name != "seat-a" || meta.Role != "planner" || !meta.IsOperator {
+		t.Fatalf("replacement meta = %+v", meta)
+	}
+	if got := mgr.CredentialsFor("seat-a"); got != 1 {
+		t.Fatalf("credentials for seat-a = %d, want 1", got)
+	}
+}
+
 func TestMintRejectsReservedSystemSeatWithoutBinding(t *testing.T) {
 	root := t.TempDir()
 	mgr, err := seat.Open(root)

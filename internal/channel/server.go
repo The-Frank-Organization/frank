@@ -178,6 +178,20 @@ func (s *Server) PushTo(seatName string, frame []byte) error {
 	return writePushes(clients, frame)
 }
 
+func (s *Server) ForceCloseSeat(seatName string) {
+	s.mu.Lock()
+	clients := make([]*serverConn, 0, len(s.clients))
+	for c := range s.clients {
+		if c.authed && c.seat == seatName {
+			clients = append(clients, c)
+		}
+	}
+	s.mu.Unlock()
+	for _, c := range clients {
+		_ = c.conn.Close()
+	}
+}
+
 func writePushes(clients []*serverConn, frame []byte) error {
 	for _, c := range clients {
 		if err := c.writePush(rpcMessage{Method: "notifications/nudge", Params: frame}); err != nil {

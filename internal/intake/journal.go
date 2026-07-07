@@ -25,13 +25,14 @@ const DefaultSegmentRotateBytes int64 = 4 * 1024 * 1024
 var ErrLegacyJournal = errors.New("legacy intake journal layout unsupported")
 
 type Cmd struct {
-	IntakeID    string          `json:"intake_id,omitempty"`
-	Seat        string          `json:"seat"`
-	Role        string          `json:"role,omitempty"`
-	IsOperator  bool            `json:"is_operator,omitempty"`
-	Verb        string          `json:"verb"`
-	Payload     json.RawMessage `json:"payload,omitempty"`
-	ContentHash string          `json:"content_hash,omitempty"`
+	IntakeID       string          `json:"intake_id,omitempty"`
+	Seat           string          `json:"seat"`
+	Role           string          `json:"role,omitempty"`
+	IsOperator     bool            `json:"is_operator,omitempty"`
+	AuthGeneration string          `json:"auth_generation,omitempty"`
+	Verb           string          `json:"verb"`
+	Payload        json.RawMessage `json:"payload,omitempty"`
+	ContentHash    string          `json:"content_hash,omitempty"`
 }
 
 type Journal struct {

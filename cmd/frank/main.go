@@ -117,6 +117,17 @@ func run(ctx context.Context, cfg config) error {
 		liveTables.Publish(tab)
 		return tab, nil
 	}
+	socket := cfg.Socket
+	if socket == "" {
+		socket = filepath.Join(cfg.Root, "frank.sock")
+	}
+	var server *channel.Server
+	currentAuthGeneration := func(seatName string) string {
+		return tables.CurrentAuthGeneration(liveTables.Snapshot(), seatName)
+	}
+	completeSeatMint := func(rec record.Record, includeReply bool) (engine.OutcomeExtras, error) {
+		return completeSeatMintBinding(rec, mgr, server, socket, includeReply)
+	}
 	handler := func(ctx context.Context, cmd intake.Cmd) (record.Record, []store.Intent, error) {
 		meta := seat.SeatMeta{Name: cmd.Seat, Role: cmd.Role, IsOperator: cmd.IsOperator}
 		tab := liveTables.Snapshot()
@@ -145,6 +156,21 @@ func run(ctx context.Context, cfg config) error {
 		if _, err := publishStoreTables(); err != nil {
 			return err
 		}
+		if cmd.AuthGeneration != "" {
+			current := currentAuthGeneration(cmd.Seat)
+			if current != "" && current != cmd.AuthGeneration {
+				rec := engine.CredentialSupersededRecord(cmd)
+				relayID, err := st.Commit(rec, nil)
+				if err != nil {
+					return err
+				}
+				rec.Envelope.RelayID = relayID
+				tab := liveTables.Snapshot()
+				tab.OnCommit(rec)
+				liveTables.Publish(tab)
+				return completeTurn(st)
+			}
+		}
 		rec, intents, err := handler(ctx, cmd)
 		if err != nil {
 			return err
@@ -152,13 +178,19 @@ func run(ctx context.Context, cfg config) error {
 		if rec.Envelope.IntakeID == "" {
 			rec.Envelope.IntakeID = cmd.IntakeID
 		}
-		if _, err := st.Commit(rec, intents); err != nil {
+		relayID, err := st.Commit(rec, intents)
+		if err != nil {
 			return err
 		}
+		rec.Envelope.RelayID = relayID
 		tab := liveTables.Snapshot()
 		tab.OnCommit(rec)
 		liveTables.Publish(tab)
-		return completeTurn(st)
+		if err := completeTurn(st); err != nil {
+			return err
+		}
+		_, err = completeSeatMint(rec, false)
+		return err
 	}
 	result, err := frankrecover.RunWithProcessor(cfg.Root, pinned, process)
 	if err != nil {
@@ -168,20 +200,19 @@ func run(ctx context.Context, cfg config) error {
 	if err != nil {
 		return err
 	}
-
-	socket := cfg.Socket
-	if socket == "" {
-		socket = filepath.Join(cfg.Root, "frank.sock")
+	if err := completeMissingSeatMintBindings(postRecoveryTables, mgr); err != nil {
+		return err
 	}
+
 	if err := validateSocketPath(socket); err != nil {
 		return err
 	}
-	var server *channel.Server
 	var loop *engine.Loop
 	var writer *intake.Writer[engine.Outcome]
 	if result.Ready != nil {
 		loop = engine.New(st, handler, result.Ready)
 		loop.Tables = postRecoveryTables
+		loop.CurrentAuthGeneration = currentAuthGeneration
 		loop.AfterCommit = func(st *store.Store) error {
 			if err := frankgc.Pass(st, loop.Tables, pinned.Engine); err != nil {
 				return err
@@ -194,6 +225,9 @@ func run(ctx context.Context, cfg config) error {
 			liveTables.Publish(tab)
 			return nil
 		}
+		loop.AfterAccepted = func(rec record.Record) (engine.OutcomeExtras, error) {
+			return completeSeatMint(rec, true)
+		}
 		go loop.Run(ctx)
 		writer, err = intake.NewWriter[engine.Outcome](journal, pinned.Engine, result.Ready)
 		if err != nil {
@@ -202,6 +236,7 @@ func run(ctx context.Context, cfg config) error {
 		go writer.Run(ctx, loop.In)
 	}
 	server, err = channel.ServeAuthenticated(socket, mgr, func(meta seat.SeatMeta) channel.ToolSet {
+		meta.AuthGeneration = currentAuthGeneration(meta.Name)
 		tools := channelTools(ctx, st, reg, pinned.Digest, liveTables, meta, writer, loop, func(out engine.Outcome) {
 			if server == nil || out.State != record.Accepted || out.RelayID == "" {
 				return
@@ -291,7 +326,7 @@ func channelTools(ctx context.Context, st *store.Store, reg *fieldspec.Registry,
 			if writer == nil {
 				return nil, errors.New("submit unavailable")
 			}
-			reply, _, err := writer.Submit(ctx, intake.Cmd{Seat: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator, Verb: "submit", Payload: payload})
+			reply, _, err := writer.Submit(ctx, intake.Cmd{Seat: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator, AuthGeneration: meta.AuthGeneration, Verb: "submit", Payload: payload})
 			if err != nil {
 				return nil, err
 			}
@@ -436,6 +471,9 @@ func mintSeat(ctx context.Context, cfg config) error {
 	if socketIsLive(ctx, socket) {
 		return errors.New("conductor is serving; -mint is admin-time only")
 	}
+	if err := requireGenesisTimeMint(cfg.Root); err != nil {
+		return err
+	}
 	mgr, err := seat.Open(cfg.Root)
 	if err != nil {
 		return err
@@ -445,6 +483,68 @@ func mintSeat(ctx context.Context, cfg config) error {
 		return err
 	}
 	fmt.Printf("credential=%s\n", cred.Value)
+	return nil
+}
+
+func completeSeatMintBinding(rec record.Record, mgr *seat.Manager, server *channel.Server, endpoint string, includeReply bool) (engine.OutcomeExtras, error) {
+	if rec.Envelope.DeliveryState != record.Accepted || rec.Headers["record_kind"] != "seat_mint" {
+		return engine.OutcomeExtras{}, nil
+	}
+	req, violation := engine.ParseSeatMintBody(rec.Body, rec.Envelope.From)
+	if violation != nil {
+		return engine.OutcomeExtras{}, fmt.Errorf("accepted seat_mint failed parse: %s:%s", violation.Field, violation.Class)
+	}
+	cred, err := mgr.MintOrReplace(req.Seat, req.Role, req.IsOperator)
+	if err != nil {
+		return engine.OutcomeExtras{}, err
+	}
+	if server != nil {
+		server.ForceCloseSeat(req.Seat)
+	}
+	if !includeReply {
+		return engine.OutcomeExtras{}, nil
+	}
+	return engine.OutcomeExtras{Credential: cred.Value, Endpoint: endpoint}, nil
+}
+
+func completeMissingSeatMintBindings(tab *tables.T, mgr *seat.Manager) error {
+	if tab == nil {
+		return nil
+	}
+	for _, rec := range tab.Records {
+		if rec.Envelope.DeliveryState != record.Accepted || rec.Headers["record_kind"] != "seat_mint" {
+			continue
+		}
+		req, violation := engine.ParseSeatMintBody(rec.Body, rec.Envelope.From)
+		if violation != nil {
+			return fmt.Errorf("accepted seat_mint failed parse: %s:%s", violation.Field, violation.Class)
+		}
+		if mgr.CredentialsFor(req.Seat) != 0 {
+			continue
+		}
+		if _, err := mgr.MintOrReplace(req.Seat, req.Role, req.IsOperator); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func requireGenesisTimeMint(root string) error {
+	entries, err := os.ReadDir(filepath.Join(root, "records"))
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
+			continue
+		}
+		if entry.Name() != "genesis.json" {
+			return errors.New("admin -mint is genesis-time only; submit record_kind seat_mint for live minting")
+		}
+	}
 	return nil
 }
 

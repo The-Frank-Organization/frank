@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/jackli/frank/internal/bounce"
@@ -64,7 +65,7 @@ func SubmitHandlerWithRender(st *store.Store, reg *fieldspec.Registry, meta seat
 			cand.Body = bounce.Format(lineageBounce)
 			return cand, nil, nil
 		}
-		if violation := validateRecordKind(tab, cand); violation != nil {
+		if violation := validateRecordKind(tab, cand, meta); violation != nil {
 			cand = clearGateRaiseHeaders(cand)
 			cand.Envelope.DeliveryState = record.Rejected
 			cand.Body = bounce.Format(*violation)
@@ -155,7 +156,7 @@ func isGateCandidate(rec record.Record) bool {
 	return rec.Headers["HUMAN_GATE_REQUIRED"] == "yes" || rec.Headers["gate_category"] != ""
 }
 
-func validateRecordKind(t *tables.T, cand record.Record) *fieldspec.Violation {
+func validateRecordKind(t *tables.T, cand record.Record, meta seat.SeatMeta) *fieldspec.Violation {
 	switch cand.Headers["record_kind"] {
 	case "":
 		return nil
@@ -204,9 +205,45 @@ func validateRecordKind(t *tables.T, cand record.Record) *fieldspec.Violation {
 			return &fieldspec.Violation{Field: "retracts", Class: lineage.ParentUnknownRecompose, Reason: "waiver unknown"}
 		}
 		return nil
+	case "seat_mint":
+		_, violation := ParseSeatMintBody(cand.Body, meta.Name)
+		return violation
 	default:
 		return nil
 	}
+}
+
+type SeatMintRequest struct {
+	Seat       string
+	Role       string
+	IsOperator bool
+}
+
+func ParseSeatMintBody(body, requester string) (SeatMintRequest, *fieldspec.Violation) {
+	var raw struct {
+		Seat       string `json:"seat"`
+		Role       string `json:"role"`
+		IsOperator *bool  `json:"is_operator"`
+	}
+	if err := json.Unmarshal([]byte(body), &raw); err != nil {
+		return SeatMintRequest{}, &fieldspec.Violation{Field: "body", Class: "typed", Reason: "seat_mint body must be JSON"}
+	}
+	if raw.Seat == "" {
+		return SeatMintRequest{}, &fieldspec.Violation{Field: "seat", Class: "required", Reason: "seat required"}
+	}
+	if raw.Role == "" {
+		return SeatMintRequest{}, &fieldspec.Violation{Field: "role", Class: "required", Reason: "role required"}
+	}
+	if raw.IsOperator == nil {
+		return SeatMintRequest{}, &fieldspec.Violation{Field: "is_operator", Class: "required", Reason: "is_operator required"}
+	}
+	if raw.Seat == "system" {
+		return SeatMintRequest{}, &fieldspec.Violation{Field: "seat", Class: "reserved", Reason: "system seat is reserved"}
+	}
+	if requester != "" && raw.Seat == requester {
+		return SeatMintRequest{}, &fieldspec.Violation{Field: "seat", Class: "self-remint", Reason: "seat_mint cannot re-mint the submitting seat"}
+	}
+	return SeatMintRequest{Seat: raw.Seat, Role: raw.Role, IsOperator: *raw.IsOperator}, nil
 }
 
 func validateWaiverRows(t *tables.T, cand record.Record, meta seat.SeatMeta) *fieldspec.Violation {

@@ -209,6 +209,97 @@ func TestSubmitHandlerRejectsUnknownRecordKindAtMembership(t *testing.T) {
 	}
 }
 
+func TestSubmitHandlerSeatMintLayerThreeValidation(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+		want string
+	}{
+		{name: "bad json", body: `{`, want: "body:typed"},
+		{name: "missing seat", body: `{"role":"implementer","is_operator":false}`, want: "seat:required"},
+		{name: "missing role", body: `{"seat":"s6-new.implementer","is_operator":false}`, want: "role:required"},
+		{name: "missing operator flag", body: `{"seat":"s6-new.implementer","role":"implementer"}`, want: "is_operator:required"},
+		{name: "reserved system", body: `{"seat":"system","role":"system","is_operator":false}`, want: "seat:reserved"},
+		{name: "self remint", body: `{"seat":"operator","role":"operator","is_operator":true}`, want: "seat:self-remint"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			st, reg := submitDeps(t)
+			meta := seat.SeatMeta{Name: "operator", Role: "operator", IsOperator: true}
+			handler := engine.SubmitHandler(st, reg, meta)
+			payload := submitPayload(t, reg, meta, record.Record{
+				Headers: map[string]string{
+					"PHASE":           "SITREP",
+					"AUTHORITY":       "report-only",
+					"CEREMONY_TIER":   "medium",
+					"EVIDENCE_TARGET": "E1",
+					"SUBJECT":         "mint",
+					"record_kind":     "seat_mint",
+				},
+				Body: tc.body,
+			})
+			rec, _, err := handler(context.Background(), intake.Cmd{IntakeID: "seat-mint-" + tc.name, Seat: meta.Name, Role: meta.Role, IsOperator: true, Payload: payload})
+			if err != nil {
+				t.Fatalf("handler: %v", err)
+			}
+			if rec.Envelope.DeliveryState != record.Rejected {
+				t.Fatalf("state = %s, want rejected", rec.Envelope.DeliveryState)
+			}
+			if !strings.Contains(rec.Body, tc.want) {
+				t.Fatalf("body = %q, want %s", rec.Body, tc.want)
+			}
+		})
+	}
+}
+
+func TestSubmitHandlerAcceptsSeatMintPivot(t *testing.T) {
+	st, reg := submitDeps(t)
+	meta := seat.SeatMeta{Name: "operator", Role: "operator", IsOperator: true}
+	handler := engine.SubmitHandler(st, reg, meta)
+	payload := submitPayload(t, reg, meta, record.Record{
+		Headers: map[string]string{
+			"PHASE":           "SITREP",
+			"AUTHORITY":       "report-only",
+			"CEREMONY_TIER":   "medium",
+			"EVIDENCE_TARGET": "E1",
+			"SUBJECT":         "mint",
+			"record_kind":     "seat_mint",
+		},
+		Body: `{"seat":"s6-new.implementer","role":"implementer","is_operator":false}`,
+	})
+	rec, _, err := handler(context.Background(), intake.Cmd{IntakeID: "seat-mint", Seat: meta.Name, Role: meta.Role, IsOperator: true, Payload: payload})
+	if err != nil {
+		t.Fatalf("handler: %v", err)
+	}
+	if rec.Envelope.DeliveryState != record.Accepted {
+		t.Fatalf("state = %s body = %q, want accepted", rec.Envelope.DeliveryState, rec.Body)
+	}
+}
+
+func TestSubmitHandlerSeatMintOperatorOnly(t *testing.T) {
+	st, reg := submitDeps(t)
+	meta := seat.SeatMeta{Name: "seat-a", Role: "implementer"}
+	handler := engine.SubmitHandler(st, reg, meta)
+	payload := submitPayload(t, reg, meta, record.Record{
+		Headers: map[string]string{
+			"PHASE":           "SITREP",
+			"AUTHORITY":       "report-only",
+			"CEREMONY_TIER":   "medium",
+			"EVIDENCE_TARGET": "E1",
+			"SUBJECT":         "mint",
+			"record_kind":     "seat_mint",
+		},
+		Body: `{"seat":"s6-new.implementer","role":"implementer","is_operator":false}`,
+	})
+	rec, _, err := handler(context.Background(), intake.Cmd{IntakeID: "seat-mint-nonoperator", Seat: meta.Name, Role: meta.Role, Payload: payload})
+	if err != nil {
+		t.Fatalf("handler: %v", err)
+	}
+	if rec.Envelope.DeliveryState != record.Rejected || !strings.Contains(rec.Body, "record_kind:seat-scope") {
+		t.Fatalf("state/body = %s/%q, want record_kind seat-scope", rec.Envelope.DeliveryState, rec.Body)
+	}
+}
+
 func TestOperatorVerdictOneShotRunsThroughSubmitHandler(t *testing.T) {
 	st, reg := submitDeps(t)
 	if _, err := st.Commit(record.Record{

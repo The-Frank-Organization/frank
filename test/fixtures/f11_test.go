@@ -114,6 +114,7 @@ func TestF11CrashMatrixDrivesRealMutationsAndRecovery(t *testing.T) {
 		{name: "gc-post-unlink", mutation: "gc-marker", crashpoint: "post_gc_unlink"},
 		{name: "owed-item-pre-rename", mutation: "owed-item", crashpoint: "pre_rename"},
 		{name: "owed-disposition-pre-rename", mutation: "owed-disposition", crashpoint: "pre_rename"},
+		{name: "seat-mint-pre-rename", mutation: "seat-mint", crashpoint: "pre_rename"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -324,6 +325,7 @@ func f11Classes() []string {
 		"gc-marker",
 		"owed-item",
 		"owed-disposition",
+		"seat-mint",
 	}
 }
 
@@ -491,6 +493,26 @@ func runF11Mutation(root, mutation string) error {
 		rec, intents, err := handler(context.Background(), intake.Cmd{IntakeID: "verdict-intake", Seat: "operator", Role: "operator", IsOperator: true, Payload: payload})
 		if err != nil {
 			return err
+		}
+		_, err = st.Commit(rec, intents)
+		return err
+	case "seat-mint":
+		reg, err := fieldspec.Load(filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
+		if err != nil {
+			return err
+		}
+		meta := seat.SeatMeta{Name: "operator", Role: "operator", IsOperator: true}
+		handler := engine.SubmitHandler(st, reg, meta)
+		payload, _ := json.Marshal(submitPayloadForRegistry(reg, meta, record.Record{
+			Headers: map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "SUBJECT": "seat mint", "record_kind": "seat_mint"},
+			Body:    `{"seat":"f11-seat.implementer","role":"implementer","is_operator":false}`,
+		}))
+		rec, intents, err := handler(context.Background(), intake.Cmd{IntakeID: "seat-mint-intake", Seat: "operator", Role: "operator", IsOperator: true, Payload: payload})
+		if err != nil {
+			return err
+		}
+		if rec.Envelope.DeliveryState != record.Accepted {
+			return errors.New("seat-mint rejected: " + rec.Body)
 		}
 		_, err = st.Commit(rec, intents)
 		return err
@@ -770,7 +792,7 @@ func assertAtMostOneCanonicalRename(t *testing.T, counter, mutation string) {
 
 func mutationHasSingleCanonicalRecord(mutation string) bool {
 	switch mutation {
-	case "submit-accept", "submit-reject", "config-change", "held", "operator-verdict", "outbox-enqueue", "owed-item", "owed-disposition":
+	case "submit-accept", "submit-reject", "config-change", "held", "operator-verdict", "outbox-enqueue", "owed-item", "owed-disposition", "seat-mint":
 		return true
 	default:
 		return false

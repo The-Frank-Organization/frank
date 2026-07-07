@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -191,6 +192,83 @@ func TestLoopReplaysExistingOutcomeForDuplicateContentHash(t *testing.T) {
 	}
 	if out.RelayID != "original-outcome" || out.IntakeID != originalID || out.State != record.Accepted {
 		t.Fatalf("outcome = %+v, want original outcome", out)
+	}
+}
+
+func TestLoopRejectsSupersededCredentialGenerationBeforeHandler(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("Open store: %v", err)
+	}
+	var calls int
+	loop := engine.New(st, func(context.Context, intake.Cmd) (record.Record, []store.Intent, error) {
+		calls++
+		return record.Record{
+			Envelope: record.Envelope{From: "seat-a", Role: "implementer", DeliveryState: record.Accepted, SchemaVersion: 1},
+			Headers:  map[string]string{"PHASE": "SITREP", "SUBJECT": "stale"},
+		}, nil, nil
+	}, engine.TestReady())
+	loop.CurrentAuthGeneration = func(seatName string) string {
+		if seatName == "seat-a" {
+			return "relay-new"
+		}
+		return "genesis"
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go loop.Run(ctx)
+
+	reply := make(chan engine.Outcome, 1)
+	loop.In <- engine.Job{Cmd: intake.Cmd{IntakeID: "stale-generation", Seat: "seat-a", Role: "implementer", Verb: "submit", AuthGeneration: "relay-old", Payload: json.RawMessage(`{"stale":true}`)}, ReplyCh: reply}
+	out := <-reply
+	if calls != 0 {
+		t.Fatalf("handler calls = %d, want generation rejection before handler", calls)
+	}
+	if out.State != record.Rejected || !strings.Contains(out.Detail, "auth_generation:credential-superseded") {
+		t.Fatalf("outcome = %+v, want credential-superseded detail", out)
+	}
+	records, err := st.Records()
+	if err != nil {
+		t.Fatalf("Records: %v", err)
+	}
+	if len(records) != 1 {
+		t.Fatalf("records = %d, want one rejected outcome", len(records))
+	}
+	if records[0].Envelope.DeliveryState != record.Rejected || strings.Contains(string(mustJSON(t, records[0])), "relay-old") {
+		t.Fatalf("record leaked auth generation or wrong state: %+v", records[0])
+	}
+}
+
+func TestLoopDoesNotPersistAuthGenerationOnAcceptedRecord(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("Open store: %v", err)
+	}
+	loop := engine.New(st, func(_ context.Context, cmd intake.Cmd) (record.Record, []store.Intent, error) {
+		return record.Record{
+			Envelope: record.Envelope{From: cmd.Seat, Role: cmd.Role, DeliveryState: record.Accepted, IntakeID: cmd.IntakeID, SchemaVersion: 1},
+			Headers:  map[string]string{"PHASE": "SITREP", "SUBJECT": "accepted"},
+		}, nil, nil
+	}, engine.TestReady())
+	loop.CurrentAuthGeneration = func(seatName string) string {
+		return "pivot-1"
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go loop.Run(ctx)
+
+	reply := make(chan engine.Outcome, 1)
+	loop.In <- engine.Job{Cmd: intake.Cmd{IntakeID: "tagged-accept", Seat: "seat-a", Role: "implementer", Verb: "submit", AuthGeneration: "pivot-1", Payload: json.RawMessage(`{"ok":true}`)}, ReplyCh: reply}
+	out := <-reply
+	if out.State != record.Accepted || out.RelayID == "" {
+		t.Fatalf("outcome = %+v, want accepted", out)
+	}
+	data, err := os.ReadFile(filepath.Join(st.Root, "records", out.RelayID+".json"))
+	if err != nil {
+		t.Fatalf("read accepted record: %v", err)
+	}
+	if strings.Contains(string(data), "auth_generation") || strings.Contains(string(data), "pivot-1") {
+		t.Fatalf("accepted record leaked auth generation:\n%s", data)
 	}
 }
 
