@@ -147,6 +147,104 @@ func TestToolsCallProxiesRealAuthenticatedChannel(t *testing.T) {
 	}
 }
 
+func TestShimReconnectsAndRetriesSingleCallAfterConnectionLoss(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	root := t.TempDir()
+	mgr, err := seat.Open(root)
+	if err != nil {
+		t.Fatalf("seat.Open: %v", err)
+	}
+	cred, err := mgr.Mint("seat-a", "implementer", false)
+	if err != nil {
+		t.Fatalf("Mint: %v", err)
+	}
+	sock := filepath.Join(os.TempDir(), fmt.Sprintf("frank-mcp-reconnect-%d.sock", time.Now().UnixNano()))
+	t.Cleanup(func() { _ = os.Remove(sock) })
+	first, err := channel.ServeAuthenticated(sock, mgr, func(seat.SeatMeta) channel.ToolSet {
+		return channel.ToolSet{
+			Project: func(context.Context, json.RawMessage) (json.RawMessage, error) {
+				return json.RawMessage(`["before"]`), nil
+			},
+			Read: func(context.Context, json.RawMessage) (json.RawMessage, error) {
+				return json.RawMessage(`{"server":"old"}`), nil
+			},
+		}
+	})
+	if err != nil {
+		t.Fatalf("ServeAuthenticated first: %v", err)
+	}
+	server := NewMCPServer(Options{SocketPath: sock, Credential: cred.Value, Context: ctx})
+	defer server.closeClient()
+
+	firstResult, _ := server.handleToolCall(toolCallParams("project", map[string]any{}))
+	if firstResult.IsError || firstResult.Content[0].Text != `["before"]` {
+		t.Fatalf("first result = %+v", firstResult)
+	}
+	if err := first.Close(); err != nil {
+		t.Fatalf("close first server: %v", err)
+	}
+
+	second, err := channel.ServeAuthenticated(sock, mgr, func(seat.SeatMeta) channel.ToolSet {
+		return channel.ToolSet{
+			Read: func(_ context.Context, args json.RawMessage) (json.RawMessage, error) {
+				return json.RawMessage(`{"server":"new","args":` + string(args) + `}`), nil
+			},
+		}
+	})
+	if err != nil {
+		t.Fatalf("ServeAuthenticated second: %v", err)
+	}
+	defer func() { _ = second.Close() }()
+
+	retried, _ := server.handleToolCall(toolCallParams("read", map[string]any{"relay_id": "relay-2"}))
+	if retried.IsError {
+		t.Fatalf("retried call errored: %+v", retried)
+	}
+	if !strings.Contains(retried.Content[0].Text, `"server":"new"`) || !strings.Contains(retried.Content[0].Text, `"relay_id":"relay-2"`) {
+		t.Fatalf("retried text = %s", retried.Content[0].Text)
+	}
+}
+
+func TestShimReconnectRetrySecondFailureSurfacesTyped(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	root := t.TempDir()
+	mgr, err := seat.Open(root)
+	if err != nil {
+		t.Fatalf("seat.Open: %v", err)
+	}
+	cred, err := mgr.Mint("seat-a", "implementer", false)
+	if err != nil {
+		t.Fatalf("Mint: %v", err)
+	}
+	sock := filepath.Join(os.TempDir(), fmt.Sprintf("frank-mcp-retry-fail-%d.sock", time.Now().UnixNano()))
+	t.Cleanup(func() { _ = os.Remove(sock) })
+	first, err := channel.ServeAuthenticated(sock, mgr, func(seat.SeatMeta) channel.ToolSet {
+		return channel.ToolSet{
+			Project: func(context.Context, json.RawMessage) (json.RawMessage, error) {
+				return json.RawMessage(`[]`), nil
+			},
+		}
+	})
+	if err != nil {
+		t.Fatalf("ServeAuthenticated first: %v", err)
+	}
+	server := NewMCPServer(Options{SocketPath: sock, Credential: cred.Value, Context: ctx})
+	defer server.closeClient()
+	if firstResult, _ := server.handleToolCall(toolCallParams("project", map[string]any{})); firstResult.IsError {
+		t.Fatalf("first result = %+v", firstResult)
+	}
+	if err := first.Close(); err != nil {
+		t.Fatalf("close first server: %v", err)
+	}
+
+	failed, _ := server.handleToolCall(toolCallParams("read", map[string]any{"relay_id": "relay-2"}))
+	if !failed.IsError || !strings.Contains(failed.Content[0].Text, "shim:conductor-unreachable") {
+		t.Fatalf("failed retry result = %+v", failed)
+	}
+}
+
 func TestSubmitArgumentsRoundTripStructuredStringCarrier(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -511,6 +609,14 @@ func mcpCall(name string, id int, args map[string]any) string {
 		},
 	})
 	return string(payload) + "\n"
+}
+
+func toolCallParams(name string, args map[string]any) json.RawMessage {
+	data, _ := json.Marshal(map[string]any{
+		"name":      name,
+		"arguments": args,
+	})
+	return data
 }
 
 func mustMarshalString(t *testing.T, v any) string {

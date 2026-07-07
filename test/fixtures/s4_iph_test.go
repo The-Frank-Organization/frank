@@ -194,7 +194,7 @@ func TestS4IPHReconnectErrorPathClean(t *testing.T) {
 	if err := cmd.Wait(); err != nil {
 		t.Fatalf("wait frank-mcp: %v\nstdout=%s\nstderr=%s", err, stdout.String(), stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "shim:connection-lost") {
+	if !strings.Contains(stdout.String(), "shim:conductor-unreachable") {
 		t.Fatalf("reconnect error output = %s", stdout.String())
 	}
 	if strings.Contains(stderr.String(), cred.Value) {

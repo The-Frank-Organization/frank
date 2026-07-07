@@ -158,16 +158,35 @@ func (s *MCPServer) handleToolCall(params json.RawMessage) (mcpToolResult, bool)
 	if class != "" {
 		return errorToolResult(class), false
 	}
-	result, err := client.Call(s.opts.Context, call.Name, args)
-	if err != nil {
-		s.closeClient()
-		return errorToolResult(scrubError(err)), false
+	result, client, class := s.callWithReconnect(client, call.Name, args)
+	if class != "" {
+		return errorToolResult(class), false
 	}
 	if call.Name == "submit" && submitNeedsReRender(result) {
 		phase, tier := declaredPhaseTier(submitArgs)
 		return textToolResult(string(reRenderResult(result)), false), s.refreshSubmitSchema(client, phase, tier)
 	}
 	return textToolResult(string(result), false), false
+}
+
+func (s *MCPServer) callWithReconnect(client *channel.Client, name string, args json.RawMessage) (json.RawMessage, *channel.Client, string) {
+	result, err := client.Call(s.opts.Context, name, args)
+	if err == nil {
+		return result, client, ""
+	}
+	s.closeClient()
+	reconnected, class := s.ensureClient()
+	if class != "" {
+		return nil, nil, class
+	}
+	// Submit retry is safe because the conductor intake layer replays by content hash
+	// instead of executing duplicate accepted commands.
+	result, err = reconnected.Call(s.opts.Context, name, args)
+	if err != nil {
+		s.closeClient()
+		return nil, nil, scrubError(err)
+	}
+	return result, reconnected, ""
 }
 
 func (s *MCPServer) toolsListResult() map[string]any {
