@@ -82,6 +82,11 @@ func run(ctx context.Context, cfg config) error {
 	if cfg.OperatorSubmit != "" {
 		return operatorSubmit(ctx, cfg)
 	}
+	rootLock, err := store.AcquireRoot(cfg.Root)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = rootLock.Release() }()
 	st, err := store.Open(cfg.Root)
 	if err != nil {
 		return err
