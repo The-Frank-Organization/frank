@@ -35,6 +35,9 @@ func (s *Store) RebuildProjections() error {
 			return err
 		}
 	}
+	if err := resetMailboxes(filepath.Join(s.Root, "mailboxes")); err != nil {
+		return err
+	}
 	records, err := s.recordsLocked()
 	if err != nil {
 		return err
@@ -131,12 +134,14 @@ func DefaultProjectionIntentsStrict(rec record.Record) ([]Intent, error) {
 		{Kind: IntentIndex, Path: "INDEX.md", Payload: []byte(fmt.Sprintf("| %s | %s | %s | %s | %s | %s |\n", relayID, rec.Headers["PHASE"], rec.Envelope.From, toDisplay, ccDisplay, rec.Envelope.DeliveryState))},
 		{Kind: IntentRender, Path: renderPath, Payload: render},
 	}
-	recipients, err := DeliveryRecipients(rec)
-	if err != nil {
-		return nil, err
-	}
-	for _, recipient := range recipients {
-		intents = append(intents, Intent{Kind: IntentMailbox, Path: safeMailbox(recipient) + ".jsonl", Payload: []byte(relayID + "\n")})
+	if rec.Envelope.DeliveryState == record.Accepted {
+		recipients, err := DeliveryRecipients(rec)
+		if err != nil {
+			return nil, err
+		}
+		for _, recipient := range recipients {
+			intents = append(intents, Intent{Kind: IntentMailbox, Path: safeMailbox(recipient) + ".jsonl", Payload: []byte(relayID + "\n")})
+		}
 	}
 	return intents, nil
 }
@@ -216,6 +221,13 @@ func canonicalProjectionIntents(rec record.Record) ([]Intent, error) {
 	}
 	intents = append(intents, Intent{Kind: IntentOutbox, Path: outbox.ItemID + ".json", Payload: []byte(rec.Body)})
 	return intents, nil
+}
+
+func resetMailboxes(dir string) error {
+	if err := os.RemoveAll(dir); err != nil {
+		return err
+	}
+	return os.MkdirAll(dir, 0o755)
 }
 
 func OwedProjectionIntentsForCandidate(st *Store, cand record.Record) []Intent {

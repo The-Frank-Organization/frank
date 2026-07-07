@@ -299,8 +299,12 @@ func channelTools(ctx context.Context, st *store.Store, reg *fieldspec.Registry,
 			nudge(out)
 			return json.Marshal(out)
 		},
-		Project: func(context.Context, json.RawMessage) (json.RawMessage, error) {
-			relayIDs, err := st.Project(meta.Name)
+		Project: func(_ context.Context, payload json.RawMessage) (json.RawMessage, error) {
+			var req struct {
+				View string `json:"view,omitempty"`
+			}
+			_ = json.Unmarshal(payload, &req)
+			relayIDs, err := st.ProjectView(meta.Name, req.View)
 			if err != nil {
 				return nil, err
 			}

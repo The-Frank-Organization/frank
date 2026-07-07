@@ -32,12 +32,14 @@ func ConfigChangeIntentsStrict(rec record.Record) ([]Intent, error) {
 		{Kind: IntentIndex, Path: "INDEX.md", Payload: []byte(fmt.Sprintf("| %s | %s | %s | %s | %s | %s |\n", relayID, rec.Headers["PHASE"], rec.Envelope.From, toDisplay, ccDisplay, rec.Envelope.DeliveryState))},
 		{Kind: IntentConfig, Path: target, Payload: []byte(rec.Body)},
 	}
-	recipients, err := DeliveryRecipients(rec)
-	if err != nil {
-		return nil, err
-	}
-	for _, recipient := range recipients {
-		intents = append(intents, Intent{Kind: IntentMailbox, Path: safeMailbox(recipient) + ".jsonl", Payload: []byte(relayID + "\n")})
+	if rec.Envelope.DeliveryState == record.Accepted {
+		recipients, err := DeliveryRecipients(rec)
+		if err != nil {
+			return nil, err
+		}
+		for _, recipient := range recipients {
+			intents = append(intents, Intent{Kind: IntentMailbox, Path: safeMailbox(recipient) + ".jsonl", Payload: []byte(relayID + "\n")})
+		}
 	}
 	return intents, nil
 }
