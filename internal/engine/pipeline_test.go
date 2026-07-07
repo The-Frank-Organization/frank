@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/jackli/frank/internal/engine"
@@ -220,7 +221,7 @@ func TestOperatorVerdictOneShotRunsThroughSubmitHandler(t *testing.T) {
 	handler := engine.SubmitHandler(st, reg, meta)
 
 	firstPayload := submitPayload(t, reg, meta, record.Record{
-		Headers: map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "EVIDENCE_TARGET": "E1", "SUBJECT": "verdict 1", "PARENT_DISPATCH_ID": "gate-1", "resolves_gate": "gate-1"},
+		Headers: map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "EVIDENCE_TARGET": "E1", "SUBJECT": "verdict 1", "parent_hint": "gate-1", "resolves_gate": "gate-1"},
 	})
 	first, _, err := handler(context.Background(), intake.Cmd{IntakeID: "v1", Seat: "operator", Role: "operator", IsOperator: true, Payload: firstPayload})
 	if err != nil {
@@ -234,7 +235,7 @@ func TestOperatorVerdictOneShotRunsThroughSubmitHandler(t *testing.T) {
 	}
 
 	secondPayload := submitPayload(t, reg, meta, record.Record{
-		Headers: map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "EVIDENCE_TARGET": "E1", "SUBJECT": "verdict 2", "PARENT_DISPATCH_ID": "gate-1", "resolves_gate": "gate-1"},
+		Headers: map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "EVIDENCE_TARGET": "E1", "SUBJECT": "verdict 2", "parent_hint": "gate-1", "resolves_gate": "gate-1"},
 	})
 	second, _, err := handler(context.Background(), intake.Cmd{IntakeID: "v2", Seat: "operator", Role: "operator", IsOperator: true, Payload: secondPayload})
 	if err != nil {
@@ -298,7 +299,7 @@ func TestSubmitHandlerBuildsOwedProjectionFromProvidedTable(t *testing.T) {
 	t.Fatalf("missing owed OPEN.md render intent in %#v", intents)
 }
 
-func TestSubmitHandlerRejectsParentOutsideRenderedCandidateSet(t *testing.T) {
+func TestSubmitHandlerIgnoresPayloadParentOutsideRenderedCandidateSet(t *testing.T) {
 	st, reg := submitDeps(t)
 	meta := seat.SeatMeta{Name: "s3-form.implementer", Role: "implementer"}
 	tab := tables.New()
@@ -314,6 +315,7 @@ func TestSubmitHandlerRejectsParentOutsideRenderedCandidateSet(t *testing.T) {
 		Headers: map[string]string{
 			"PHASE":              "PLAN",
 			"AUTHORITY":          "plan-only",
+			"EVIDENCE_TARGET":    "E1",
 			"SUBJECT":            "outside parent",
 			"PARENT_DISPATCH_ID": "visible-but-unrelated",
 		},
@@ -322,15 +324,15 @@ func TestSubmitHandlerRejectsParentOutsideRenderedCandidateSet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("handler: %v", err)
 	}
-	if rec.Envelope.DeliveryState != record.Rejected {
-		t.Fatalf("state = %s, want rejected", rec.Envelope.DeliveryState)
+	if rec.Envelope.DeliveryState != record.Accepted {
+		t.Fatalf("state/body = %s/%s, want accepted", rec.Envelope.DeliveryState, rec.Body)
 	}
-	if !strings.Contains(rec.Body, "outside-active-lineage") {
-		t.Fatalf("body = %s, want outside-active-lineage", rec.Body)
+	if rec.Headers["PARENT_DISPATCH_ID"] != "" {
+		t.Fatalf("payload parent was not ignored: %+v", rec.Headers)
 	}
 }
 
-func TestSubmitHandlerRejectsStalePositiveParentAfterRender(t *testing.T) {
+func TestSubmitHandlerIgnoresStalePayloadParentAfterRender(t *testing.T) {
 	st, reg := submitDeps(t)
 	meta := seat.SeatMeta{Name: "s3-form.implementer", Role: "implementer"}
 	env := fieldspec.RenderEnv{ParentCandidates: func(fieldspec.SeatMeta) ([]string, string) {
@@ -351,11 +353,177 @@ func TestSubmitHandlerRejectsStalePositiveParentAfterRender(t *testing.T) {
 	if err != nil {
 		t.Fatalf("handler: %v", err)
 	}
+	if rec.Envelope.DeliveryState != record.Accepted {
+		t.Fatalf("state/body = %s/%s, want accepted", rec.Envelope.DeliveryState, rec.Body)
+	}
+	if rec.Headers["PARENT_DISPATCH_ID"] != "" {
+		t.Fatalf("stale payload parent was not ignored: %+v", rec.Headers)
+	}
+}
+
+func TestSubmitHandlerHonorsProvableParentHint(t *testing.T) {
+	st, reg := submitDeps(t)
+	if _, err := st.Commit(record.Record{
+		Envelope: record.Envelope{RelayID: "hint-parent", DispatchID: "dispatch-parent", From: "seat-b", To: "seat-a", Role: "planner", DeliveryState: record.Accepted, SchemaVersion: 1},
+		Headers:  map[string]string{"PHASE": "SITREP", "SUBJECT": "parent"},
+	}, nil); err != nil {
+		t.Fatalf("commit parent: %v", err)
+	}
+	tab, err := tables.Build(st)
+	if err != nil {
+		t.Fatalf("Build tables: %v", err)
+	}
+	meta := seat.SeatMeta{Name: "seat-a", Role: "implementer"}
+	env := fieldspec.RenderEnv{Turn: fieldspec.TurnContext{}}
+	handler := engine.SubmitHandlerWithRender(st, reg, meta, env, tab)
+	payload := submitPayloadWithEnv(t, reg, meta, env, record.Record{
+		Headers: map[string]string{
+			"PHASE":           "SITREP",
+			"AUTHORITY":       "report-only",
+			"EVIDENCE_TARGET": "E1",
+			"SUBJECT":         "hint",
+			"parent_hint":     "hint-parent",
+		},
+	})
+	rec, _, err := handler(context.Background(), intake.Cmd{IntakeID: "hint-honored", Seat: meta.Name, Role: meta.Role, Payload: payload})
+	if err != nil {
+		t.Fatalf("handler: %v", err)
+	}
+	if rec.Envelope.DeliveryState != record.Accepted {
+		t.Fatalf("state/body = %s/%s, want accepted", rec.Envelope.DeliveryState, rec.Body)
+	}
+	if rec.Headers["PARENT_DISPATCH_ID"] != "hint-parent" ||
+		rec.Headers["parent_hint"] != "hint-parent" ||
+		rec.Headers["parent_hint_honored"] != "yes" ||
+		rec.Headers["parent_provenance"] != "hint" {
+		t.Fatalf("hint headers = %+v", rec.Headers)
+	}
+}
+
+func TestSubmitHandlerHintFallbackNeverBouncesAndPayloadParentIgnored(t *testing.T) {
+	st, reg := submitDeps(t)
+	meta := seat.SeatMeta{Name: "seat-a", Role: "implementer"}
+	env := fieldspec.RenderEnv{Turn: fieldspec.TurnContext{}}
+	handler := engine.SubmitHandlerWithRender(st, reg, meta, env, tables.New())
+	payload := submitPayloadWithEnv(t, reg, meta, env, record.Record{
+		Headers: map[string]string{
+			"PHASE":              "SITREP",
+			"AUTHORITY":          "report-only",
+			"EVIDENCE_TARGET":    "E1",
+			"SUBJECT":            "fallback",
+			"PARENT_DISPATCH_ID": "payload-parent",
+			"parent_hint":        "unprovable-parent",
+		},
+	})
+	rec, _, err := handler(context.Background(), intake.Cmd{IntakeID: "hint-fallback", Seat: meta.Name, Role: meta.Role, Payload: payload})
+	if err != nil {
+		t.Fatalf("handler: %v", err)
+	}
+	if rec.Envelope.DeliveryState != record.Accepted {
+		t.Fatalf("state/body = %s/%s, want accepted", rec.Envelope.DeliveryState, rec.Body)
+	}
+	if rec.Headers["PARENT_DISPATCH_ID"] == "payload-parent" {
+		t.Fatalf("payload parent was not ignored: %+v", rec.Headers)
+	}
+	if rec.Headers["parent_hint"] != "unprovable-parent" || rec.Headers["parent_hint_honored"] != "no" {
+		t.Fatalf("fallback hint headers = %+v", rec.Headers)
+	}
+}
+
+func TestSubmitHandlerConcurrentAcceptNoParentClassBounce(t *testing.T) {
+	st, reg := submitDeps(t)
+	meta := seat.SeatMeta{Name: "seat-a", Role: "implementer"}
+	handler := engine.SubmitHandler(st, reg, meta)
+	payload := submitPayload(t, reg, meta, record.Record{
+		Headers: map[string]string{
+			"PHASE":           "PLAN",
+			"AUTHORITY":       "plan-only",
+			"EVIDENCE_TARGET": "E1",
+			"SUBJECT":         "concurrent parent",
+			"parent_hint":     "landing-parent",
+		},
+	})
+
+	start := make(chan struct{})
+	errs := make(chan string, 24)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		<-start
+		if _, err := st.Commit(record.Record{
+			Envelope: record.Envelope{RelayID: "landing-parent", From: "seat-b", To: meta.Name, Role: "planner", DeliveryState: record.Accepted, SchemaVersion: 1},
+			Headers:  map[string]string{"PHASE": "SITREP", "SUBJECT": "landing"},
+		}, nil); err != nil {
+			errs <- "commit parent: " + err.Error()
+		}
+	}()
+	for i := range 20 {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			<-start
+			rec, _, err := handler(context.Background(), intake.Cmd{IntakeID: "concurrent-parent", Seat: meta.Name, Role: meta.Role, Payload: payload})
+			if err != nil {
+				errs <- err.Error()
+				return
+			}
+			if rec.Envelope.DeliveryState != record.Accepted {
+				errs <- rec.Body
+				return
+			}
+			if strings.Contains(rec.Body, lineage.ParentUnknownRecompose) || strings.Contains(rec.Body, lineage.ParentInvalidDeadEdge) {
+				errs <- "parent-class bounce in accepted record " + rec.Body
+				return
+			}
+			_ = i
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		t.Fatalf("concurrent accept path failed: %s", err)
+	}
+}
+
+func TestSubmitHandlerClassGatesStillBiteAfterFallbackStampedWrongParent(t *testing.T) {
+	st, reg := submitDeps(t)
+	if _, err := st.Commit(record.Record{
+		Envelope: record.Envelope{RelayID: "wrong-wake", From: "seat-b", To: "seat-a.planner", Role: "planner", DeliveryState: record.Accepted, SchemaVersion: 1},
+		Headers:  map[string]string{"PHASE": "SITREP", "SUBJECT": "wrong wake"},
+	}, nil); err != nil {
+		t.Fatalf("commit wrong wake: %v", err)
+	}
+	tab, err := tables.Build(st)
+	if err != nil {
+		t.Fatalf("Build tables: %v", err)
+	}
+	meta := seat.SeatMeta{Name: "seat-a.planner", Role: "planner"}
+	env := fieldspec.RenderEnv{Turn: fieldspec.TurnContext{WokenOn: "wrong-wake"}}
+	handler := engine.SubmitHandlerWithRender(st, reg, meta, env, tab)
+	payload := submitPayloadWithEnv(t, reg, meta, env, record.Record{
+		Headers: map[string]string{
+			"PHASE":              "PLAN",
+			"AUTHORITY":          "plan-only",
+			"EVIDENCE_TARGET":    "E1",
+			"SUBJECT":            "design without review",
+			"DESIGN_LOCK_ID":     "design-1",
+			"DESIGN_RECORD_KIND": "design-doc",
+		},
+	})
+	rec, _, err := handler(context.Background(), intake.Cmd{IntakeID: "class-gate-parent", Seat: meta.Name, Role: meta.Role, Payload: payload})
+	if err != nil {
+		t.Fatalf("handler: %v", err)
+	}
 	if rec.Envelope.DeliveryState != record.Rejected {
 		t.Fatalf("state = %s, want rejected", rec.Envelope.DeliveryState)
 	}
-	if !strings.Contains(rec.Body, lineage.ParentUnknownRecompose) {
-		t.Fatalf("body = %s, want parent substrate bounce", rec.Body)
+	if rec.Headers["PARENT_DISPATCH_ID"] != "wrong-wake" || rec.Headers["parent_provenance"] != "woken_on" {
+		t.Fatalf("wrong fallback parent was not stamped: %+v", rec.Headers)
+	}
+	if !strings.Contains(rec.Body, lineage.DesignReviewMissing) {
+		t.Fatalf("body = %s, want design-review class bounce", rec.Body)
 	}
 }
 

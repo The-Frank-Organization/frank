@@ -66,14 +66,6 @@ func (r *Registry) Validate(cand record.Record, seat SeatMeta, formDigest string
 	if len(violations) == 0 {
 		r.raiseGateCategory(cand, fields, env)
 	}
-	if parent := cand.Headers["PARENT_DISPATCH_ID"]; parent != "" && env.ParentCandidates != nil {
-		candidates, _ := env.ParentCandidates(seat)
-		if len(candidates) == 0 {
-			violations = append(violations, Violation{Field: "PARENT_DISPATCH_ID", Class: "active-lineage-empty", Reason: "no active lineage candidates"})
-		} else if !containsString(candidates, parent) {
-			violations = append(violations, Violation{Field: "PARENT_DISPATCH_ID", Class: "outside-active-lineage", Reason: "parent outside active lineage candidate set"})
-		}
-	}
 	return violations
 }
 

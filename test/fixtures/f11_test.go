@@ -486,7 +486,7 @@ func runF11Mutation(root, mutation string) error {
 		meta := seat.SeatMeta{Name: "operator", Role: "operator", IsOperator: true}
 		handler := engine.SubmitHandler(st, reg, meta)
 		payload, _ := json.Marshal(submitPayloadForRegistry(reg, meta, record.Record{
-			Headers: map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "SUBJECT": "verdict", "PARENT_DISPATCH_ID": "gate-base", "resolves_gate": "gate-base"},
+			Headers: map[string]string{"PHASE": "SITREP", "AUTHORITY": "report-only", "SUBJECT": "verdict", "parent_hint": "gate-base", "resolves_gate": "gate-base"},
 		}))
 		rec, intents, err := handler(context.Background(), intake.Cmd{IntakeID: "verdict-intake", Seat: "operator", Role: "operator", IsOperator: true, Payload: payload})
 		if err != nil {

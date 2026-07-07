@@ -118,9 +118,9 @@ func run(ctx context.Context, cfg config) error {
 		// Step-1 detection is exactly S1 + S2 + S3 plus other->A. S3 is
 		// input-atom-pending until operator config names a declared target field.
 		env := fieldspec.RenderEnv{
-			ConfigDigest:     pinned.Digest,
-			KnownA:           engine.KnownADetector(reg, tab, detectorConfig),
-			ParentCandidates: lineage.ActiveLineageCandidates(tab, turnContextForSeat(st, tab, meta.Name)),
+			ConfigDigest: pinned.Digest,
+			KnownA:       engine.KnownADetector(reg, tab, detectorConfig),
+			Turn:         turnContextForSeat(st, tab, meta.Name),
 		}
 		return engine.SubmitHandlerWithRender(st, reg, meta, env, tab)(ctx, cmd)
 	}
@@ -269,7 +269,7 @@ func channelTools(ctx context.Context, st *store.Store, reg *fieldspec.Registry,
 			}
 			tab := liveTables.Snapshot()
 			form, digest := reg.Render(
-				fieldspec.RenderEnv{ConfigDigest: configDigest, ParentCandidates: lineage.ActiveLineageCandidates(tab, turnContextForSeat(st, tab, meta.Name))},
+				fieldspec.RenderEnv{ConfigDigest: configDigest, Turn: turnContextForSeat(st, tab, meta.Name)},
 				fieldspec.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator},
 				req.Phase,
 				req.Tier,
@@ -390,16 +390,26 @@ func seatToolDescriptions() map[string]string {
 	}
 }
 
-func turnContextForSeat(st *store.Store, tab *tables.T, seatName string) lineage.TurnContext {
+func turnContextForSeat(st *store.Store, tab *tables.T, seatName string) fieldspec.TurnContext {
 	if st == nil || tab == nil || seatName == "" {
-		return lineage.TurnContext{}
+		return fieldspec.TurnContext{}
 	}
 	relayIDs, err := st.Project(seatName)
 	if err != nil || len(relayIDs) == 0 {
-		return lineage.TurnContext{}
+		return fieldspec.TurnContext{}
 	}
-	wokenOn := relayIDs[len(relayIDs)-1]
-	ctx := lineage.TurnContext{WokenOn: wokenOn}
+	var wokenOn string
+	for i := len(relayIDs) - 1; i >= 0; i-- {
+		rec, ok := tab.ByRelay[relayIDs[i]]
+		if ok && rec.Envelope.DeliveryState == record.Accepted {
+			wokenOn = relayIDs[i]
+			break
+		}
+	}
+	if wokenOn == "" {
+		return fieldspec.TurnContext{}
+	}
+	ctx := fieldspec.TurnContext{WokenOn: wokenOn}
 	if rec, ok := tab.ByRelay[wokenOn]; ok {
 		ctx.ActiveDispatch = rec.Envelope.DispatchID
 	}

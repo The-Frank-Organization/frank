@@ -32,11 +32,6 @@ type Engine struct {
 	T   *tables.T
 }
 
-type TurnContext struct {
-	WokenOn        string
-	ActiveDispatch string
-}
-
 func AuthorityBearing(cand record.Record, meta seat.SeatMeta) bool {
 	return (&Engine{}).AuthorityBearing(cand, meta)
 }
@@ -348,34 +343,6 @@ func RealGrantState(t *tables.T) fieldspec.GrantState {
 			}
 		}
 		return false
-	}
-}
-
-func ActiveLineageCandidates(t *tables.T, turn TurnContext) fieldspec.ParentCandidates {
-	return func(fieldspec.SeatMeta) ([]string, string) {
-		seen := map[string]bool{}
-		var candidates []string
-		add := func(value string) {
-			if value == "" || seen[value] {
-				return
-			}
-			seen[value] = true
-			candidates = append(candidates, value)
-		}
-		add(turn.WokenOn)
-		add(turn.ActiveDispatch)
-		if t != nil && turn.ActiveDispatch != "" {
-			for _, rec := range t.ByDispatch[turn.ActiveDispatch] {
-				if rec.Envelope.DeliveryState == record.Accepted {
-					add(rec.Envelope.RelayID)
-				}
-			}
-		}
-		dflt := ""
-		if len(candidates) > 0 {
-			dflt = candidates[0]
-		}
-		return candidates, dflt
 	}
 }
 

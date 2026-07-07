@@ -51,6 +51,7 @@ func SubmitHandlerWithRender(st *store.Store, reg *fieldspec.Registry, meta seat
 			cand.Body = bounce.Format(anySlice(violations)...)
 			return cand, nil, nil
 		}
+		cand = stampParent(st, tab, cand, meta, env)
 		if lineageBounce := (&lineage.Engine{Reg: reg, T: tab}).Check(cand, seat.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator}); lineageBounce != nil {
 			cand = clearGateRaiseHeaders(cand)
 			cand.Envelope.DeliveryState = record.Rejected

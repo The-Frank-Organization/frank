@@ -153,11 +153,9 @@ func TestS5GateRaiseDoesNotPersistStampOnRejectedRecord(t *testing.T) {
 	st, reg, meta := s5GateRaiseDeps(t)
 	rec := s5GateRaiseCandidate()
 	rec.Headers["gate_category"] = "routing"
-	rec.Headers["PARENT_DISPATCH_ID"] = "not-rendered"
+	rec.Headers["DESIGN_LOCK_ID"] = "design-missing"
+	rec.Headers["DESIGN_RECORD_KIND"] = "design-doc"
 	env := s5AFloorEnv(reg, "authz_security")
-	env.ParentCandidates = func(fieldspec.SeatMeta) ([]string, string) {
-		return []string{"rendered-parent"}, "rendered-parent"
-	}
 
 	committed := s5SubmitAndCommit(t, st, reg, meta, env, rec)
 	if committed.Envelope.DeliveryState != record.Rejected {
@@ -174,11 +172,9 @@ func TestS5GateRaiseDoesNotPersistStampOnRejectedRecord(t *testing.T) {
 func TestS5GateRaiseDoesNotPersistAddedCategoryOnRejectedAbsorb(t *testing.T) {
 	st, reg, meta := s5GateRaiseDeps(t)
 	rec := s5GateRaiseCandidate()
-	rec.Headers["PARENT_DISPATCH_ID"] = "not-rendered"
+	rec.Headers["DESIGN_LOCK_ID"] = "design-missing"
+	rec.Headers["DESIGN_RECORD_KIND"] = "design-doc"
 	env := s5AFloorEnv(reg, "authz_security")
-	env.ParentCandidates = func(fieldspec.SeatMeta) ([]string, string) {
-		return []string{"rendered-parent"}, "rendered-parent"
-	}
 
 	committed := s5SubmitAndCommit(t, st, reg, meta, env, rec)
 	if committed.Envelope.DeliveryState != record.Rejected {
@@ -196,11 +192,9 @@ func TestS5GateRaiseDoesNotDropOtherPickOnRejectedRecord(t *testing.T) {
 	st, reg, meta := s5GateRaiseDeps(t)
 	rec := s5GateRaiseCandidate()
 	rec.Headers["gate_category"] = "other"
-	rec.Headers["PARENT_DISPATCH_ID"] = "not-rendered"
+	rec.Headers["DESIGN_LOCK_ID"] = "design-missing"
+	rec.Headers["DESIGN_RECORD_KIND"] = "design-doc"
 	env := s5AFloorEnv(reg, "authz_security")
-	env.ParentCandidates = func(fieldspec.SeatMeta) ([]string, string) {
-		return []string{"rendered-parent"}, "rendered-parent"
-	}
 
 	committed := s5SubmitAndCommit(t, st, reg, meta, env, rec)
 	if committed.Envelope.DeliveryState != record.Rejected {
@@ -237,7 +231,7 @@ func TestS5GateResolutionRejectsNonOperatorSubmitPath(t *testing.T) {
 	rec := s5GateRaiseCandidate()
 	rec.Headers["SUBJECT"] = "gate resolution"
 	rec.Headers["record_kind"] = "gate_resolution"
-	rec.Headers["PARENT_DISPATCH_ID"] = gateRec.Envelope.RelayID
+	rec.Headers["parent_hint"] = gateRec.Envelope.RelayID
 	rec.Headers["resolves_gate"] = gateRec.Envelope.RelayID
 
 	committed := s5SubmitAndCommit(t, st, reg, meta, fieldspec.RenderEnv{}, rec)

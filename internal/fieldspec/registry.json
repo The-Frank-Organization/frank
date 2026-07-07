@@ -93,7 +93,7 @@
     {"id": "timestamp", "layer": "envelope", "owner": "system", "type": "text", "fill_constraints": "system_only", "lineage_role": "none"},
     {"id": "schema_version", "layer": "envelope", "owner": "system", "type": "text", "fill_constraints": "system_only", "lineage_role": "none"},
     {"id": "certification", "layer": "envelope", "owner": "system", "type": "text", "fill_constraints": "system_only", "lineage_role": "none"},
-    {"id": "PARENT_DISPATCH_ID", "layer": "envelope", "owner": "agent_enum_pick", "type": "id_ref", "fill_constraints": "parent_picker", "lineage_role": "parent_edge"},
+    {"id": "PARENT_DISPATCH_ID", "layer": "envelope", "owner": "system", "type": "id_ref", "fill_constraints": "system_only", "lineage_role": "parent_edge"},
     {"id": "parent_hint", "layer": "header", "owner": "free_text", "type": "id_ref", "fill_constraints": "free_text", "lineage_role": "none"},
     {"id": "parent_hint_honored", "layer": "header", "owner": "system", "type": "bool", "enum_set": "bool", "fill_constraints": "computed_result", "lineage_role": "none"},
     {"id": "parent_provenance", "layer": "header", "owner": "system", "type": "enum", "options": ["woken_on", "active_dispatch", "dispatch_root", "hint"], "fill_constraints": "computed_result", "lineage_role": "none"},

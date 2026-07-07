@@ -128,7 +128,7 @@ func TestEngineScopeFlipDrift(t *testing.T) {
 	}
 }
 
-func TestRealGrantStateAndActiveLineageCandidates(t *testing.T) {
+func TestRealGrantState(t *testing.T) {
 	tab := tables.New()
 	grantState := lineage.RealGrantState(tab)
 	if grantState(fieldspec.SeatMeta{Name: "s1-core.planner", Role: "planner"}) {
@@ -144,10 +144,6 @@ func TestRealGrantStateAndActiveLineageCandidates(t *testing.T) {
 	})
 	if !grantState(fieldspec.SeatMeta{Name: "s1-core.planner", Role: "planner"}) {
 		t.Fatalf("grant state false after approving review")
-	}
-	candidates, dflt := lineage.ActiveLineageCandidates(tab, lineage.TurnContext{WokenOn: "wake-1", ActiveDispatch: "dispatch-1"})(fieldspec.SeatMeta{})
-	if dflt != "wake-1" || len(candidates) != 3 || candidates[1] != "dispatch-1" || candidates[2] != "review-1" {
-		t.Fatalf("candidates=%v default=%s", candidates, dflt)
 	}
 }
 

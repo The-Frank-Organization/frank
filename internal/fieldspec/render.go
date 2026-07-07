@@ -14,6 +14,12 @@ type RenderEnv struct {
 	ParentCandidates    ParentCandidates
 	RecipientCandidates RecipientCandidates
 	MonotonicFloors     map[string]string
+	Turn                TurnContext
+}
+
+type TurnContext struct {
+	WokenOn        string
+	ActiveDispatch string
 }
 
 type GrantState func(seat SeatMeta) bool

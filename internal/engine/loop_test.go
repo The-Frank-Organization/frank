@@ -178,8 +178,9 @@ func TestLoopOutcomeDetailEqualsRecordedRejectionDetailPerClass(t *testing.T) {
 				"AUTHORITY":          "plan-only",
 				"CEREMONY_TIER":      "medium",
 				"EVIDENCE_TARGET":    "E1",
-				"SUBJECT":            "bad parent",
-				"PARENT_DISPATCH_ID": "missing-parent",
+				"SUBJECT":            "bad design chain",
+				"DESIGN_LOCK_ID":     "design-1",
+				"DESIGN_RECORD_KIND": "design-doc",
 			}},
 		},
 		{
