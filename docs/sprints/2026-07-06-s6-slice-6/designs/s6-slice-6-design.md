@@ -166,7 +166,7 @@ On a failed call over a previously-live connection: one transparent re-dial + re
 | m-1 §F.6 | → lands via FX-B1c/B1f/B1g (stated mapping) | — | m-1 §F.6 |
 | m-2 §7.1-7.6 | codec full-set · archive one-encoding · three-layer + genesis negative · parent dissolution · waiver-as-record · recipient_picker exempt | fieldspec/store/fixtures | m-2 §7 |
 | m-2 §11.5 | boot renders-pre-active + un-bounceable · shared-vocab negative · self_reported label | fieldspec/fixtures | m-2 §11.5 |
-| floors | full uncached battery zero-regression · enum grep (`sweep_test` extended over new outputs) · I-PH grep-matrix over the four new families · three-verb surface | battery/sweep | ROADMAP gate 2 |
+| floors | full uncached battery zero-regression · enum grep (`sweep_test` extended over new outputs) · I-PH grep-matrix over the FIVE new payload families incl. the `seat_mint` accept-reply with its two named operator-channel-only carve-outs (r3/R2) · three-verb surface | battery/sweep | ROADMAP gate 2 |
 
 Step-exit (gate 3) is the operator's, on the fixed conductor — prepared-for (ops: pre-allowlist `mcp__frank__*`), never simulated.
 
