@@ -1,11 +1,42 @@
 package fieldspec_test
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/jackli/frank/internal/fieldspec"
 	"github.com/jackli/frank/internal/record"
 )
+
+func TestAddressListCodecRoundTripAndRejectsNonCanonical(t *testing.T) {
+	decoded, err := fieldspec.DecodeAddressList(`["seat-b","seat-d","seat-c"]`)
+	if err != nil {
+		t.Fatalf("DecodeAddressList canonical: %v", err)
+	}
+	if want := []string{"seat-b", "seat-d", "seat-c"}; !reflect.DeepEqual(decoded, want) {
+		t.Fatalf("decoded = %v, want %v", decoded, want)
+	}
+
+	encoded, err := fieldspec.EncodeAddressList([]string{"seat-b", "seat-d", "seat-c"})
+	if err != nil {
+		t.Fatalf("EncodeAddressList: %v", err)
+	}
+	if encoded != `["seat-b","seat-d","seat-c"]` {
+		t.Fatalf("encoded = %q, want canonical address list", encoded)
+	}
+
+	empty, err := fieldspec.DecodeAddressList("")
+	if err != nil {
+		t.Fatalf("DecodeAddressList empty: %v", err)
+	}
+	if empty != nil {
+		t.Fatalf("empty decoded = %v, want nil", empty)
+	}
+
+	if _, err := fieldspec.DecodeAddressList(`["seat-b", "seat-c"]`); err == nil {
+		t.Fatalf("DecodeAddressList accepted non-canonical JSON")
+	}
+}
 
 func TestCanonicalMarshalDeterministicNoWhitespace(t *testing.T) {
 	got, err := fieldspec.CanonicalMarshal([]map[string]string{

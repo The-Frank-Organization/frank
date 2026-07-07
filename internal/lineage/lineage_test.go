@@ -216,11 +216,11 @@ func TestOrchestratorPlannerBroadSetRequiresReviewerVisibilityOrOperatorWaiver(t
 	if bounce := eng.Check(cand, seat.SeatMeta{Name: "s3.orchestrator-planner", Role: "orchestrator-planner"}); bounce == nil || bounce.Kind != "reviewer-visibility-missing" {
 		t.Fatalf("missing reviewer visibility bounce = %+v", bounce)
 	}
-	cand.Headers["CC"] = "s3.orchestrator-reviewer, operator"
+	cand.Headers["CC"] = `["s3.orchestrator-reviewer","operator"]`
 	if bounce := eng.Check(cand, seat.SeatMeta{Name: "s3.orchestrator-planner", Role: "orchestrator-planner"}); bounce != nil {
 		t.Fatalf("reviewer-visible broad set bounced: %+v", bounce)
 	}
-	cand.Headers["CC"] = "operator"
+	cand.Headers["CC"] = `["operator"]`
 	tab.OnCommit(record.Record{
 		Envelope: record.Envelope{RelayID: "waiver", From: "operator", Role: "operator", DeliveryState: record.Accepted, SchemaVersion: 1},
 		Headers:  map[string]string{"ORCH_REVIEW_WAIVER": "operator approved no reviewer"},

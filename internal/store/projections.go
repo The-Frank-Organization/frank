@@ -40,7 +40,11 @@ func (s *Store) RebuildProjections() error {
 		return err
 	}
 	for _, rec := range records {
-		if err := s.applyIntents(canonicalProjectionIntents(rec)); err != nil {
+		intents, err := canonicalProjectionIntents(rec)
+		if err != nil {
+			return err
+		}
+		if err := s.applyIntents(intents); err != nil {
 			return err
 		}
 	}
@@ -91,9 +95,14 @@ func (s *Store) applyIntents(intents []Intent) error {
 }
 
 func DefaultProjectionIntents(rec record.Record) []Intent {
+	intents, _ := DefaultProjectionIntentsStrict(rec)
+	return intents
+}
+
+func DefaultProjectionIntentsStrict(rec record.Record) ([]Intent, error) {
 	relayID := rec.Envelope.RelayID
 	if relayID == "" {
-		return nil
+		return nil, nil
 	}
 	phase := safeSegment(rec.Headers["PHASE"])
 	if phase == "" {
@@ -108,18 +117,35 @@ func DefaultProjectionIntents(rec record.Record) []Intent {
 		dispatchID = "unassigned"
 	}
 	renderPath := filepath.Join("relays", dispatchID, fmt.Sprintf("%s-%s-%s.md", phase, role, relayID))
-	render := []byte(fmt.Sprintf("## %s\n\nFROM: %s\nTO: %s\nSUBJECT: %s\n\n%s\n", relayID, rec.Envelope.From, rec.Envelope.To, rec.Headers["SUBJECT"], rec.Body))
+	toList, ccList, err := decodedHeaderRecipients(rec)
+	if err != nil {
+		return nil, err
+	}
+	toDisplay := joinRecipients(toList)
+	ccDisplay := joinRecipients(ccList)
+	if toDisplay == "" && !hasAddressListHeader(rec, "TO") {
+		toDisplay = rec.Envelope.To
+	}
+	render := []byte(fmt.Sprintf("## %s\n\nFROM: %s\nTO: %s\nCC: %s\nSUBJECT: %s\n\n%s\n", relayID, rec.Envelope.From, toDisplay, ccDisplay, rec.Headers["SUBJECT"], rec.Body))
 	intents := []Intent{
-		{Kind: IntentIndex, Path: "INDEX.md", Payload: []byte(fmt.Sprintf("| %s | %s | %s | %s | %s |\n", relayID, rec.Headers["PHASE"], rec.Envelope.From, rec.Envelope.To, rec.Envelope.DeliveryState))},
+		{Kind: IntentIndex, Path: "INDEX.md", Payload: []byte(fmt.Sprintf("| %s | %s | %s | %s | %s | %s |\n", relayID, rec.Headers["PHASE"], rec.Envelope.From, toDisplay, ccDisplay, rec.Envelope.DeliveryState))},
 		{Kind: IntentRender, Path: renderPath, Payload: render},
 	}
-	for _, recipient := range DeliveryRecipients(rec) {
+	recipients, err := DeliveryRecipients(rec)
+	if err != nil {
+		return nil, err
+	}
+	for _, recipient := range recipients {
 		intents = append(intents, Intent{Kind: IntentMailbox, Path: safeMailbox(recipient) + ".jsonl", Payload: []byte(relayID + "\n")})
 	}
-	return intents
+	return intents, nil
 }
 
-func DeliveryRecipients(rec record.Record) []string {
+func DeliveryRecipients(rec record.Record) ([]string, error) {
+	toList, ccList, err := decodedHeaderRecipients(rec)
+	if err != nil {
+		return nil, err
+	}
 	seen := map[string]bool{}
 	var recipients []string
 	add := func(value string) {
@@ -130,58 +156,66 @@ func DeliveryRecipients(rec record.Record) []string {
 		seen[value] = true
 		recipients = append(recipients, value)
 	}
-	add(rec.Envelope.To)
-	headerRecipients, ok := addressListHeaders(rec)
-	if !ok {
-		return recipients
+	if hasAddressListHeader(rec, "TO") {
+		for _, value := range toList {
+			add(value)
+		}
+	} else {
+		add(rec.Envelope.To)
 	}
-	for _, value := range headerRecipients {
+	for _, value := range ccList {
 		add(value)
 	}
-	return recipients
+	return recipients, nil
 }
 
-func addressListHeaders(rec record.Record) ([]string, bool) {
-	var recipients []string
-	for _, header := range []string{"TO", "CC"} {
-		values, ok := addressList(header, rec.Headers[header])
-		if !ok {
-			return nil, false
-		}
-		recipients = append(recipients, values...)
-	}
-	return recipients, true
+func hasAddressListHeader(rec record.Record, header string) bool {
+	return strings.TrimSpace(rec.Headers[header]) != ""
 }
 
-func addressList(header, raw string) ([]string, bool) {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return nil, true
-	}
-	value, err := fieldspec.ParseTyped(&fieldspec.FieldSpec{ID: header, Type: "address_list"}, raw)
+func decodedHeaderRecipients(rec record.Record) ([]string, []string, error) {
+	toList, err := addressList("TO", rec.Headers["TO"])
 	if err != nil {
-		return nil, false
+		return nil, nil, err
 	}
-	values, ok := value.([]string)
-	return values, ok
+	ccList, err := addressList("CC", rec.Headers["CC"])
+	if err != nil {
+		return nil, nil, err
+	}
+	return toList, ccList, nil
 }
 
-func canonicalProjectionIntents(rec record.Record) []Intent {
-	if rec.Headers["record_kind"] == "config_change" {
-		return ConfigChangeIntents(rec)
+func addressList(header, raw string) ([]string, error) {
+	values, err := fieldspec.DecodeAddressList(raw)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", header, err)
 	}
-	intents := DefaultProjectionIntents(rec)
+	return values, nil
+}
+
+func joinRecipients(values []string) string {
+	return strings.Join(values, ", ")
+}
+
+func canonicalProjectionIntents(rec record.Record) ([]Intent, error) {
+	if rec.Headers["record_kind"] == "config_change" {
+		return ConfigChangeIntentsStrict(rec)
+	}
+	intents, err := DefaultProjectionIntentsStrict(rec)
+	if err != nil {
+		return nil, err
+	}
 	if rec.Body == "" {
-		return intents
+		return intents, nil
 	}
 	var outbox struct {
 		ItemID string `json:"item_id"`
 	}
 	if err := json.Unmarshal([]byte(rec.Body), &outbox); err != nil || outbox.ItemID == "" {
-		return intents
+		return intents, nil
 	}
 	intents = append(intents, Intent{Kind: IntentOutbox, Path: outbox.ItemID + ".json", Payload: []byte(rec.Body)})
-	return intents
+	return intents, nil
 }
 
 func OwedProjectionIntentsForCandidate(st *Store, cand record.Record) []Intent {

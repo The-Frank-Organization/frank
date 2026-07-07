@@ -206,7 +206,11 @@ func run(ctx context.Context, cfg config) error {
 				return
 			}
 			frame := deliveryNudgeFrame(out.RelayID)
-			for _, recipient := range store.DeliveryRecipients(rec) {
+			recipients, err := store.DeliveryRecipients(rec)
+			if err != nil {
+				return
+			}
+			for _, recipient := range recipients {
 				_ = server.PushTo(recipient, frame)
 			}
 		})

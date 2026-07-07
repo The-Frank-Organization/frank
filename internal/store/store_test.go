@@ -99,7 +99,7 @@ func TestRebuildProjectionsIgnoresTornRedoTail(t *testing.T) {
 		t.Fatalf("RebuildProjections: %v", err)
 	}
 	got := string(mustRead(t, filepath.Join(root, "projections", "INDEX.md")))
-	if !strings.Contains(got, "| relay-1 | SITREP | seat-a | seat-b | accepted |") {
+	if !strings.Contains(got, "| relay-1 | SITREP | seat-a | seat-b |  | accepted |") {
 		t.Fatalf("rebuilt INDEX = %q, want canonical relay-1 row", got)
 	}
 }
@@ -184,11 +184,11 @@ func TestRebuildProjectionsRestoresFromCanonicalAndRedo(t *testing.T) {
 		t.Fatalf("RebuildProjections: %v", err)
 	}
 	index := string(mustRead(t, indexPath))
-	wantIndex := "| relay-2 | SITREP | seat-a.implementer | seat-b.planner | accepted |\n"
+	wantIndex := "| relay-2 | SITREP | seat-a.implementer | seat-b.planner |  | accepted |\n"
 	if !strings.Contains(index, "corrupt row\n") || !strings.Contains(index, wantIndex) {
 		t.Fatalf("index did not preserve corrupt row and append canonical correction: %q", index)
 	}
-	assertFile(t, renderPath, "## relay-2\n\nFROM: seat-a.implementer\nTO: seat-b.planner\nSUBJECT: hello\n\nhello body\n")
+	assertFile(t, renderPath, "## relay-2\n\nFROM: seat-a.implementer\nTO: seat-b.planner\nCC: \nSUBJECT: hello\n\nhello body\n")
 	assertFile(t, mailboxPath, "relay-2\n")
 }
 

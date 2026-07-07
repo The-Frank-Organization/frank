@@ -78,7 +78,10 @@ func (s *Store) Commit(rec record.Record, intents []Intent) (string, error) {
 		rec.Envelope.SchemaVersion = 1
 	}
 	if intents == nil && rec.Envelope.DeliveryState == record.Accepted && rec.Headers["PHASE"] != "" {
-		intents = DefaultProjectionIntents(rec)
+		intents, err = DefaultProjectionIntentsStrict(rec)
+		if err != nil {
+			return "", err
+		}
 	}
 	data, err := record.Seal(rec)
 	if err != nil {

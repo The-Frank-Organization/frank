@@ -283,7 +283,15 @@ func addressedTo(rec record.Record, seatName string) bool {
 	if rec.Envelope.To == seatName {
 		return true
 	}
-	for _, value := range strings.Split(rec.Headers["TO"], ",") {
+	return addressedInHeader(rec.Headers["TO"], seatName)
+}
+
+func addressedInHeader(header, seatName string) bool {
+	values, err := fieldspec.DecodeAddressList(header)
+	if err != nil {
+		return false
+	}
+	for _, value := range values {
 		if strings.TrimSpace(value) == seatName {
 			return true
 		}
@@ -427,13 +435,4 @@ func reviewerFor(planner string) string {
 		return strings.TrimSuffix(planner, ".orchestrator-planner") + ".orchestrator-reviewer"
 	}
 	return ""
-}
-
-func addressedInHeader(header, seatName string) bool {
-	for _, value := range strings.Split(header, ",") {
-		if strings.TrimSpace(value) == seatName {
-			return true
-		}
-	}
-	return false
 }

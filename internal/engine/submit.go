@@ -66,7 +66,8 @@ func SubmitHandlerWithRender(st *store.Store, reg *fieldspec.Registry, meta seat
 		if cand.Headers["record_kind"] == "config_change" {
 			cand = classifyConfigChange(st, cand, meta)
 			if cand.Envelope.DeliveryState == record.Accepted {
-				return cand, store.ConfigChangeIntents(cand), nil
+				intents, err := store.ConfigChangeIntentsStrict(cand)
+				return cand, intents, err
 			}
 			cand = clearGateRaiseHeaders(cand)
 			return cand, nil, nil
@@ -74,13 +75,17 @@ func SubmitHandlerWithRender(st *store.Store, reg *fieldspec.Registry, meta seat
 		if cand.Headers["resolves_gate"] != "" {
 			cand = classifyVerdict(tab, cand, meta)
 			if cand.Envelope.DeliveryState == record.Accepted {
-				return cand, store.DefaultProjectionIntents(cand), nil
+				intents, err := store.DefaultProjectionIntentsStrict(cand)
+				return cand, intents, err
 			}
 			cand = clearGateRaiseHeaders(cand)
 			return cand, nil, nil
 		}
 		cand.Envelope.DeliveryState = record.Accepted
-		intents := submitProjectionIntents(cand)
+		intents, err := submitProjectionIntents(cand)
+		if err != nil {
+			return cand, nil, err
+		}
 		if isOwedKind(cand) {
 			intents = append(intents, owedProjectionIntentsFromTable(tab, cand)...)
 		}
@@ -124,8 +129,11 @@ func rejected(cmd intake.Cmd, meta seat.SeatMeta, reason string) record.Record {
 	}
 }
 
-func submitProjectionIntents(rec record.Record) []store.Intent {
-	intents := store.DefaultProjectionIntents(rec)
+func submitProjectionIntents(rec record.Record) ([]store.Intent, error) {
+	intents, err := store.DefaultProjectionIntentsStrict(rec)
+	if err != nil {
+		return nil, err
+	}
 	if isGateCandidate(rec) {
 		intents = append(intents, store.Intent{
 			Kind:    store.IntentIndex,
@@ -133,7 +141,7 @@ func submitProjectionIntents(rec record.Record) []store.Intent {
 			Payload: []byte(fmt.Sprintf("| %s | parked | %s |\n", rec.Envelope.RelayID, rec.Envelope.From)),
 		})
 	}
-	return intents
+	return intents, nil
 }
 
 func isGateCandidate(rec record.Record) bool {
