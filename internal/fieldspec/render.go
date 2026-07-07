@@ -15,6 +15,7 @@ type RenderEnv struct {
 	RecipientCandidates RecipientCandidates
 	MonotonicFloors     map[string]string
 	Turn                TurnContext
+	PreActive           bool
 }
 
 type TurnContext struct {
@@ -63,7 +64,25 @@ func (r *Registry) Render(env RenderEnv, seat SeatMeta, phase, tier string, gran
 		}
 		form.Fields[spec.ID] = field
 	}
+	if env.PreActive {
+		form = bootForm(form)
+	}
 	return form, r.digestRenderedForm(form, env, seat, phase, tier)
+}
+
+func bootForm(form Form) Form {
+	out := Form{Fields: map[string]Field{}}
+	for _, id := range []string{"PHASE", "CEREMONY_TIER", "SUBJECT", "charter_loaded", "dispatch_status"} {
+		field, ok := form.Fields[id]
+		if !ok {
+			continue
+		}
+		if id == "PHASE" {
+			field.Options = []string{"SITREP"}
+		}
+		out.Fields[id] = field
+	}
+	return out
 }
 
 func (r *Registry) renderable(spec *FieldSpec, fields map[string]string, ctx EvalContext) bool {

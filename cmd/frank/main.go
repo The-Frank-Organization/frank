@@ -10,8 +10,10 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 
+	"github.com/jackli/frank/internal/bounce"
 	"github.com/jackli/frank/internal/channel"
 	frankconfig "github.com/jackli/frank/internal/config"
 	"github.com/jackli/frank/internal/engine"
@@ -137,6 +139,7 @@ func run(ctx context.Context, cfg config) error {
 			ConfigDigest: pinned.Digest,
 			KnownA:       engine.KnownADetector(reg, tab, detectorConfig),
 			Turn:         turnContextForSeat(st, tab, meta.Name),
+			PreActive:    !tables.SeatActive(tab, meta),
 		}
 		return engine.SubmitHandlerWithRender(st, reg, meta, env, tab)(ctx, cmd)
 	}
@@ -237,7 +240,12 @@ func run(ctx context.Context, cfg config) error {
 	}
 	server, err = channel.ServeAuthenticated(socket, mgr, func(meta seat.SeatMeta) channel.ToolSet {
 		meta.AuthGeneration = currentAuthGeneration(meta.Name)
-		tools := channelTools(ctx, st, reg, pinned.Digest, liveTables, meta, writer, loop, func(out engine.Outcome) {
+		tools := channelTools(ctx, st, reg, pinned.Digest, liveTables, meta, mgr, func() map[string]bool {
+			if server == nil {
+				return nil
+			}
+			return server.ActiveSeats()
+		}, writer, loop, func(out engine.Outcome) {
 			if server == nil || out.State != record.Accepted || out.RelayID == "" {
 				return
 			}
@@ -296,7 +304,7 @@ func recoveryNudgeFrame() []byte {
 	return frame
 }
 
-func channelTools(ctx context.Context, st *store.Store, reg *fieldspec.Registry, configDigest string, liveTables *tables.Live, meta seat.SeatMeta, writer *intake.Writer[engine.Outcome], loop *engine.Loop, nudge func(engine.Outcome)) channel.ToolSet {
+func channelTools(ctx context.Context, st *store.Store, reg *fieldspec.Registry, configDigest string, liveTables *tables.Live, meta seat.SeatMeta, mgr *seat.Manager, activeSeats func() map[string]bool, writer *intake.Writer[engine.Outcome], loop *engine.Loop, nudge func(engine.Outcome)) channel.ToolSet {
 	return channel.ToolSet{
 		Describe: func(_ context.Context, payload json.RawMessage) (json.RawMessage, error) {
 			var req channel.DescribeRequest
@@ -308,8 +316,9 @@ func channelTools(ctx context.Context, st *store.Store, reg *fieldspec.Registry,
 				req.Tier = "medium"
 			}
 			tab := liveTables.Snapshot()
+			env := fieldspec.RenderEnv{ConfigDigest: configDigest, Turn: turnContextForSeat(st, tab, meta.Name), PreActive: !tables.SeatActive(tab, meta)}
 			form, digest := reg.Render(
-				fieldspec.RenderEnv{ConfigDigest: configDigest, Turn: turnContextForSeat(st, tab, meta.Name)},
+				env,
 				fieldspec.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator},
 				req.Phase,
 				req.Tier,
@@ -344,6 +353,18 @@ func channelTools(ctx context.Context, st *store.Store, reg *fieldspec.Registry,
 				View string `json:"view,omitempty"`
 			}
 			_ = json.Unmarshal(payload, &req)
+			if req.View == "roster" {
+				if !rosterAllowed(meta) {
+					return json.Marshal(struct {
+						Error string `json:"error"`
+					}{Error: bounce.Format(fieldspec.Violation{Field: "roster", Class: "seat-scope"})})
+				}
+				bound := map[string]bool{}
+				if activeSeats != nil {
+					bound = activeSeats()
+				}
+				return json.Marshal(tables.Roster(liveTables.Snapshot(), mgr.Seats(), bound))
+			}
 			relayIDs, err := st.ProjectView(meta.Name, req.View)
 			if err != nil {
 				return nil, err
@@ -390,6 +411,10 @@ func channelTools(ctx context.Context, st *store.Store, reg *fieldspec.Registry,
 			}{Record: view.Record, SchemaVersion: view.Record.Envelope.SchemaVersion, SourceVersion: view.SourceVersion})
 		},
 	}
+}
+
+func rosterAllowed(meta seat.SeatMeta) bool {
+	return operatorSeat(meta) || strings.Contains(meta.Role, "orchestrator") || strings.Contains(meta.Name, ".orchestrator-")
 }
 
 type configChangeRedactedEnvelope struct {

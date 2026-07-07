@@ -136,6 +136,16 @@ func (m *Manager) CredentialsFor(name string) int {
 	return 0
 }
 
+func (m *Manager) Seats() []SeatMeta {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	seats := make([]SeatMeta, 0, len(m.table.Seats))
+	for _, binding := range m.table.Seats {
+		seats = append(seats, binding.Meta)
+	}
+	return seats
+}
+
 func Stamp(rec record.Record, meta SeatMeta) record.Record {
 	rec.Envelope.From = meta.Name
 	rec.Envelope.Role = meta.Role

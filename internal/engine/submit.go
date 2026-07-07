@@ -45,6 +45,11 @@ func SubmitHandlerWithRender(st *store.Store, reg *fieldspec.Registry, meta seat
 				return cand, nil, nil
 			}
 		}
+		if env.PreActive || looksLikeBoot(cand) {
+			if rec, intents, handled, err := classifyBootAdmission(reg, cand, meta, formDigest, env); handled {
+				return rec, intents, err
+			}
+		}
 		violations := reg.Validate(cand, fieldspec.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator}, formDigest, env, lineage.RealGrantState(tab))
 		if len(violations) > 0 {
 			cand = clearGateRaiseHeaders(cand)
@@ -99,6 +104,61 @@ func SubmitHandlerWithRender(st *store.Store, reg *fieldspec.Registry, meta seat
 		}
 		return cand, intents, nil
 	}
+}
+
+func looksLikeBoot(cand record.Record) bool {
+	return cand.Headers["charter_loaded"] != "" || cand.Headers["dispatch_status"] != ""
+}
+
+func classifyBootAdmission(reg *fieldspec.Registry, cand record.Record, meta seat.SeatMeta, formDigest string, env fieldspec.RenderEnv) (record.Record, []store.Intent, bool, error) {
+	bootEnv := env
+	bootEnv.PreActive = env.PreActive
+	_, currentDigest := reg.Render(bootEnv, fieldspec.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator}, cand.Headers["PHASE"], cand.Headers["CEREMONY_TIER"], fieldspec.ClosedGrantState)
+	if formDigest == "" || formDigest != currentDigest {
+		cand.Envelope.DeliveryState = record.Rejected
+		cand.Body = bounce.Format(fieldspec.Violation{Field: "form_digest", Class: "re-render", Reason: "stale form digest"})
+		return cand, nil, true, nil
+	}
+	violations := bootAdmissionViolations(cand)
+	if len(violations) > 0 {
+		cand.Envelope.DeliveryState = record.Rejected
+		cand.Body = bounce.Format(anySlice(violations)...)
+		return cand, nil, true, nil
+	}
+	cand.Envelope.DeliveryState = record.Accepted
+	intents, err := submitProjectionIntents(cand)
+	return cand, intents, true, err
+}
+
+func bootAdmissionViolations(cand record.Record) []fieldspec.Violation {
+	allowed := map[string]bool{
+		"PHASE":           true,
+		"CEREMONY_TIER":   true,
+		"SUBJECT":         true,
+		"charter_loaded":  true,
+		"dispatch_status": true,
+	}
+	var violations []fieldspec.Violation
+	for key := range cand.Headers {
+		if !allowed[key] {
+			violations = append(violations, fieldspec.Violation{Field: key, Class: "non-boot-before-active"})
+		}
+	}
+	for _, key := range []string{"PHASE", "CEREMONY_TIER", "SUBJECT", "charter_loaded", "dispatch_status"} {
+		if cand.Headers[key] == "" {
+			violations = append(violations, fieldspec.Violation{Field: key, Class: "non-boot-before-active"})
+		}
+	}
+	if cand.Headers["PHASE"] != "" && cand.Headers["PHASE"] != "SITREP" {
+		violations = append(violations, fieldspec.Violation{Field: "PHASE", Class: "non-boot-before-active"})
+	}
+	if value := cand.Headers["charter_loaded"]; value != "" && value != "yes" && value != "no" {
+		violations = append(violations, fieldspec.Violation{Field: "charter_loaded", Class: "non-boot-before-active"})
+	}
+	if value := cand.Headers["dispatch_status"]; value != "" && value != "read" && value != "awaiting" {
+		violations = append(violations, fieldspec.Violation{Field: "dispatch_status", Class: "non-boot-before-active"})
+	}
+	return violations
 }
 
 func firstSubmitTable(existing []*tables.T) *tables.T {

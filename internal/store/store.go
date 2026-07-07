@@ -116,6 +116,25 @@ func (s *Store) Records() ([]record.Record, error) {
 	return s.recordsLocked()
 }
 
+func (s *Store) CommitOrder() ([]string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	entries, err := readRedo(s.Root)
+	if err != nil {
+		return nil, err
+	}
+	order := make([]string, 0, len(entries))
+	seen := map[string]bool{}
+	for _, entry := range entries {
+		if entry.RelayID == "" || seen[entry.RelayID] {
+			continue
+		}
+		seen[entry.RelayID] = true
+		order = append(order, entry.RelayID)
+	}
+	return order, nil
+}
+
 func (s *Store) recordsLocked() ([]record.Record, error) {
 	entries, err := os.ReadDir(filepath.Join(s.Root, "records"))
 	if err != nil {

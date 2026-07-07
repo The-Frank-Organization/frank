@@ -192,6 +192,18 @@ func (s *Server) ForceCloseSeat(seatName string) {
 	}
 }
 
+func (s *Server) ActiveSeats() map[string]bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := map[string]bool{}
+	for c := range s.clients {
+		if c.authed && c.seat != "" {
+			out[c.seat] = true
+		}
+	}
+	return out
+}
+
 func writePushes(clients []*serverConn, frame []byte) error {
 	for _, c := range clients {
 		if err := c.writePush(rpcMessage{Method: "notifications/nudge", Params: frame}); err != nil {
