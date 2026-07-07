@@ -52,6 +52,12 @@ func SubmitHandlerWithRender(st *store.Store, reg *fieldspec.Registry, meta seat
 			return cand, nil, nil
 		}
 		cand = stampParent(st, tab, cand, meta, env)
+		if violation := validateWaiverRows(tab, cand, meta); violation != nil {
+			cand = clearGateRaiseHeaders(cand)
+			cand.Envelope.DeliveryState = record.Rejected
+			cand.Body = bounce.Format(*violation)
+			return cand, nil, nil
+		}
 		if lineageBounce := (&lineage.Engine{Reg: reg, T: tab}).Check(cand, seat.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator}); lineageBounce != nil {
 			cand = clearGateRaiseHeaders(cand)
 			cand.Envelope.DeliveryState = record.Rejected
@@ -180,9 +186,49 @@ func validateRecordKind(t *tables.T, cand record.Record) *fieldspec.Violation {
 		return nil
 	case "config_change":
 		return nil
+	case "waiver_retraction":
+		target := cand.Headers["retracts"]
+		if target == "" {
+			return &fieldspec.Violation{Field: "retracts", Class: "required", Reason: "retracts required"}
+		}
+		var found bool
+		for _, rec := range t.Records {
+			if rec.Envelope.RelayID == target && acceptedWaiverRecord(rec) {
+				found = true
+			}
+			if rec.Headers["record_kind"] == "waiver_retraction" && rec.Headers["retracts"] == target && rec.Envelope.DeliveryState == record.Accepted {
+				return &fieldspec.Violation{Field: "retracts", Class: "already-resolved", Reason: "waiver already retracted"}
+			}
+		}
+		if !found {
+			return &fieldspec.Violation{Field: "retracts", Class: lineage.ParentUnknownRecompose, Reason: "waiver unknown"}
+		}
+		return nil
 	default:
 		return nil
 	}
+}
+
+func validateWaiverRows(t *tables.T, cand record.Record, meta seat.SeatMeta) *fieldspec.Violation {
+	if operatorSeat(meta) {
+		return nil
+	}
+	for _, field := range []string{"waiver_scope", "rationale", "retracts"} {
+		if cand.Headers[field] != "" {
+			return &fieldspec.Violation{Field: field, Class: "seat-scope", Reason: field + " requires operator"}
+		}
+	}
+	return nil
+}
+
+func acceptedWaiverRecord(rec record.Record) bool {
+	if rec.Envelope.DeliveryState != record.Accepted {
+		return false
+	}
+	if !(rec.Envelope.From == "operator" || rec.Envelope.Role == "operator") {
+		return false
+	}
+	return rec.Headers["waiver_scope"] != "" || rec.Headers["ORCH_REVIEW_WAIVER"] != ""
 }
 
 func isOwedKind(rec record.Record) bool {

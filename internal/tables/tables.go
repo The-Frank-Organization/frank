@@ -170,7 +170,7 @@ func (t *T) OnCommit(rec record.Record) {
 	if rec.Headers["PHASE"] == "MERGE-GATE" {
 		t.MergeGates[rec.Envelope.DispatchID] = append(t.MergeGates[rec.Envelope.DispatchID], rec)
 	}
-	if rec.Headers["ORCH_REVIEW_WAIVER"] != "" {
+	if rec.Headers["ORCH_REVIEW_WAIVER"] != "" || rec.Headers["waiver_scope"] != "" {
 		t.Waivers = append(t.Waivers, rec)
 	}
 	t.updateCompletion(rec)

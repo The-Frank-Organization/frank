@@ -170,12 +170,10 @@ func (e *Engine) checkReviewerVisibility(cand record.Record, meta seat.SeatMeta)
 	if reviewer == "" || addressedTo(cand, reviewer) || addressedInHeader(cand.Headers["CC"], reviewer) {
 		return nil
 	}
-	for _, rec := range e.records() {
-		if accepted(rec) && rec.Headers["ORCH_REVIEW_WAIVER"] != "" && (rec.Envelope.From == "operator" || rec.Envelope.Role == "operator") {
-			return nil
-		}
+	if e.effectiveReviewerWaiver(cand) {
+		return nil
 	}
-	return &Bounce{Edge: "ORCH_REVIEW_WAIVER", Kind: ReviewerVisibilityMissing}
+	return &Bounce{Edge: "waiver_scope", Kind: ReviewerVisibilityMissing}
 }
 
 func (e *Engine) checkParentSubstrate(cand record.Record) *Bounce {
@@ -268,6 +266,64 @@ func (e *Engine) records() []record.Record {
 		return nil
 	}
 	return e.T.Records
+}
+
+func (e *Engine) effectiveReviewerWaiver(cand record.Record) bool {
+	retracted := map[string]bool{}
+	for _, rec := range e.records() {
+		if !accepted(rec) || rec.Headers["record_kind"] != "waiver_retraction" || rec.Headers["retracts"] == "" {
+			continue
+		}
+		retracted[rec.Headers["retracts"]] = true
+	}
+	for _, rec := range e.records() {
+		if !acceptedWaiver(rec) || retracted[rec.Envelope.RelayID] {
+			continue
+		}
+		if waiverMatches(rec, cand) {
+			return true
+		}
+	}
+	return false
+}
+
+func acceptedWaiver(rec record.Record) bool {
+	if !accepted(rec) {
+		return false
+	}
+	if !(rec.Envelope.From == "operator" || rec.Envelope.Role == "operator") {
+		return false
+	}
+	return rec.Headers["waiver_scope"] != "" || rec.Headers["ORCH_REVIEW_WAIVER"] != ""
+}
+
+func waiverMatches(waiver, cand record.Record) bool {
+	if waiver.Headers["ORCH_REVIEW_WAIVER"] != "" {
+		return true
+	}
+	var scope map[string]string
+	if err := json.Unmarshal([]byte(waiver.Headers["waiver_scope"]), &scope); err != nil {
+		return false
+	}
+	switch scope["kind"] {
+	case "run":
+		return true
+	case "dispatch":
+		return scope["dispatch_id"] != "" && scope["dispatch_id"] == cand.Envelope.DispatchID
+	case "relay":
+		return scope["relay_id"] != "" && scope["relay_id"] == cand.Envelope.RelayID
+	case "record_class_dispatch":
+		if scope["dispatch_id"] != "" && scope["dispatch_id"] != cand.Envelope.DispatchID {
+			return false
+		}
+		class := scope["record_kind"]
+		if class == "" {
+			class = scope["phase"]
+		}
+		return class != "" && (class == cand.Headers["record_kind"] || class == cand.Headers["PHASE"])
+	default:
+		return false
+	}
 }
 
 func claimsAction(cand record.Record) bool {
