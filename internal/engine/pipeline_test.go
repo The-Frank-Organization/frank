@@ -111,6 +111,103 @@ func TestSubmitHandlerRejectsForbiddenPairGrant(t *testing.T) {
 	}
 }
 
+func TestSubmitHandlerAcceptsOfferedRecordKindsWithoutEngineMembershipSwitch(t *testing.T) {
+	cases := []struct {
+		name       string
+		meta       seat.SeatMeta
+		recordKind string
+	}{
+		{
+			name:       "operator disposition",
+			meta:       seat.SeatMeta{Name: "operator", Role: "operator", IsOperator: true},
+			recordKind: "disposition",
+		},
+		{
+			name:       "plain diagnostics",
+			meta:       seat.SeatMeta{Name: "seat-a", Role: "implementer"},
+			recordKind: "diagnostics",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			st, reg := submitDeps(t)
+			handler := engine.SubmitHandler(st, reg, tc.meta)
+			payload := submitPayload(t, reg, tc.meta, record.Record{
+				Headers: map[string]string{
+					"PHASE":           "SITREP",
+					"AUTHORITY":       "report-only",
+					"CEREMONY_TIER":   "medium",
+					"EVIDENCE_TARGET": "E1",
+					"SUBJECT":         tc.name,
+					"record_kind":     tc.recordKind,
+				},
+			})
+
+			rec, _, err := handler(context.Background(), intake.Cmd{IntakeID: "kind-" + tc.recordKind, Seat: tc.meta.Name, Role: tc.meta.Role, IsOperator: tc.meta.IsOperator, Payload: payload})
+			if err != nil {
+				t.Fatalf("handler: %v", err)
+			}
+			if rec.Envelope.DeliveryState != record.Accepted {
+				t.Fatalf("state = %s, body = %q; want accepted", rec.Envelope.DeliveryState, rec.Body)
+			}
+		})
+	}
+}
+
+func TestSubmitHandlerRejectsGenesisAtSeatScopeNotEngineUnknown(t *testing.T) {
+	st, reg := submitDeps(t)
+	meta := seat.SeatMeta{Name: "seat-a", Role: "implementer"}
+	handler := engine.SubmitHandler(st, reg, meta)
+	payload := submitPayload(t, reg, meta, record.Record{
+		Headers: map[string]string{
+			"PHASE":           "SITREP",
+			"AUTHORITY":       "report-only",
+			"CEREMONY_TIER":   "medium",
+			"EVIDENCE_TARGET": "E1",
+			"SUBJECT":         "genesis",
+			"record_kind":     "genesis",
+		},
+	})
+
+	rec, _, err := handler(context.Background(), intake.Cmd{IntakeID: "kind-genesis", Seat: meta.Name, Role: meta.Role, Payload: payload})
+	if err != nil {
+		t.Fatalf("handler: %v", err)
+	}
+	if rec.Envelope.DeliveryState != record.Rejected {
+		t.Fatalf("state = %s, want rejected", rec.Envelope.DeliveryState)
+	}
+	if !strings.Contains(rec.Body, "record_kind:seat-scope") || strings.Contains(rec.Body, "record_kind:unknown") {
+		t.Fatalf("body = %q, want seat-scope rejection without engine unknown", rec.Body)
+	}
+}
+
+func TestSubmitHandlerRejectsUnknownRecordKindAtMembership(t *testing.T) {
+	st, reg := submitDeps(t)
+	meta := seat.SeatMeta{Name: "seat-a", Role: "implementer"}
+	handler := engine.SubmitHandler(st, reg, meta)
+	payload := submitPayload(t, reg, meta, record.Record{
+		Headers: map[string]string{
+			"PHASE":           "SITREP",
+			"AUTHORITY":       "report-only",
+			"CEREMONY_TIER":   "medium",
+			"EVIDENCE_TARGET": "E1",
+			"SUBJECT":         "unknown",
+			"record_kind":     "not_a_record_kind",
+		},
+	})
+
+	rec, _, err := handler(context.Background(), intake.Cmd{IntakeID: "kind-unknown", Seat: meta.Name, Role: meta.Role, Payload: payload})
+	if err != nil {
+		t.Fatalf("handler: %v", err)
+	}
+	if rec.Envelope.DeliveryState != record.Rejected {
+		t.Fatalf("state = %s, want rejected", rec.Envelope.DeliveryState)
+	}
+	if !strings.Contains(rec.Body, "record_kind:enum") || strings.Contains(rec.Body, "record_kind:unknown") {
+		t.Fatalf("body = %q, want enum membership rejection without engine unknown", rec.Body)
+	}
+}
+
 func TestOperatorVerdictOneShotRunsThroughSubmitHandler(t *testing.T) {
 	st, reg := submitDeps(t)
 	if _, err := st.Commit(record.Record{

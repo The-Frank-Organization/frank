@@ -179,10 +179,8 @@ func validateRecordKind(t *tables.T, cand record.Record) *fieldspec.Violation {
 		return nil
 	case "config_change":
 		return nil
-	case "gate_resolution":
-		return nil
 	default:
-		return &fieldspec.Violation{Field: "record_kind", Class: "unknown", Reason: "unknown record_kind"}
+		return nil
 	}
 }
 
