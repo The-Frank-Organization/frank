@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -265,11 +266,28 @@ func s5ALandedRegistryBytes(t *testing.T) []byte {
 		}
 		return data
 	}
+	if data, ok := s5ARegistryFromGit(t); ok {
+		return data
+	}
 	if len(mismatches) > 0 {
 		t.Fatalf("no s5-a registry candidate matched SHA256 %s from %s; mismatches=%v", s5ARegistrySHA256, s5ARegistryCommit, mismatches)
 	}
 	t.Skipf("s5-a registry @ %s not found; set FRANK_S5_A_REGISTRY", s5ARegistryCommit)
 	return nil
+}
+
+func s5ARegistryFromGit(t *testing.T) ([]byte, bool) {
+	t.Helper()
+	cmd := exec.Command("git", "show", s5ARegistryCommit+":internal/fieldspec/registry.json")
+	data, err := cmd.Output()
+	if err != nil {
+		return nil, false
+	}
+	sum := sha256.Sum256(data)
+	if got := hex.EncodeToString(sum[:]); got != s5ARegistrySHA256 {
+		t.Fatalf("git %s registry SHA256 = %s, want %s", s5ARegistryCommit, got, s5ARegistrySHA256)
+	}
+	return data, true
 }
 
 func TestS5ALandedRegistryBytesSkipsMismatchedCandidateWhenLaterCandidateMatches(t *testing.T) {
