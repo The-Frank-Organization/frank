@@ -25,13 +25,14 @@ const DefaultSegmentRotateBytes int64 = 4 * 1024 * 1024
 var ErrLegacyJournal = errors.New("legacy intake journal layout unsupported")
 
 type Cmd struct {
-	IntakeID    string          `json:"intake_id,omitempty"`
-	Seat        string          `json:"seat"`
-	Role        string          `json:"role,omitempty"`
-	IsOperator  bool            `json:"is_operator,omitempty"`
-	Verb        string          `json:"verb"`
-	Payload     json.RawMessage `json:"payload,omitempty"`
-	ContentHash string          `json:"content_hash,omitempty"`
+	IntakeID       string          `json:"intake_id,omitempty"`
+	Seat           string          `json:"seat"`
+	Role           string          `json:"role,omitempty"`
+	IsOperator     bool            `json:"is_operator,omitempty"`
+	AuthGeneration string          `json:"auth_generation,omitempty"`
+	Verb           string          `json:"verb"`
+	Payload        json.RawMessage `json:"payload,omitempty"`
+	ContentHash    string          `json:"content_hash,omitempty"`
 }
 
 type Journal struct {
@@ -44,6 +45,11 @@ type Segment struct {
 	Seq     int
 	Path    string
 	Entries []Cmd
+}
+
+type segmentHeader struct {
+	SegmentHeader bool `json:"segment_header"`
+	HighWater     int  `json:"high_water"`
 }
 
 func Open(root string) (*Journal, error) {
@@ -80,7 +86,11 @@ func (j *Journal) Append(cmd Cmd) (string, error) {
 			return entry.IntakeID, nil
 		}
 	}
-	cmd.IntakeID = fmt.Sprintf("intake-%06d", len(entries)+1)
+	next, err := j.nextIntakeNumber()
+	if err != nil {
+		return "", err
+	}
+	cmd.IntakeID = fmt.Sprintf("intake-%06d", next)
 	data, err := json.Marshal(cmd)
 	if err != nil {
 		return "", err
@@ -143,7 +153,8 @@ func (j *Journal) activeSegment() (int, string, error) {
 		return 0, "", err
 	}
 	if len(seqs) == 0 {
-		return 1, segmentPath(j.dir, 1), nil
+		path := segmentPath(j.dir, 1)
+		return 1, path, j.ensureSegmentHeader(path)
 	}
 	seq := seqs[len(seqs)-1]
 	path := segmentPath(j.dir, seq)
@@ -151,10 +162,19 @@ func (j *Journal) activeSegment() (int, string, error) {
 	if err != nil {
 		return 0, "", err
 	}
+	if info.Size() == 0 {
+		if err := j.ensureSegmentHeader(path); err != nil {
+			return 0, "", err
+		}
+		info, err = os.Stat(path)
+		if err != nil {
+			return 0, "", err
+		}
+	}
 	if info.Size() > j.rotateBytes {
 		next := seq + 1
 		nextPath := segmentPath(j.dir, next)
-		if err := createEmptySegment(nextPath); err != nil {
+		if err := j.createEmptySegment(nextPath); err != nil {
 			return 0, "", err
 		}
 		return next, nextPath, nil
@@ -177,7 +197,7 @@ func (j *Journal) rotateAfterAppend(seq int, path string) error {
 		return err
 	}
 	crashpoint.Hit("pre_segment_rotate")
-	if err := createEmptySegment(nextPath); err != nil {
+	if err := j.createEmptySegment(nextPath); err != nil {
 		return err
 	}
 	crashpoint.Hit("post_segment_rotate")
@@ -208,18 +228,31 @@ func segmentSeqs(dir string) ([]int, error) {
 }
 
 func readSegment(path string) ([]Cmd, error) {
+	entries, _, err := readSegmentWithHighWater(path)
+	return entries, err
+}
+
+func readSegmentWithHighWater(path string) ([]Cmd, int, error) {
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
-		return nil, nil
+		return nil, 0, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	var entries []Cmd
+	var highWater int
 	lines := bytes.Split(data, []byte("\n"))
 	completeTail := bytes.HasSuffix(data, []byte("\n"))
 	for i, line := range lines {
 		if len(line) == 0 {
+			continue
+		}
+		var probe segmentHeader
+		if err := json.Unmarshal(line, &probe); err == nil && probe.SegmentHeader {
+			if probe.HighWater > highWater {
+				highWater = probe.HighWater
+			}
 			continue
 		}
 		var cmd Cmd
@@ -227,23 +260,81 @@ func readSegment(path string) ([]Cmd, error) {
 			if i == len(lines)-1 && !completeTail {
 				break
 			}
-			return nil, err
+			return nil, 0, err
+		}
+		if n := intakeNumber(cmd.IntakeID); n > highWater {
+			highWater = n
 		}
 		entries = append(entries, cmd)
 	}
-	return entries, nil
+	return entries, highWater, nil
 }
 
 func segmentPath(dir string, seq int) string {
 	return filepath.Join(dir, fmt.Sprintf("%06d.jsonl", seq))
 }
 
-func createEmptySegment(path string) error {
+func (j *Journal) createEmptySegment(path string) error {
+	return j.ensureSegmentHeader(path)
+}
+
+func (j *Journal) ensureSegmentHeader(path string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0o644)
 	if err != nil {
 		return err
 	}
+	info, err := f.Stat()
+	if err != nil {
+		_ = f.Close()
+		return err
+	}
+	if info.Size() == 0 {
+		highWater, err := j.highWater()
+		if err != nil {
+			_ = f.Close()
+			return err
+		}
+		data, err := json.Marshal(segmentHeader{SegmentHeader: true, HighWater: highWater})
+		if err != nil {
+			_ = f.Close()
+			return err
+		}
+		data = append(data, '\n')
+		if err := fsio.AppendFsync(f, data); err != nil {
+			_ = f.Close()
+			return err
+		}
+	}
 	return f.Close()
+}
+
+func (j *Journal) nextIntakeNumber() (int, error) {
+	highWater, err := j.highWater()
+	if err != nil {
+		return 0, err
+	}
+	return highWater + 1, nil
+}
+
+func (j *Journal) highWater() (int, error) {
+	seqs, err := segmentSeqs(j.dir)
+	if err != nil {
+		return 0, err
+	}
+	var highWater int
+	for _, seq := range seqs {
+		_, segmentHighWater, err := readSegmentWithHighWater(segmentPath(j.dir, seq))
+		if err != nil {
+			return 0, err
+		}
+		if segmentHighWater > highWater {
+			highWater = segmentHighWater
+		}
+	}
+	return highWater, nil
 }
 
 func Unconsumed(ctx context.Context, j *Journal, st *store.Store) ([]Cmd, error) {

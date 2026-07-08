@@ -147,6 +147,104 @@ func TestToolsCallProxiesRealAuthenticatedChannel(t *testing.T) {
 	}
 }
 
+func TestShimReconnectsAndRetriesSingleCallAfterConnectionLoss(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	root := t.TempDir()
+	mgr, err := seat.Open(root)
+	if err != nil {
+		t.Fatalf("seat.Open: %v", err)
+	}
+	cred, err := mgr.Mint("seat-a", "implementer", false)
+	if err != nil {
+		t.Fatalf("Mint: %v", err)
+	}
+	sock := filepath.Join(os.TempDir(), fmt.Sprintf("frank-mcp-reconnect-%d.sock", time.Now().UnixNano()))
+	t.Cleanup(func() { _ = os.Remove(sock) })
+	first, err := channel.ServeAuthenticated(sock, mgr, func(seat.SeatMeta) channel.ToolSet {
+		return channel.ToolSet{
+			Project: func(context.Context, json.RawMessage) (json.RawMessage, error) {
+				return json.RawMessage(`["before"]`), nil
+			},
+			Read: func(context.Context, json.RawMessage) (json.RawMessage, error) {
+				return json.RawMessage(`{"server":"old"}`), nil
+			},
+		}
+	})
+	if err != nil {
+		t.Fatalf("ServeAuthenticated first: %v", err)
+	}
+	server := NewMCPServer(Options{SocketPath: sock, Credential: cred.Value, Context: ctx})
+	defer server.closeClient()
+
+	firstResult, _ := server.handleToolCall(toolCallParams("project", map[string]any{}))
+	if firstResult.IsError || firstResult.Content[0].Text != `["before"]` {
+		t.Fatalf("first result = %+v", firstResult)
+	}
+	if err := first.Close(); err != nil {
+		t.Fatalf("close first server: %v", err)
+	}
+
+	second, err := channel.ServeAuthenticated(sock, mgr, func(seat.SeatMeta) channel.ToolSet {
+		return channel.ToolSet{
+			Read: func(_ context.Context, args json.RawMessage) (json.RawMessage, error) {
+				return json.RawMessage(`{"server":"new","args":` + string(args) + `}`), nil
+			},
+		}
+	})
+	if err != nil {
+		t.Fatalf("ServeAuthenticated second: %v", err)
+	}
+	defer func() { _ = second.Close() }()
+
+	retried, _ := server.handleToolCall(toolCallParams("read", map[string]any{"relay_id": "relay-2"}))
+	if retried.IsError {
+		t.Fatalf("retried call errored: %+v", retried)
+	}
+	if !strings.Contains(retried.Content[0].Text, `"server":"new"`) || !strings.Contains(retried.Content[0].Text, `"relay_id":"relay-2"`) {
+		t.Fatalf("retried text = %s", retried.Content[0].Text)
+	}
+}
+
+func TestShimReconnectRetrySecondFailureSurfacesTyped(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	root := t.TempDir()
+	mgr, err := seat.Open(root)
+	if err != nil {
+		t.Fatalf("seat.Open: %v", err)
+	}
+	cred, err := mgr.Mint("seat-a", "implementer", false)
+	if err != nil {
+		t.Fatalf("Mint: %v", err)
+	}
+	sock := filepath.Join(os.TempDir(), fmt.Sprintf("frank-mcp-retry-fail-%d.sock", time.Now().UnixNano()))
+	t.Cleanup(func() { _ = os.Remove(sock) })
+	first, err := channel.ServeAuthenticated(sock, mgr, func(seat.SeatMeta) channel.ToolSet {
+		return channel.ToolSet{
+			Project: func(context.Context, json.RawMessage) (json.RawMessage, error) {
+				return json.RawMessage(`[]`), nil
+			},
+		}
+	})
+	if err != nil {
+		t.Fatalf("ServeAuthenticated first: %v", err)
+	}
+	server := NewMCPServer(Options{SocketPath: sock, Credential: cred.Value, Context: ctx})
+	defer server.closeClient()
+	if firstResult, _ := server.handleToolCall(toolCallParams("project", map[string]any{})); firstResult.IsError {
+		t.Fatalf("first result = %+v", firstResult)
+	}
+	if err := first.Close(); err != nil {
+		t.Fatalf("close first server: %v", err)
+	}
+
+	failed, _ := server.handleToolCall(toolCallParams("read", map[string]any{"relay_id": "relay-2"}))
+	if !failed.IsError || !strings.Contains(failed.Content[0].Text, "shim:conductor-unreachable") {
+		t.Fatalf("failed retry result = %+v", failed)
+	}
+}
+
 func TestSubmitArgumentsRoundTripStructuredStringCarrier(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -295,6 +393,113 @@ func TestToolsListUsesRenderedSubmitSchemaWhenReachable(t *testing.T) {
 	}
 }
 
+func TestShimRefreshUsesTypedReRenderDetailWithoutReadback(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	root := t.TempDir()
+	mgr, err := seat.Open(root)
+	if err != nil {
+		t.Fatalf("seat.Open: %v", err)
+	}
+	cred, err := mgr.Mint("seat-a", "implementer", false)
+	if err != nil {
+		t.Fatalf("Mint: %v", err)
+	}
+	form := fieldspec.Form{Fields: map[string]fieldspec.Field{"PHASE": {Type: "enum", Options: []string{"PLAN"}}}}
+	var readCalls int
+	sock := filepath.Join(os.TempDir(), fmt.Sprintf("frank-mcp-detail-%d.sock", time.Now().UnixNano()))
+	t.Cleanup(func() { _ = os.Remove(sock) })
+	srv, err := channel.ServeAuthenticated(sock, mgr, func(seat.SeatMeta) channel.ToolSet {
+		return channel.ToolSet{
+			Describe: func(context.Context, json.RawMessage) (json.RawMessage, error) {
+				return mustJSON(channel.DescriptionResponse{Tools: []string{"submit", "project", "read"}, SubmitSchema: &form, FormDigest: "plan-digest"}), nil
+			},
+			Submit: func(context.Context, json.RawMessage) (json.RawMessage, error) {
+				return json.RawMessage(`{"state":"rejected","relay_id":"relay-stale","intake_id":"i-stale","detail":"form_digest:re-render"}`), nil
+			},
+			Project: func(context.Context, json.RawMessage) (json.RawMessage, error) { return json.RawMessage(`[]`), nil },
+			Read: func(context.Context, json.RawMessage) (json.RawMessage, error) {
+				readCalls++
+				return json.RawMessage(`{"record":{"body":"form_digest:re-render"}}`), nil
+			},
+		}
+	})
+	if err != nil {
+		t.Fatalf("ServeAuthenticated: %v", err)
+	}
+	defer func() { _ = srv.Close() }()
+
+	args := map[string]any{"headers": map[string]string{"PHASE": "PLAN", "SUBJECT": "stale"}, "form_digest": "old-digest"}
+	stdout, stderr := runMCPGolden(t, Options{SocketPath: sock, Credential: cred.Value, Context: ctx}, mcpCall("submit", 1, args))
+	if stderr != "" {
+		t.Fatalf("stderr = %s", stderr)
+	}
+	if readCalls != 0 {
+		t.Fatalf("shim issued %d read calls; refresh must key on typed detail", readCalls)
+	}
+	lines := decodeRPCOutput(t, stdout)
+	if len(lines) != 2 || lines[0]["method"] != "notifications/tools/list_changed" {
+		t.Fatalf("output = %s, want list_changed plus submit result", stdout)
+	}
+	text := lines[1]["result"].(map[string]any)["content"].([]any)[0].(map[string]any)["text"].(string)
+	if !strings.Contains(text, `"class":"re-render"`) || !strings.Contains(text, "form refreshed") {
+		t.Fatalf("submit text = %s, want re-render refresh payload", text)
+	}
+}
+
+func TestShimDoesNotUseReadbackToInferReRender(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	root := t.TempDir()
+	mgr, err := seat.Open(root)
+	if err != nil {
+		t.Fatalf("seat.Open: %v", err)
+	}
+	cred, err := mgr.Mint("seat-a", "implementer", false)
+	if err != nil {
+		t.Fatalf("Mint: %v", err)
+	}
+	var readCalls int
+	sock := filepath.Join(os.TempDir(), fmt.Sprintf("frank-mcp-no-readback-%d.sock", time.Now().UnixNano()))
+	t.Cleanup(func() { _ = os.Remove(sock) })
+	srv, err := channel.ServeAuthenticated(sock, mgr, func(seat.SeatMeta) channel.ToolSet {
+		return channel.ToolSet{
+			Describe: func(context.Context, json.RawMessage) (json.RawMessage, error) {
+				return mustJSON(channel.DescriptionResponse{Tools: []string{"submit", "project", "read"}, SubmitSchema: &fieldspec.Form{}, FormDigest: "digest"}), nil
+			},
+			Submit: func(context.Context, json.RawMessage) (json.RawMessage, error) {
+				return json.RawMessage(`{"state":"rejected","relay_id":"relay-without-detail","intake_id":"i-stale"}`), nil
+			},
+			Project: func(context.Context, json.RawMessage) (json.RawMessage, error) { return json.RawMessage(`[]`), nil },
+			Read: func(context.Context, json.RawMessage) (json.RawMessage, error) {
+				readCalls++
+				return json.RawMessage(`{"record":{"body":"form_digest:re-render"}}`), nil
+			},
+		}
+	})
+	if err != nil {
+		t.Fatalf("ServeAuthenticated: %v", err)
+	}
+	defer func() { _ = srv.Close() }()
+
+	args := map[string]any{"headers": map[string]string{"PHASE": "PLAN", "SUBJECT": "stale"}, "form_digest": "old-digest"}
+	stdout, stderr := runMCPGolden(t, Options{SocketPath: sock, Credential: cred.Value, Context: ctx}, mcpCall("submit", 1, args))
+	if stderr != "" {
+		t.Fatalf("stderr = %s", stderr)
+	}
+	if readCalls != 0 {
+		t.Fatalf("shim used rejected-relay readback %d times", readCalls)
+	}
+	lines := decodeRPCOutput(t, stdout)
+	if len(lines) != 1 {
+		t.Fatalf("output = %s, want only submit result", stdout)
+	}
+	text := lines[0]["result"].(map[string]any)["content"].([]any)[0].(map[string]any)["text"].(string)
+	if strings.Contains(text, "form refreshed") {
+		t.Fatalf("submit text = %s, refresh inferred without typed detail", text)
+	}
+}
+
 func TestPhaseSwitchDriftLoop(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -337,11 +542,8 @@ func TestPhaseSwitchDriftLoop(t *testing.T) {
 				want := strings.ToLower(payload.Headers["PHASE"]) + "-digest"
 				if payload.FormDigest != want {
 					return mustJSON(map[string]any{
-						"state": record.Rejected,
-						"violations": []map[string]string{{
-							"field": "form_digest",
-							"class": "re-render",
-						}},
+						"state":  record.Rejected,
+						"detail": "form_digest:re-render",
 					}), nil
 				}
 				return mustJSON(map[string]any{"state": record.Accepted}), nil
@@ -407,6 +609,14 @@ func mcpCall(name string, id int, args map[string]any) string {
 		},
 	})
 	return string(payload) + "\n"
+}
+
+func toolCallParams(name string, args map[string]any) json.RawMessage {
+	data, _ := json.Marshal(map[string]any{
+		"name":      name,
+		"arguments": args,
+	})
+	return data
 }
 
 func mustMarshalString(t *testing.T, v any) string {

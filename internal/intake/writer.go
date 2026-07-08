@@ -22,10 +22,12 @@ type Job[T any] struct {
 }
 
 type Writer[T any] struct {
-	j        *Journal
-	requests chan writeRequest[T]
-	next     int
-	hashes   map[string]string
+	j           *Journal
+	requests    chan writeRequest[T]
+	completions chan writeCompletion[T]
+	next        int
+	hashes      map[string]string
+	inFlight    map[string]*inFlight[T]
 }
 
 type writeRequest[T any] struct {
@@ -37,6 +39,16 @@ type writeRequest[T any] struct {
 type writeAck struct {
 	intakeID string
 	err      error
+}
+
+type inFlight[T any] struct {
+	intakeID string
+	replies  []chan T
+}
+
+type writeCompletion[T any] struct {
+	hash string
+	out  T
 }
 
 func NewWriter[T any](j *Journal, cfg config.EngineConfig, ready any) (*Writer[T], error) {
@@ -51,10 +63,15 @@ func NewWriter[T any](j *Journal, cfg config.EngineConfig, ready any) (*Writer[T
 		return nil, err
 	}
 	w := &Writer[T]{
-		j:        j,
-		requests: make(chan writeRequest[T], 64),
-		next:     1,
-		hashes:   map[string]string{},
+		j:           j,
+		requests:    make(chan writeRequest[T], 64),
+		completions: make(chan writeCompletion[T], 64),
+		next:        1,
+		hashes:      map[string]string{},
+		inFlight:    map[string]*inFlight[T]{},
+	}
+	if n, err := j.nextIntakeNumber(); err == nil {
+		w.next = n
 	}
 	for _, entry := range entries {
 		if entry.ContentHash != "" {
@@ -92,14 +109,22 @@ func (w *Writer[T]) Run(ctx context.Context, out chan<- Job[T]) {
 		select {
 		case <-ctx.Done():
 			return
+		case done := <-w.completions:
+			if flight := w.inFlight[done.hash]; flight != nil {
+				for _, reply := range flight.replies {
+					reply <- done.out
+				}
+				delete(w.inFlight, done.hash)
+			}
 		case req := <-w.requests:
-			job, err := w.prepare(req.cmd, req.reply)
+			job, emit, hash, err := w.prepare(req.cmd, req.reply)
 			req.ack <- writeAck{intakeID: job.Cmd.IntakeID, err: err}
-			if err != nil {
+			if err != nil || !emit {
 				continue
 			}
 			select {
 			case out <- job:
+				go w.awaitCompletion(ctx, hash, job.ReplyCh)
 			case <-ctx.Done():
 				return
 			}
@@ -107,21 +132,39 @@ func (w *Writer[T]) Run(ctx context.Context, out chan<- Job[T]) {
 	}
 }
 
-func (w *Writer[T]) prepare(cmd Cmd, reply chan T) (Job[T], error) {
+func (w *Writer[T]) prepare(cmd Cmd, reply chan T) (Job[T], bool, string, error) {
 	if cmd.ContentHash == "" {
 		cmd.ContentHash = hashCmd(cmd)
 	}
+	if flight := w.inFlight[cmd.ContentHash]; flight != nil {
+		flight.replies = append(flight.replies, reply)
+		cmd.IntakeID = flight.intakeID
+		return Job[T]{Cmd: cmd}, false, cmd.ContentHash, nil
+	}
 	if existing := w.hashes[cmd.ContentHash]; existing != "" {
 		cmd.IntakeID = existing
-		return Job[T]{Cmd: cmd, ReplyCh: reply}, nil
+	} else {
+		cmd.IntakeID = fmt.Sprintf("intake-%06d", w.next)
+		w.next++
+		if err := w.j.appendAssigned(cmd); err != nil {
+			return Job[T]{Cmd: cmd, ReplyCh: reply}, false, cmd.ContentHash, err
+		}
+		w.hashes[cmd.ContentHash] = cmd.IntakeID
 	}
-	cmd.IntakeID = fmt.Sprintf("intake-%06d", w.next)
-	w.next++
-	if err := w.j.appendAssigned(cmd); err != nil {
-		return Job[T]{Cmd: cmd, ReplyCh: reply}, err
+	loopReply := make(chan T, 1)
+	w.inFlight[cmd.ContentHash] = &inFlight[T]{intakeID: cmd.IntakeID, replies: []chan T{reply}}
+	return Job[T]{Cmd: cmd, ReplyCh: loopReply}, true, cmd.ContentHash, nil
+}
+
+func (w *Writer[T]) awaitCompletion(ctx context.Context, hash string, reply <-chan T) {
+	select {
+	case out := <-reply:
+		select {
+		case w.completions <- writeCompletion[T]{hash: hash, out: out}:
+		case <-ctx.Done():
+		}
+	case <-ctx.Done():
 	}
-	w.hashes[cmd.ContentHash] = cmd.IntakeID
-	return Job[T]{Cmd: cmd, ReplyCh: reply}, nil
 }
 
 func (j *Journal) appendAssigned(cmd Cmd) error {

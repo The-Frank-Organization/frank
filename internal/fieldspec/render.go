@@ -9,10 +9,18 @@ import (
 )
 
 type RenderEnv struct {
-	ConfigDigest     string
-	KnownA           KnownADetector
-	ParentCandidates ParentCandidates
-	MonotonicFloors  map[string]string
+	ConfigDigest        string
+	KnownA              KnownADetector
+	ParentCandidates    ParentCandidates
+	RecipientCandidates RecipientCandidates
+	MonotonicFloors     map[string]string
+	Turn                TurnContext
+	PreActive           bool
+}
+
+type TurnContext struct {
+	WokenOn        string
+	ActiveDispatch string
 }
 
 type GrantState func(seat SeatMeta) bool
@@ -23,6 +31,10 @@ type ParentCandidates func(seat SeatMeta) (candidates []string, dflt string)
 
 func EmptyParentCandidates(SeatMeta) ([]string, string) { return nil, "" }
 
+type RecipientCandidates func(seat SeatMeta) []string
+
+func EmptyRecipientCandidates(SeatMeta) []string { return nil }
+
 type KnownADetector func(cand record.Record, fields map[string]string) (member string, hit bool)
 
 func (r *Registry) Render(env RenderEnv, seat SeatMeta, phase, tier string, grants GrantState) (Form, string) {
@@ -32,6 +44,9 @@ func (r *Registry) Render(env RenderEnv, seat SeatMeta, phase, tier string, gran
 	if env.ParentCandidates == nil {
 		env.ParentCandidates = EmptyParentCandidates
 	}
+	if env.RecipientCandidates == nil {
+		env.RecipientCandidates = EmptyRecipientCandidates
+	}
 	fields := map[string]string{
 		"PHASE":         phase,
 		"CEREMONY_TIER": tier,
@@ -40,7 +55,7 @@ func (r *Registry) Render(env RenderEnv, seat SeatMeta, phase, tier string, gran
 	form := Form{Fields: map[string]Field{}}
 	for i := range r.Fields {
 		spec := &r.Fields[i]
-		if !r.renderable(spec, fields, ctx) {
+		if !r.renderable(spec, fields, ctx, env) {
 			continue
 		}
 		field, ok := r.renderField(env, spec, seat, phase, grants)
@@ -49,11 +64,32 @@ func (r *Registry) Render(env RenderEnv, seat SeatMeta, phase, tier string, gran
 		}
 		form.Fields[spec.ID] = field
 	}
+	if env.PreActive {
+		form = bootForm(form)
+	}
 	return form, r.digestRenderedForm(form, env, seat, phase, tier)
 }
 
-func (r *Registry) renderable(spec *FieldSpec, fields map[string]string, ctx EvalContext) bool {
+func bootForm(form Form) Form {
+	out := Form{Fields: map[string]Field{}}
+	for _, id := range []string{"PHASE", "CEREMONY_TIER", "SUBJECT", "charter_loaded", "dispatch_status"} {
+		field, ok := form.Fields[id]
+		if !ok {
+			continue
+		}
+		if id == "PHASE" {
+			field.Options = []string{"SITREP"}
+		}
+		out.Fields[id] = field
+	}
+	return out
+}
+
+func (r *Registry) renderable(spec *FieldSpec, fields map[string]string, ctx EvalContext, env RenderEnv) bool {
 	if spec.Owner == "system" || spec.Owner == "computed" || spec.FillConstraints == "system_only" || spec.FillConstraints == "computed_result" {
+		return false
+	}
+	if !env.PreActive && (spec.ID == "charter_loaded" || spec.ID == "dispatch_status") {
 		return false
 	}
 	if len(spec.VisibleWhen.Raw) > 0 && !spec.VisibleWhen.Eval(fields, nil, ctx) {
@@ -69,14 +105,24 @@ func (r *Registry) renderField(env RenderEnv, spec *FieldSpec, seat SeatMeta, ph
 		candidates, dflt := env.ParentCandidates(seat)
 		field.Options = append([]string(nil), candidates...)
 		field.Default = dflt
-		field.DigestExempt = true
+		markConductorVolatile(&field)
+	case "recipient_picker":
+		field.Options = append([]string(nil), env.RecipientCandidates(seat)...)
+		markConductorVolatile(&field)
 	case "seat_allowed_values":
 		field.Options = r.optionsForSeat(spec, seat, phase, grants)
+		if spec.ID == "grant" {
+			markConductorVolatile(&field)
+		}
 	case "monotonic":
 		field.Options = r.monotonicOptions(spec, env.MonotonicFloors[spec.ID])
+		markConductorVolatile(&field)
 	default:
 		if spec.Owner == "seat_scoped_enum" {
 			field.Options = r.optionsForSeat(spec, seat, phase, grants)
+			if spec.ID == "grant" {
+				markConductorVolatile(&field)
+			}
 		} else {
 			field.Options = r.baseOptions(spec)
 		}
@@ -85,6 +131,11 @@ func (r *Registry) renderField(env RenderEnv, spec *FieldSpec, seat SeatMeta, ph
 		return Field{}, false
 	}
 	return field, true
+}
+
+func markConductorVolatile(field *Field) {
+	field.ConductorVolatile = true
+	field.DigestExempt = true
 }
 
 func (r *Registry) monotonicOptions(spec *FieldSpec, floor string) []string {
@@ -174,7 +225,7 @@ func (r *Registry) digestRenderedForm(form Form, env RenderEnv, seat SeatMeta, p
 		Phase        string `json:"phase"`
 		Tier         string `json:"tier"`
 	}{
-		Form:         formForDigest(form),
+		Form:         r.formForDigest(form, seat, phase),
 		ConfigDigest: env.ConfigDigest,
 		SeatPattern:  seatDigestKey(seat),
 		Phase:        phase,
@@ -187,16 +238,40 @@ func (r *Registry) digestRenderedForm(form Form, env RenderEnv, seat SeatMeta, p
 	return hex.EncodeToString(sum[:])
 }
 
-func formForDigest(form Form) Form {
+func (r *Registry) formForDigest(form Form, seat SeatMeta, phase string) Form {
 	out := Form{Fields: map[string]Field{}}
 	for name, field := range form.Fields {
-		if field.DigestExempt {
+		if field.DigestExempt || field.ConductorVolatile {
 			field.Options = nil
 			field.Default = ""
 		}
 		out.Fields[name] = field
 	}
+	r.addGrantDigestShape(out.Fields, seat, phase)
 	return out
+}
+
+func (r *Registry) addGrantDigestShape(fields map[string]Field, seat SeatMeta, phase string) {
+	if _, ok := fields["grant"]; ok {
+		return
+	}
+	spec, ok := r.ByID("grant")
+	if !ok || !r.renderable(spec, map[string]string{"PHASE": phase}, EvalContext{Seat: seat, Phase: phase, PresentLayers: DefaultLayers()}, RenderEnv{}) {
+		return
+	}
+	options := r.scopeOptions(spec, seat)
+	if len(options) == 0 {
+		return
+	}
+	if phase != "MERGE-GATE" {
+		options = removeString(options, "dispatch-merge")
+	}
+	if len(options) == 0 {
+		return
+	}
+	field := Field{Type: spec.Type}
+	markConductorVolatile(&field)
+	fields["grant"] = field
 }
 
 func seatDigestKey(seat SeatMeta) string {

@@ -1,10 +1,10 @@
 {
-  "version": "s5-fieldspec-v3",
+  "version": "s6-fieldspec-v4",
   "provenance": {
-    "owner": "s5-a-registry",
-    "design_doc_id": "s5-a-registry-design",
-    "plan_lock_id": "s5-a-registry-plan",
-    "note": "s5 registry pass: row and enum content only; no fieldspec mechanism change"
+    "owner": "s6-core-registry",
+    "design_doc_id": "s6-slice-6-design",
+    "plan_lock_id": "s6-slice-6-plan",
+    "note": "s6 registry pass: additive transport and boot rows; no envelope migrator"
   },
   "named_enums": {
     "PHASE": [
@@ -81,8 +81,9 @@
     "surface_intent": ["progress", "review_checkpoint", "advisory", "result"],
     "DESIGN_RECORD_KIND": ["design-doc", "audit-record", "direct-override"],
     "DESIGN_REVIEW_VERDICT": ["approve", "must-revise", "reject-narrow", "human-decision-required"],
-    "record_kind": ["genesis", "owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change"],
-    "config_member": ["fieldspec", "engine"]
+    "record_kind": ["genesis", "owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint"],
+    "config_member": ["fieldspec", "engine"],
+    "dispatch_status": ["read", "awaiting"]
   },
   "fields": [
     {"id": "FROM", "layer": "envelope", "owner": "system", "type": "text", "fill_constraints": "system_only", "lineage_role": "none"},
@@ -92,7 +93,11 @@
     {"id": "timestamp", "layer": "envelope", "owner": "system", "type": "text", "fill_constraints": "system_only", "lineage_role": "none"},
     {"id": "schema_version", "layer": "envelope", "owner": "system", "type": "text", "fill_constraints": "system_only", "lineage_role": "none"},
     {"id": "certification", "layer": "envelope", "owner": "system", "type": "text", "fill_constraints": "system_only", "lineage_role": "none"},
-    {"id": "PARENT_DISPATCH_ID", "layer": "envelope", "owner": "agent_enum_pick", "type": "id_ref", "fill_constraints": "parent_picker", "lineage_role": "parent_edge"},
+    {"id": "PARENT_DISPATCH_ID", "layer": "envelope", "owner": "system", "type": "id_ref", "fill_constraints": "system_only", "lineage_role": "parent_edge"},
+    {"id": "parent_hint", "layer": "header", "owner": "free_text", "type": "id_ref", "fill_constraints": "free_text", "lineage_role": "none"},
+    {"id": "parent_hint_honored", "layer": "header", "owner": "system", "type": "bool", "enum_set": "bool", "fill_constraints": "computed_result", "lineage_role": "none"},
+    {"id": "parent_provenance", "layer": "header", "owner": "system", "type": "enum", "options": ["woken_on", "active_dispatch", "dispatch_root", "hint"], "fill_constraints": "computed_result", "lineage_role": "none"},
+    {"id": "routing_ref_honored", "layer": "header", "owner": "system", "type": "bool", "enum_set": "bool", "fill_constraints": "computed_result", "lineage_role": "none"},
     {"id": "TO", "layer": "envelope", "owner": "agent_enum_pick", "type": "address_list", "fill_constraints": "recipient_picker", "lineage_role": "none"},
     {"id": "CC", "layer": "envelope", "owner": "agent_enum_pick", "type": "address_list", "fill_constraints": "recipient_picker", "lineage_role": "none"},
 
@@ -122,7 +127,7 @@
     {"id": "ESCALATION_SCAN", "layer": "header", "owner": "agent_enum_pick", "type": "row_array", "gate_referenceable": true, "fill_constraints": "free_text", "lineage_role": "none"},
     {"id": "ACTIONS_GIT_REF", "layer": "header", "owner": "agent_enum_pick", "type": "text", "fill_constraints": "observed_value", "lineage_role": "action_report", "required_when": {"all_of": [{"layer_present": "observe"}]}, "visible_when": {"all_of": [{"layer_present": "observe"}]}},
     {"id": "FINAL_GIT_STATUS_SHORT", "layer": "header", "owner": "agent_enum_pick", "type": "text", "fill_constraints": "observed_value", "lineage_role": "action_report", "required_when": {"all_of": [{"layer_present": "observe"}]}, "visible_when": {"all_of": [{"layer_present": "observe"}]}},
-    {"id": "record_kind", "layer": "header", "owner": "seat_scoped_enum", "type": "enum", "enum_set": "record_kind", "gate_referenceable": true, "fill_constraints": "seat_allowed_values", "lineage_role": "none", "seat_scope": {"operator": ["owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change"], "*": ["diagnostics"]}, "annotation": "a Step-1 SCOPE posture, not permanent class semantics — the provenance axis (owed records are principal-authored via submit, never machinery) is unchanged; owed_disposition is authority-bearing in effect (it discharges exit-gating obligations), so the scope axis gets the pessimistic Step-1 floor. A future cycle granting named seats owed-authoring is a registry/config scope amendment with m-1 route-back."},
+    {"id": "record_kind", "layer": "header", "owner": "seat_scoped_enum", "type": "enum", "enum_set": "record_kind", "gate_referenceable": true, "fill_constraints": "seat_allowed_values", "lineage_role": "none", "seat_scope": {"operator": ["owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint"], "*": ["diagnostics"]}, "annotation": "a Step-1 SCOPE posture, not permanent class semantics — the provenance axis (owed records are principal-authored via submit, never machinery) is unchanged; owed_disposition is authority-bearing in effect (it discharges exit-gating obligations), so the scope axis gets the pessimistic Step-1 floor. A future cycle granting named seats owed-authoring is a registry/config scope amendment with m-1 route-back."},
     {"id": "owner", "layer": "header", "owner": "free_text", "type": "text", "fill_constraints": "free_text", "lineage_role": "none", "gate_referenceable": false, "required_when": {"all_of": [{"record_kind_in": ["owed_item"]}]}},
     {"id": "source", "layer": "header", "owner": "free_text", "type": "text", "fill_constraints": "free_text", "lineage_role": "none", "gate_referenceable": false, "required_when": {"all_of": [{"record_kind_in": ["owed_item"]}]}},
     {"id": "target_surface", "layer": "header", "owner": "free_text", "type": "text", "fill_constraints": "free_text", "lineage_role": "none", "gate_referenceable": false, "required_when": {"all_of": [{"record_kind_in": ["owed_item"]}]}},
@@ -130,8 +135,12 @@
     {"id": "disposes_owed", "layer": "header", "owner": "free_text", "type": "id_ref", "fill_constraints": "free_text", "lineage_role": "none", "gate_referenceable": false, "required_when": {"all_of": [{"record_kind_in": ["owed_disposition"]}]}},
     {"id": "member", "layer": "header", "owner": "seat_scoped_enum", "type": "enum", "enum_set": "config_member", "fill_constraints": "seat_allowed_values", "lineage_role": "none", "seat_scope": {"operator": ["fieldspec", "engine"]}},
     {"id": "new_digest", "layer": "header", "owner": "free_text", "type": "text", "fill_constraints": "free_text", "lineage_role": "none"},
+    {"id": "rationale", "layer": "header", "owner": "free_text", "type": "text", "fill_constraints": "free_text", "lineage_role": "none", "visible_when": {"any_of": [{"seat_is": ["operator"]}, {"role_in": ["operator"]}]}},
+    {"id": "waiver_scope", "layer": "header", "owner": "free_text", "type": "object", "fill_constraints": "free_text", "lineage_role": "none", "visible_when": {"any_of": [{"seat_is": ["operator"]}, {"role_in": ["operator"]}]}},
+    {"id": "retracts", "layer": "header", "owner": "free_text", "type": "id_ref", "fill_constraints": "free_text", "lineage_role": "none", "visible_when": {"any_of": [{"seat_is": ["operator"]}, {"role_in": ["operator"]}]}},
+    {"id": "charter_loaded", "layer": "header", "owner": "agent_enum_pick", "type": "bool", "enum_set": "bool", "fill_constraints": "seat_allowed_values", "lineage_role": "none"},
+    {"id": "dispatch_status", "layer": "header", "owner": "agent_enum_pick", "type": "enum", "enum_set": "dispatch_status", "fill_constraints": "seat_allowed_values", "lineage_role": "none"},
     {"id": "ROW_TRUTH_CHECK", "layer": "header", "owner": "agent_enum_pick", "type": "bool", "enum_set": "bool", "gate_referenceable": true, "fill_constraints": "seat_allowed_values", "lineage_role": "none"},
-    {"id": "ORCH_REVIEW_WAIVER", "layer": "header", "owner": "seat_scoped_enum", "type": "text", "fill_constraints": "seat_allowed_values", "lineage_role": "routing_ref", "seat_scope": {"operator": ["*"]}},
     {"id": "GRILL_REQUIRED", "layer": "header", "owner": "agent_enum_pick", "type": "bool", "enum_set": "bool", "gate_referenceable": true, "fill_constraints": "monotonic", "consumers": ["form_renderer", "form_validator", "human_surface", "lineage_engine"], "lineage_role": "none"},
     {"id": "GRILL_LOCK_ID", "layer": "header", "owner": "agent_enum_pick", "type": "id_ref", "fill_constraints": "free_text", "lineage_role": "lock_id", "required_when": {"all_of": [{"field": "GRILL_REQUIRED", "op": "==", "value": "yes"}, {"field": "DESIGN_LOCK_ID", "op": "present"}]}},
 

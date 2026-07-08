@@ -40,6 +40,11 @@ type Store struct {
 	mu   sync.Mutex
 }
 
+const (
+	ProjectDefault = "default"
+	ProjectAudit   = "audit"
+)
+
 func Open(root string) (*Store, error) {
 	for _, dir := range []string{
 		"records",
@@ -78,7 +83,10 @@ func (s *Store) Commit(rec record.Record, intents []Intent) (string, error) {
 		rec.Envelope.SchemaVersion = 1
 	}
 	if intents == nil && rec.Envelope.DeliveryState == record.Accepted && rec.Headers["PHASE"] != "" {
-		intents = DefaultProjectionIntents(rec)
+		intents, err = DefaultProjectionIntentsStrict(rec)
+		if err != nil {
+			return "", err
+		}
 	}
 	data, err := record.Seal(rec)
 	if err != nil {
@@ -106,6 +114,25 @@ func (s *Store) Records() ([]record.Record, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.recordsLocked()
+}
+
+func (s *Store) CommitOrder() ([]string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	entries, err := readRedo(s.Root)
+	if err != nil {
+		return nil, err
+	}
+	order := make([]string, 0, len(entries))
+	seen := map[string]bool{}
+	for _, entry := range entries {
+		if entry.RelayID == "" || seen[entry.RelayID] {
+			continue
+		}
+		seen[entry.RelayID] = true
+		order = append(order, entry.RelayID)
+	}
+	return order, nil
 }
 
 func (s *Store) recordsLocked() ([]record.Record, error) {
@@ -149,6 +176,30 @@ func (s *Store) Read(relayID string) (record.Record, error) {
 }
 
 func (s *Store) Project(seat string) ([]string, error) {
+	return s.ProjectView(seat, ProjectDefault)
+}
+
+func (s *Store) ProjectView(seat, view string) ([]string, error) {
+	if view == "" {
+		view = ProjectDefault
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	records, err := s.recordsLocked()
+	if err != nil {
+		return nil, err
+	}
+	switch view {
+	case ProjectDefault:
+		return s.projectDefaultLocked(seat, records)
+	case ProjectAudit:
+		return projectAudit(seat, records), nil
+	default:
+		return nil, fmt.Errorf("unknown project view: %s", view)
+	}
+}
+
+func (s *Store) projectDefaultLocked(seat string, records []record.Record) ([]string, error) {
 	path := filepath.Join(s.Root, "mailboxes", safeMailbox(seat)+".jsonl")
 	f, err := os.Open(path)
 	if os.IsNotExist(err) {
@@ -169,7 +220,54 @@ func (s *Store) Project(seat string) ([]string, error) {
 		_ = f.Close()
 		return nil, err
 	}
-	return relayIDs, f.Close()
+	if err := f.Close(); err != nil {
+		return nil, err
+	}
+	return filterDefaultProject(seat, relayIDs, records), nil
+}
+
+func filterDefaultProject(seat string, relayIDs []string, records []record.Record) []string {
+	byRelay := make(map[string]record.Record, len(records))
+	for _, rec := range records {
+		byRelay[rec.Envelope.RelayID] = rec
+	}
+	seen := map[string]bool{}
+	var out []string
+	for _, relayID := range relayIDs {
+		rec, ok := byRelay[relayID]
+		if !ok || rec.Envelope.DeliveryState != record.Accepted || seen[relayID] {
+			continue
+		}
+		if !recordDeliveredTo(rec, seat) {
+			continue
+		}
+		seen[relayID] = true
+		out = append(out, relayID)
+	}
+	return out
+}
+
+func projectAudit(seat string, records []record.Record) []string {
+	var out []string
+	for _, rec := range records {
+		if rec.Envelope.From == seat && rec.Envelope.RelayID != "" {
+			out = append(out, rec.Envelope.RelayID)
+		}
+	}
+	return out
+}
+
+func recordDeliveredTo(rec record.Record, seatName string) bool {
+	recipients, err := DeliveryRecipients(rec)
+	if err != nil {
+		return false
+	}
+	for _, recipient := range recipients {
+		if recipient == seatName {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Store) PendingDeliveryFor(seat string) (bool, error) {

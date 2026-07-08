@@ -2,6 +2,7 @@ package seat_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -56,6 +57,55 @@ func TestDuplicateMintRejectsWithoutSecondCredential(t *testing.T) {
 	}
 	if got := mgr.CredentialsFor("seat-a"); got != 1 {
 		t.Fatalf("credentials for seat-a = %d, want 1", got)
+	}
+}
+
+func TestMintOrReplaceReplacesCredentialAndKeepsSingleBinding(t *testing.T) {
+	root := t.TempDir()
+	mgr, err := seat.Open(root)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	cred, err := mgr.Mint("seat-a", "implementer", false)
+	if err != nil {
+		t.Fatalf("Mint first: %v", err)
+	}
+
+	replacement, err := mgr.MintOrReplace("seat-a", "planner", true, "pivot-1")
+	if err != nil {
+		t.Fatalf("MintOrReplace: %v", err)
+	}
+	if replacement.Value == "" || replacement.Value == cred.Value {
+		t.Fatalf("replacement credential = %q, original = %q", replacement.Value, cred.Value)
+	}
+	if _, ok := mgr.Resolve(cred.Value); ok {
+		t.Fatalf("old credential still resolves after replacement")
+	}
+	meta, ok := mgr.Resolve(replacement.Value)
+	if !ok {
+		t.Fatalf("replacement credential did not resolve")
+	}
+	if meta.Name != "seat-a" || meta.Role != "planner" || !meta.IsOperator {
+		t.Fatalf("replacement meta = %+v", meta)
+	}
+	if got := mgr.CredentialsFor("seat-a"); got != 1 {
+		t.Fatalf("credentials for seat-a = %d, want 1", got)
+	}
+	if got, ok := mgr.RealizedMintRef("seat-a"); !ok || got != "pivot-1" {
+		t.Fatalf("RealizedMintRef = %q, %v; want pivot-1, true", got, ok)
+	}
+	var table struct {
+		Seats map[string]struct {
+			Credential      string `json:"credential"`
+			RealizedMintRef string `json:"realized_mint_ref"`
+		} `json:"seats"`
+	}
+	if err := json.Unmarshal(mustRead(t, filepath.Join(root, "binding", "seats.json")), &table); err != nil {
+		t.Fatalf("decode binding table: %v", err)
+	}
+	row := table.Seats["seat-a"]
+	if row.Credential != replacement.Value || row.RealizedMintRef != "pivot-1" {
+		t.Fatalf("binding row = %+v, want replacement credential and pivot", row)
 	}
 }
 

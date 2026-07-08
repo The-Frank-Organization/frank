@@ -16,6 +16,7 @@ func ApplicabilityMap() map[string]map[string]string {
 		"gc-marker",
 		"owed-item",
 		"owed-disposition",
+		"seat-mint",
 	}
 	out := map[string]map[string]string{}
 	for _, class := range classes {
@@ -49,5 +50,6 @@ func ApplicabilityMap() map[string]map[string]string {
 	mark("gc-marker", commit, projection, []string{"post_intake_fsync"}, []string{"pre_segment_rotate", "post_segment_rotate"}, []string{"pre_gc_marker", "post_gc_marker", "pre_gc_unlink", "post_gc_unlink"})
 	mark("owed-item", commit, projection)
 	mark("owed-disposition", commit, projection)
+	mark("seat-mint", commit, projection)
 	return out
 }

@@ -144,15 +144,15 @@ func TestS5Wire3BinaryPathS2ReferenceRaisesAndAbsentConfigIsFailSafeOnly(t *test
 	verdictOutcome := submitWire3(t, ctx, operatorClient, stderr, reg, pinned.Digest, fieldspec.SeatMeta{Name: "operator", Role: "operator", IsOperator: true}, record.Record{
 		Envelope: record.Envelope{To: "operator", DispatchID: "wire3-s2"},
 		Headers: map[string]string{
-			"PHASE":              "SITREP",
-			"AUTHORITY":          "report-only",
-			"CEREMONY_TIER":      "medium",
-			"EVIDENCE_TARGET":    "E1",
-			"SUBJECT":            "wire3 s2",
-			"record_kind":        "gate_resolution",
-			"PARENT_DISPATCH_ID": gateOutcome.RelayID,
-			"resolves_gate":      gateOutcome.RelayID,
-			"gate_category":      "routing",
+			"PHASE":           "SITREP",
+			"AUTHORITY":       "report-only",
+			"CEREMONY_TIER":   "medium",
+			"EVIDENCE_TARGET": "E1",
+			"SUBJECT":         "wire3 s2",
+			"record_kind":     "gate_resolution",
+			"parent_hint":     gateOutcome.RelayID,
+			"resolves_gate":   gateOutcome.RelayID,
+			"gate_category":   "routing",
 		},
 	})
 	verdictRead := readWire3Record(t, ctx, operatorClient, verdictOutcome.RelayID)

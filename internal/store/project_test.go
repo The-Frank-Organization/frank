@@ -1,7 +1,11 @@
 package store_test
 
 import (
+	"bytes"
+	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/jackli/frank/internal/record"
@@ -89,7 +93,11 @@ func TestDeliveryRecipientsRequireCanonicalAddressLists(t *testing.T) {
 		Envelope: record.Envelope{To: "seat-b"},
 		Headers:  map[string]string{"TO": `["seat-d"]`, "CC": `["seat-c","seat-b"]`},
 	}
-	if got, want := store.DeliveryRecipients(canonical), []string{"seat-b", "seat-d", "seat-c"}; !reflect.DeepEqual(got, want) {
+	got, err := store.DeliveryRecipients(canonical)
+	if err != nil {
+		t.Fatalf("DeliveryRecipients canonical: %v", err)
+	}
+	if want := []string{"seat-d", "seat-c", "seat-b"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("canonical recipients = %v, want %v", got, want)
 	}
 
@@ -97,7 +105,64 @@ func TestDeliveryRecipientsRequireCanonicalAddressLists(t *testing.T) {
 		Envelope: record.Envelope{To: "seat-b"},
 		Headers:  map[string]string{"TO": `["seat-d"]`, "CC": `["seat-c", "seat-e"]`},
 	}
-	if got, want := store.DeliveryRecipients(nonCanonical), []string{"seat-b"}; !reflect.DeepEqual(got, want) {
-		t.Fatalf("non-canonical recipients = %v, want envelope fallback %v", got, want)
+	if _, err := store.DeliveryRecipients(nonCanonical); err == nil {
+		t.Fatalf("DeliveryRecipients accepted non-canonical address_list")
+	}
+}
+
+func TestProjectionRecipientTruthUsesCanonicalHeaderLists(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	rec := record.Record{
+		Envelope: record.Envelope{
+			RelayID:       "relay-full-set",
+			DispatchID:    "dispatch-1",
+			From:          "seat-a",
+			To:            "compat-envelope-only",
+			Role:          "planner",
+			DeliveryState: record.Accepted,
+			SchemaVersion: 1,
+		},
+		Headers: map[string]string{
+			"PHASE":   "SITREP",
+			"SUBJECT": "full set",
+			"TO":      `["seat-b","seat-d"]`,
+			"CC":      `["seat-c","seat-b"]`,
+		},
+		Body: "body",
+	}
+	if _, err := st.Commit(rec, nil); err != nil {
+		t.Fatalf("Commit: %v", err)
+	}
+
+	for _, seatName := range []string{"seat-b", "seat-c", "seat-d"} {
+		data, err := os.ReadFile(filepath.Join(st.Root, "mailboxes", seatName+".jsonl"))
+		if err != nil {
+			t.Fatalf("mailbox %s: %v", seatName, err)
+		}
+		if strings.TrimSpace(string(data)) != "relay-full-set" {
+			t.Fatalf("mailbox %s = %q, want relay-full-set", seatName, data)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(st.Root, "mailboxes", "compat-envelope-only.jsonl")); !os.IsNotExist(err) {
+		t.Fatalf("compat envelope recipient got a mailbox, err=%v", err)
+	}
+
+	render, err := os.ReadFile(filepath.Join(st.Root, "projections", "relays", "dispatch-1", "SITREP-planner-relay-full-set.md"))
+	if err != nil {
+		t.Fatalf("render read: %v", err)
+	}
+	if !bytes.Contains(render, []byte("TO: seat-b, seat-d")) || !bytes.Contains(render, []byte("CC: seat-c, seat-b")) {
+		t.Fatalf("render = %s, want decoded TO and CC lists", render)
+	}
+
+	index, err := os.ReadFile(filepath.Join(st.Root, "projections", "INDEX.md"))
+	if err != nil {
+		t.Fatalf("index read: %v", err)
+	}
+	if !bytes.Contains(index, []byte("| relay-full-set | SITREP | seat-a | seat-b, seat-d | seat-c, seat-b | accepted |")) {
+		t.Fatalf("index = %s, want decoded TO/CC sets", index)
 	}
 }

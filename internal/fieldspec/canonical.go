@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 type TypedValue any
@@ -58,6 +59,28 @@ func ParseTyped(spec *FieldSpec, raw string) (TypedValue, error) {
 	default:
 		return nil, fmt.Errorf("field %s: unknown type %s", spec.ID, spec.Type)
 	}
+}
+
+func DecodeAddressList(raw string) ([]string, error) {
+	if strings.TrimSpace(raw) == "" {
+		return nil, nil
+	}
+	value, err := ParseTyped(&FieldSpec{ID: "address_list", Type: "address_list"}, raw)
+	if err != nil {
+		return nil, err
+	}
+	list, ok := value.([]string)
+	if !ok {
+		return nil, fmt.Errorf("field address_list: typed value is %T", value)
+	}
+	return list, nil
+}
+
+func EncodeAddressList(list []string) (string, error) {
+	if list == nil {
+		list = []string{}
+	}
+	return CanonicalMarshal(list)
 }
 
 func parseCanonical(spec *FieldSpec, raw string, out any) error {

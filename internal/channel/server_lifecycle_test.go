@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -140,6 +141,42 @@ func TestPushToAuthenticatedSeatOnly(t *testing.T) {
 		t.Fatalf("seat-b push = %s, want %s", got, frame)
 	}
 	expectNoLifecyclePush(t, first)
+}
+
+func TestForceCloseSeatDropsAuthenticatedChannel(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	sock, server, credA, credB := serveLifecycleServer(t)
+	first, err := channel.DialAuthenticated(ctx, sock, credA.Value)
+	if err != nil {
+		t.Fatalf("first DialAuthenticated: %v", err)
+	}
+	second, err := channel.DialAuthenticated(ctx, sock, credB.Value)
+	if err != nil {
+		t.Fatalf("second DialAuthenticated: %v", err)
+	}
+	defer func() { _ = second.Close() }()
+
+	server.ForceCloseSeat("seat-a")
+
+	deadline := time.Now().Add(2 * time.Second)
+	var lastErr error
+	for time.Now().Before(deadline) {
+		_, lastErr = first.ListTools(ctx)
+		if errors.Is(lastErr, net.ErrClosed) || strings.Contains(lastErr.Error(), "use of closed network connection") || strings.Contains(lastErr.Error(), "broken pipe") {
+			break
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	if lastErr == nil {
+		t.Fatalf("force-closed client still answered")
+	}
+	if tools, err := second.ListTools(ctx); err != nil {
+		t.Fatalf("other seat closed unexpectedly: %v", err)
+	} else if len(tools) != 1 || tools[0] != "project" {
+		t.Fatalf("other seat tools = %v", tools)
+	}
 }
 
 func TestCredentialHolderHelper(t *testing.T) {

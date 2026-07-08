@@ -158,16 +158,35 @@ func (s *MCPServer) handleToolCall(params json.RawMessage) (mcpToolResult, bool)
 	if class != "" {
 		return errorToolResult(class), false
 	}
-	result, err := client.Call(s.opts.Context, call.Name, args)
-	if err != nil {
-		s.closeClient()
-		return errorToolResult(scrubError(err)), false
+	result, client, class := s.callWithReconnect(client, call.Name, args)
+	if class != "" {
+		return errorToolResult(class), false
 	}
-	if call.Name == "submit" && s.submitNeedsReRender(client, result) {
+	if call.Name == "submit" && submitNeedsReRender(result) {
 		phase, tier := declaredPhaseTier(submitArgs)
 		return textToolResult(string(reRenderResult(result)), false), s.refreshSubmitSchema(client, phase, tier)
 	}
 	return textToolResult(string(result), false), false
+}
+
+func (s *MCPServer) callWithReconnect(client *channel.Client, name string, args json.RawMessage) (json.RawMessage, *channel.Client, string) {
+	result, err := client.Call(s.opts.Context, name, args)
+	if err == nil {
+		return result, client, ""
+	}
+	s.closeClient()
+	reconnected, class := s.ensureClient()
+	if class != "" {
+		return nil, nil, class
+	}
+	// Submit retry is safe because the conductor intake layer replays by content hash
+	// instead of executing duplicate accepted commands.
+	result, err = reconnected.Call(s.opts.Context, name, args)
+	if err != nil {
+		s.closeClient()
+		return nil, nil, scrubError(err)
+	}
+	return result, reconnected, ""
 }
 
 func (s *MCPServer) toolsListResult() map[string]any {
@@ -218,22 +237,15 @@ func declaredPhaseTier(args submitArguments) (string, string) {
 	return phase, tier
 }
 
-func (s *MCPServer) submitNeedsReRender(client *channel.Client, result json.RawMessage) bool {
-	if containsReRender(result) {
-		return true
-	}
+func submitNeedsReRender(result json.RawMessage) bool {
 	var outcome struct {
-		State   string `json:"state"`
-		RelayID string `json:"relay_id"`
+		State  string `json:"state"`
+		Detail string `json:"detail"`
 	}
-	if err := json.Unmarshal(result, &outcome); err != nil || outcome.State != "rejected" || outcome.RelayID == "" {
+	if err := json.Unmarshal(result, &outcome); err != nil || outcome.State != "rejected" {
 		return false
 	}
-	read, err := client.Call(s.opts.Context, "read", mustJSON(map[string]string{"relay_id": outcome.RelayID}))
-	if err != nil {
-		return false
-	}
-	return containsReRender(read)
+	return containsReRender([]byte(outcome.Detail))
 }
 
 func containsReRender(data []byte) bool {
@@ -328,8 +340,10 @@ func mcpTools(submitSchema map[string]any) []mcpTool {
 			Name:        "project",
 			Description: "Lists visible governance relay IDs (" + honesty + ").",
 			InputSchema: map[string]any{
-				"type":                 "object",
-				"properties":           map[string]any{},
+				"type": "object",
+				"properties": map[string]any{
+					"view": map[string]any{"type": "string", "enum": []string{"default", "audit", "roster"}},
+				},
 				"additionalProperties": false,
 			},
 		},

@@ -24,9 +24,10 @@ type Cred struct {
 }
 
 type SeatMeta struct {
-	Name       string `json:"name"`
-	Role       string `json:"role"`
-	IsOperator bool   `json:"is_operator"`
+	Name           string `json:"name"`
+	Role           string `json:"role"`
+	IsOperator     bool   `json:"is_operator"`
+	AuthGeneration string `json:"-"`
 }
 
 type Manager struct {
@@ -40,8 +41,9 @@ type bindingTable struct {
 }
 
 type binding struct {
-	Credential string   `json:"credential"`
-	Meta       SeatMeta `json:"meta"`
+	Credential      string   `json:"credential"`
+	Meta            SeatMeta `json:"meta"`
+	RealizedMintRef string   `json:"realized_mint_ref,omitempty"`
 }
 
 func Open(root string) (*Manager, error) {
@@ -89,6 +91,33 @@ func (m *Manager) Mint(name, role string, isOperator bool) (Cred, error) {
 	return Cred{Value: value}, nil
 }
 
+func (m *Manager) MintOrReplace(name, role string, isOperator bool, realizedMintRef string) (Cred, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if name == "system" {
+		return Cred{}, ErrReservedSeatName
+	}
+	value, err := randomCredential()
+	if err != nil {
+		return Cred{}, err
+	}
+	previous, hadPrevious := m.table.Seats[name]
+	m.table.Seats[name] = binding{
+		Credential:      value,
+		Meta:            SeatMeta{Name: name, Role: role, IsOperator: isOperator},
+		RealizedMintRef: realizedMintRef,
+	}
+	if err := m.persist(); err != nil {
+		if hadPrevious {
+			m.table.Seats[name] = previous
+		} else {
+			delete(m.table.Seats, name)
+		}
+		return Cred{}, err
+	}
+	return Cred{Value: value}, nil
+}
+
 func (m *Manager) Resolve(credential string) (SeatMeta, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -107,6 +136,26 @@ func (m *Manager) CredentialsFor(name string) int {
 		return 1
 	}
 	return 0
+}
+
+func (m *Manager) RealizedMintRef(name string) (string, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	binding, ok := m.table.Seats[name]
+	if !ok {
+		return "", false
+	}
+	return binding.RealizedMintRef, true
+}
+
+func (m *Manager) Seats() []SeatMeta {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	seats := make([]SeatMeta, 0, len(m.table.Seats))
+	for _, binding := range m.table.Seats {
+		seats = append(seats, binding.Meta)
+	}
+	return seats
 }
 
 func Stamp(rec record.Record, meta SeatMeta) record.Record {

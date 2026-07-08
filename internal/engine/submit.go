@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/jackli/frank/internal/bounce"
@@ -44,11 +45,23 @@ func SubmitHandlerWithRender(st *store.Store, reg *fieldspec.Registry, meta seat
 				return cand, nil, nil
 			}
 		}
+		if env.PreActive {
+			if rec, intents, handled, err := classifyBootAdmission(reg, cand, meta, formDigest, env); handled {
+				return rec, intents, err
+			}
+		}
 		violations := reg.Validate(cand, fieldspec.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator}, formDigest, env, lineage.RealGrantState(tab))
 		if len(violations) > 0 {
 			cand = clearGateRaiseHeaders(cand)
 			cand.Envelope.DeliveryState = record.Rejected
 			cand.Body = bounce.Format(anySlice(violations)...)
+			return cand, nil, nil
+		}
+		cand = stampParent(st, tab, cand, meta, env)
+		if violation := validateWaiverRows(tab, cand, meta); violation != nil {
+			cand = clearGateRaiseHeaders(cand)
+			cand.Envelope.DeliveryState = record.Rejected
+			cand.Body = bounce.Format(*violation)
 			return cand, nil, nil
 		}
 		if lineageBounce := (&lineage.Engine{Reg: reg, T: tab}).Check(cand, seat.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator}); lineageBounce != nil {
@@ -57,7 +70,7 @@ func SubmitHandlerWithRender(st *store.Store, reg *fieldspec.Registry, meta seat
 			cand.Body = bounce.Format(lineageBounce)
 			return cand, nil, nil
 		}
-		if violation := validateRecordKind(tab, cand); violation != nil {
+		if violation := validateRecordKind(tab, cand, meta); violation != nil {
 			cand = clearGateRaiseHeaders(cand)
 			cand.Envelope.DeliveryState = record.Rejected
 			cand.Body = bounce.Format(*violation)
@@ -66,7 +79,8 @@ func SubmitHandlerWithRender(st *store.Store, reg *fieldspec.Registry, meta seat
 		if cand.Headers["record_kind"] == "config_change" {
 			cand = classifyConfigChange(st, cand, meta)
 			if cand.Envelope.DeliveryState == record.Accepted {
-				return cand, store.ConfigChangeIntents(cand), nil
+				intents, err := store.ConfigChangeIntentsStrict(cand)
+				return cand, intents, err
 			}
 			cand = clearGateRaiseHeaders(cand)
 			return cand, nil, nil
@@ -74,18 +88,73 @@ func SubmitHandlerWithRender(st *store.Store, reg *fieldspec.Registry, meta seat
 		if cand.Headers["resolves_gate"] != "" {
 			cand = classifyVerdict(tab, cand, meta)
 			if cand.Envelope.DeliveryState == record.Accepted {
-				return cand, store.DefaultProjectionIntents(cand), nil
+				intents, err := store.DefaultProjectionIntentsStrict(cand)
+				return cand, intents, err
 			}
 			cand = clearGateRaiseHeaders(cand)
 			return cand, nil, nil
 		}
 		cand.Envelope.DeliveryState = record.Accepted
-		intents := submitProjectionIntents(cand)
+		intents, err := submitProjectionIntents(cand)
+		if err != nil {
+			return cand, nil, err
+		}
 		if isOwedKind(cand) {
 			intents = append(intents, owedProjectionIntentsFromTable(tab, cand)...)
 		}
 		return cand, intents, nil
 	}
+}
+
+func classifyBootAdmission(reg *fieldspec.Registry, cand record.Record, meta seat.SeatMeta, formDigest string, env fieldspec.RenderEnv) (record.Record, []store.Intent, bool, error) {
+	bootEnv := env
+	bootEnv.PreActive = env.PreActive
+	_, currentDigest := reg.Render(bootEnv, fieldspec.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator}, cand.Headers["PHASE"], cand.Headers["CEREMONY_TIER"], fieldspec.ClosedGrantState)
+	if formDigest == "" || formDigest != currentDigest {
+		cand.Envelope.DeliveryState = record.Rejected
+		cand.Body = bounce.Format(fieldspec.Violation{Field: "form_digest", Class: "re-render", Reason: "stale form digest"})
+		return cand, nil, true, nil
+	}
+	violations := bootAdmissionViolations(cand)
+	if len(violations) > 0 {
+		cand.Envelope.DeliveryState = record.Rejected
+		cand.Body = bounce.Format(anySlice(violations)...)
+		return cand, nil, true, nil
+	}
+	cand.Envelope.DeliveryState = record.Accepted
+	intents, err := submitProjectionIntents(cand)
+	return cand, intents, true, err
+}
+
+func bootAdmissionViolations(cand record.Record) []fieldspec.Violation {
+	allowed := map[string]bool{
+		"PHASE":           true,
+		"CEREMONY_TIER":   true,
+		"SUBJECT":         true,
+		"charter_loaded":  true,
+		"dispatch_status": true,
+	}
+	var violations []fieldspec.Violation
+	for key := range cand.Headers {
+		if !allowed[key] {
+			violations = append(violations, fieldspec.Violation{Field: key, Class: "non-boot-before-active"})
+		}
+	}
+	for _, key := range []string{"PHASE", "CEREMONY_TIER", "SUBJECT", "charter_loaded", "dispatch_status"} {
+		if cand.Headers[key] == "" {
+			violations = append(violations, fieldspec.Violation{Field: key, Class: "non-boot-before-active"})
+		}
+	}
+	if cand.Headers["PHASE"] != "" && cand.Headers["PHASE"] != "SITREP" {
+		violations = append(violations, fieldspec.Violation{Field: "PHASE", Class: "non-boot-before-active"})
+	}
+	if value := cand.Headers["charter_loaded"]; value != "" && value != "yes" && value != "no" {
+		violations = append(violations, fieldspec.Violation{Field: "charter_loaded", Class: "non-boot-before-active"})
+	}
+	if value := cand.Headers["dispatch_status"]; value != "" && value != "read" && value != "awaiting" {
+		violations = append(violations, fieldspec.Violation{Field: "dispatch_status", Class: "non-boot-before-active"})
+	}
+	return violations
 }
 
 func firstSubmitTable(existing []*tables.T) *tables.T {
@@ -124,8 +193,11 @@ func rejected(cmd intake.Cmd, meta seat.SeatMeta, reason string) record.Record {
 	}
 }
 
-func submitProjectionIntents(rec record.Record) []store.Intent {
-	intents := store.DefaultProjectionIntents(rec)
+func submitProjectionIntents(rec record.Record) ([]store.Intent, error) {
+	intents, err := store.DefaultProjectionIntentsStrict(rec)
+	if err != nil {
+		return nil, err
+	}
 	if isGateCandidate(rec) {
 		intents = append(intents, store.Intent{
 			Kind:    store.IntentIndex,
@@ -133,14 +205,14 @@ func submitProjectionIntents(rec record.Record) []store.Intent {
 			Payload: []byte(fmt.Sprintf("| %s | parked | %s |\n", rec.Envelope.RelayID, rec.Envelope.From)),
 		})
 	}
-	return intents
+	return intents, nil
 }
 
 func isGateCandidate(rec record.Record) bool {
 	return rec.Headers["HUMAN_GATE_REQUIRED"] == "yes" || rec.Headers["gate_category"] != ""
 }
 
-func validateRecordKind(t *tables.T, cand record.Record) *fieldspec.Violation {
+func validateRecordKind(t *tables.T, cand record.Record, meta seat.SeatMeta) *fieldspec.Violation {
 	switch cand.Headers["record_kind"] {
 	case "":
 		return nil
@@ -171,11 +243,85 @@ func validateRecordKind(t *tables.T, cand record.Record) *fieldspec.Violation {
 		return nil
 	case "config_change":
 		return nil
-	case "gate_resolution":
+	case "waiver_retraction":
+		target := cand.Headers["retracts"]
+		if target == "" {
+			return &fieldspec.Violation{Field: "retracts", Class: "required", Reason: "retracts required"}
+		}
+		var found bool
+		for _, rec := range t.Records {
+			if rec.Envelope.RelayID == target && acceptedWaiverRecord(rec) {
+				found = true
+			}
+			if rec.Headers["record_kind"] == "waiver_retraction" && rec.Headers["retracts"] == target && rec.Envelope.DeliveryState == record.Accepted {
+				return &fieldspec.Violation{Field: "retracts", Class: "already-resolved", Reason: "waiver already retracted"}
+			}
+		}
+		if !found {
+			return &fieldspec.Violation{Field: "retracts", Class: lineage.ParentUnknownRecompose, Reason: "waiver unknown"}
+		}
 		return nil
+	case "seat_mint":
+		_, violation := ParseSeatMintBody(cand.Body, meta.Name)
+		return violation
 	default:
-		return &fieldspec.Violation{Field: "record_kind", Class: "unknown", Reason: "unknown record_kind"}
+		return nil
 	}
+}
+
+type SeatMintRequest struct {
+	Seat       string
+	Role       string
+	IsOperator bool
+}
+
+func ParseSeatMintBody(body, requester string) (SeatMintRequest, *fieldspec.Violation) {
+	var raw struct {
+		Seat       string `json:"seat"`
+		Role       string `json:"role"`
+		IsOperator *bool  `json:"is_operator"`
+	}
+	if err := json.Unmarshal([]byte(body), &raw); err != nil {
+		return SeatMintRequest{}, &fieldspec.Violation{Field: "body", Class: "typed", Reason: "seat_mint body must be JSON"}
+	}
+	if raw.Seat == "" {
+		return SeatMintRequest{}, &fieldspec.Violation{Field: "seat", Class: "required", Reason: "seat required"}
+	}
+	if raw.Role == "" {
+		return SeatMintRequest{}, &fieldspec.Violation{Field: "role", Class: "required", Reason: "role required"}
+	}
+	if raw.IsOperator == nil {
+		return SeatMintRequest{}, &fieldspec.Violation{Field: "is_operator", Class: "required", Reason: "is_operator required"}
+	}
+	if raw.Seat == "system" {
+		return SeatMintRequest{}, &fieldspec.Violation{Field: "seat", Class: "reserved", Reason: "system seat is reserved"}
+	}
+	if requester != "" && raw.Seat == requester {
+		return SeatMintRequest{}, &fieldspec.Violation{Field: "seat", Class: "self-remint", Reason: "seat_mint cannot re-mint the submitting seat"}
+	}
+	return SeatMintRequest{Seat: raw.Seat, Role: raw.Role, IsOperator: *raw.IsOperator}, nil
+}
+
+func validateWaiverRows(t *tables.T, cand record.Record, meta seat.SeatMeta) *fieldspec.Violation {
+	if operatorSeat(meta) {
+		return nil
+	}
+	for _, field := range []string{"waiver_scope", "rationale", "retracts"} {
+		if cand.Headers[field] != "" {
+			return &fieldspec.Violation{Field: field, Class: "seat-scope", Reason: field + " requires operator"}
+		}
+	}
+	return nil
+}
+
+func acceptedWaiverRecord(rec record.Record) bool {
+	if rec.Envelope.DeliveryState != record.Accepted {
+		return false
+	}
+	if !(rec.Envelope.From == "operator" || rec.Envelope.Role == "operator") {
+		return false
+	}
+	return rec.Headers["waiver_scope"] != "" || rec.Headers["ORCH_REVIEW_WAIVER"] != ""
 }
 
 func isOwedKind(rec record.Record) bool {

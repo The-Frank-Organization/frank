@@ -123,6 +123,50 @@ func TestPassResumesCommittedMarkerWithoutDuplicateRecord(t *testing.T) {
 	}
 }
 
+func TestNoIDReuseAfterGCAndRestart(t *testing.T) {
+	root := t.TempDir()
+	st, journal := gcStoreWithSegments(t, root)
+	segments, err := journal.Segments()
+	if err != nil {
+		t.Fatalf("Segments: %v", err)
+	}
+	if len(segments) < 2 {
+		t.Fatalf("test setup did not rotate: %+v", segments)
+	}
+	var lastID string
+	for _, segment := range segments {
+		for _, entry := range segment.Entries {
+			if entry.IntakeID > lastID {
+				lastID = entry.IntakeID
+			}
+		}
+	}
+	for _, entry := range segments[0].Entries {
+		commitOutcome(t, st, entry.IntakeID)
+	}
+	tables, err := obligation.BuildTables(st)
+	if err != nil {
+		t.Fatalf("BuildTables: %v", err)
+	}
+	if err := frankgc.Pass(st, tables, config.EngineConfig{GCEnabled: true, SegmentRotateBytes: 96}); err != nil {
+		t.Fatalf("Pass: %v", err)
+	}
+	if _, err := os.Stat(segments[0].Path); !os.IsNotExist(err) {
+		t.Fatalf("first segment still exists after GC: %v", err)
+	}
+	reopened, err := intake.OpenWithConfig(root, config.EngineConfig{SegmentRotateBytes: 96})
+	if err != nil {
+		t.Fatalf("reopen intake: %v", err)
+	}
+	next, err := reopened.Append(intake.Cmd{Seat: "seat-a", Verb: "submit", Payload: json.RawMessage(`{"after_gc":true}`), ContentHash: "after-gc"})
+	if err != nil {
+		t.Fatalf("Append after GC: %v", err)
+	}
+	if next <= lastID {
+		t.Fatalf("next id after GC = %s, want greater than historical max %s", next, lastID)
+	}
+}
+
 func gcStoreWithSegments(t *testing.T, root string) (*store.Store, *intake.Journal) {
 	t.Helper()
 	st, err := store.Open(root)

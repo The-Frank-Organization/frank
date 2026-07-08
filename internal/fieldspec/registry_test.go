@@ -15,17 +15,17 @@ import (
 func TestRegistryV2MemberParsesAndExposesLockedEnums(t *testing.T) {
 	reg := loadRegistry(t)
 
-	if reg.Version != "s5-fieldspec-v3" {
-		t.Fatalf("Version = %q, want s5-fieldspec-v3", reg.Version)
+	if reg.Version != "s6-fieldspec-v4" {
+		t.Fatalf("Version = %q, want s6-fieldspec-v4", reg.Version)
 	}
 	if reg.Provenance["owner"] == "" {
 		t.Fatalf("Provenance owner empty: %#v", reg.Provenance)
 	}
-	if len(reg.NamedEnums) != 24 {
-		t.Fatalf("named enum count = %d, want 24", len(reg.NamedEnums))
+	if len(reg.NamedEnums) != 25 {
+		t.Fatalf("named enum count = %d, want 25", len(reg.NamedEnums))
 	}
-	if len(reg.Fields) != 83 {
-		t.Fatalf("row count = %d, want 83", len(reg.Fields))
+	if len(reg.Fields) != 91 {
+		t.Fatalf("row count = %d, want 91", len(reg.Fields))
 	}
 
 	assertTokens(t, reg.NamedEnums["PHASE"], []string{
@@ -62,6 +62,7 @@ func TestRegistryV2MemberParsesAndExposesLockedEnums(t *testing.T) {
 	assertTokens(t, reg.NamedEnums["surface_intent"], []string{"progress", "review_checkpoint", "advisory", "result"})
 	assertTokens(t, reg.NamedEnums["grant"], []string{"dispatch-impl", "dispatch-merge"})
 	assertTokens(t, reg.NamedEnums["delivery_state"], []string{"accepted", "rejected", "held"})
+	assertTokens(t, reg.NamedEnums["dispatch_status"], []string{"read", "awaiting"})
 }
 
 func TestRegistryS5MemberContainsRegistryPassRows(t *testing.T) {
@@ -124,7 +125,107 @@ func TestRegistryS5MemberContainsRegistryPassRows(t *testing.T) {
 
 	recordKind := requireField(t, reg, "record_kind")
 	assertTokens(t, recordKind.SeatScope["*"], []string{"diagnostics"})
-	assertTokens(t, recordKind.SeatScope["operator"], []string{"owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change"})
+	assertTokens(t, recordKind.SeatScope["operator"], []string{"owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint"})
+}
+
+func TestRegistryS6TransportBootAndWaiverRows(t *testing.T) {
+	reg := loadRegistry(t)
+
+	parentHint := requireField(t, reg, "parent_hint")
+	if parentHint.Layer != "header" ||
+		parentHint.Owner != "free_text" ||
+		parentHint.Type != "id_ref" ||
+		parentHint.FillConstraints != "free_text" ||
+		parentHint.LineageRole != "none" ||
+		parentHint.GateReferenceable {
+		t.Fatalf("parent_hint row = %+v", parentHint)
+	}
+
+	parentHintHonored := requireField(t, reg, "parent_hint_honored")
+	if parentHintHonored.Owner != "system" ||
+		parentHintHonored.Type != "bool" ||
+		parentHintHonored.EnumSet != "bool" ||
+		parentHintHonored.FillConstraints != "computed_result" ||
+		parentHintHonored.GateReferenceable {
+		t.Fatalf("parent_hint_honored row = %+v", parentHintHonored)
+	}
+
+	parentProvenance := requireField(t, reg, "parent_provenance")
+	if parentProvenance.Owner != "system" ||
+		parentProvenance.Type != "enum" ||
+		parentProvenance.EnumSet != "" ||
+		parentProvenance.FillConstraints != "computed_result" ||
+		parentProvenance.GateReferenceable {
+		t.Fatalf("parent_provenance row = %+v", parentProvenance)
+	}
+	assertTokens(t, parentProvenance.Options, []string{"woken_on", "active_dispatch", "dispatch_root", "hint"})
+
+	routingRefHonored := requireField(t, reg, "routing_ref_honored")
+	if routingRefHonored.Owner != "system" ||
+		routingRefHonored.Type != "bool" ||
+		routingRefHonored.EnumSet != "bool" ||
+		routingRefHonored.FillConstraints != "computed_result" ||
+		routingRefHonored.GateReferenceable {
+		t.Fatalf("routing_ref_honored row = %+v", routingRefHonored)
+	}
+
+	for _, tc := range []struct {
+		id      string
+		wantTyp string
+	}{
+		{id: "rationale", wantTyp: "text"},
+		{id: "waiver_scope", wantTyp: "object"},
+		{id: "retracts", wantTyp: "id_ref"},
+	} {
+		field := requireField(t, reg, tc.id)
+		if field.Layer != "header" ||
+			field.Owner != "free_text" ||
+			field.Type != tc.wantTyp ||
+			field.FillConstraints != "free_text" ||
+			field.LineageRole != "none" ||
+			field.GateReferenceable {
+			t.Fatalf("%s row = %+v", tc.id, field)
+		}
+		assertPredicateRaw(t, field.VisibleWhen.Raw, `{"any_of":[{"seat_is":["operator"]},{"role_in":["operator"]}]}`)
+	}
+
+	charterLoaded := requireField(t, reg, "charter_loaded")
+	if charterLoaded.Owner != "agent_enum_pick" ||
+		charterLoaded.Type != "bool" ||
+		charterLoaded.EnumSet != "bool" ||
+		charterLoaded.FillConstraints != "seat_allowed_values" ||
+		charterLoaded.GateReferenceable {
+		t.Fatalf("charter_loaded row = %+v", charterLoaded)
+	}
+	dispatchStatus := requireField(t, reg, "dispatch_status")
+	if dispatchStatus.Owner != "agent_enum_pick" ||
+		dispatchStatus.Type != "enum" ||
+		dispatchStatus.EnumSet != "dispatch_status" ||
+		dispatchStatus.FillConstraints != "seat_allowed_values" ||
+		dispatchStatus.GateReferenceable {
+		t.Fatalf("dispatch_status row = %+v", dispatchStatus)
+	}
+
+	if _, ok := reg.ByID("ORCH_REVIEW_WAIVER"); ok {
+		t.Fatalf("ORCH_REVIEW_WAIVER row still present")
+	}
+	for _, field := range reg.Fields {
+		id := strings.ToLower(field.ID)
+		if strings.Contains(id, "activation") || strings.Contains(id, "marker") {
+			t.Fatalf("activation-marker-like row present: %s", field.ID)
+		}
+	}
+
+	operatorForm, _ := reg.Render(fieldspec.RenderEnv{}, fieldspec.SeatMeta{Name: "operator", Role: "operator", IsOperator: true}, "SITREP", "medium", fieldspec.ClosedGrantState)
+	seatForm, _ := reg.Render(fieldspec.RenderEnv{}, fieldspec.SeatMeta{Name: "seat-a", Role: "implementer"}, "SITREP", "medium", fieldspec.ClosedGrantState)
+	for _, id := range []string{"rationale", "waiver_scope", "retracts"} {
+		if !operatorForm.HasField(id) {
+			t.Fatalf("operator form missing %s", id)
+		}
+		if seatForm.HasField(id) {
+			t.Fatalf("non-operator form rendered %s", id)
+		}
+	}
 }
 
 func TestRegistryV2MemberContainsGrillRows(t *testing.T) {

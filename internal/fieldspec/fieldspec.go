@@ -13,10 +13,11 @@ type Form struct {
 }
 
 type Field struct {
-	Type         string   `json:"type,omitempty"`
-	Options      []string `json:"options,omitempty"`
-	Default      string   `json:"default,omitempty"`
-	DigestExempt bool     `json:"digest_exempt,omitempty"`
+	Type              string   `json:"type,omitempty"`
+	Options           []string `json:"options,omitempty"`
+	Default           string   `json:"default,omitempty"`
+	DigestExempt      bool     `json:"digest_exempt,omitempty"`
+	ConductorVolatile bool     `json:"conductor_volatile,omitempty"`
 }
 
 type Violation struct {

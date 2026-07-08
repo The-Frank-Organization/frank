@@ -5,6 +5,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/jackli/frank/internal/intake"
 	"github.com/jackli/frank/internal/record"
 	"github.com/jackli/frank/internal/store"
 )
@@ -19,6 +20,7 @@ type T struct {
 	Locks           map[string][]record.Record
 	MergeGates      map[string][]record.Record
 	Waivers         []record.Record
+	Lifecycle       map[string]Lifecycle
 	OutcomeByIntake map[string]record.Record
 	ContentHash     map[string]string
 	CompletionIndex map[string]map[string]bool
@@ -39,6 +41,7 @@ func New() *T {
 		Verdicts:        map[string][]record.Record{},
 		Locks:           map[string][]record.Record{},
 		MergeGates:      map[string][]record.Record{},
+		Lifecycle:       map[string]Lifecycle{},
 		OutcomeByIntake: map[string]record.Record{},
 		ContentHash:     map[string]string{},
 		CompletionIndex: map[string]map[string]bool{
@@ -96,6 +99,7 @@ func (t *T) Clone() *T {
 	out.Locks = cloneRecordSliceMap(t.Locks)
 	out.MergeGates = cloneRecordSliceMap(t.MergeGates)
 	out.Waivers = cloneRecords(t.Waivers)
+	out.Lifecycle = cloneLifecycleMap(t.Lifecycle)
 	out.OutcomeByIntake = cloneRecordMap(t.OutcomeByIntake)
 	out.ContentHash = cloneStringMap(t.ContentHash)
 	out.CompletionIndex = cloneBoolMapMap(t.CompletionIndex)
@@ -108,11 +112,61 @@ func Build(st *store.Store) (*T, error) {
 	if err != nil {
 		return nil, err
 	}
+	order, err := st.CommitOrder()
+	if err != nil {
+		return nil, err
+	}
+	records = recordsInCommitOrder(records, order)
 	t := New()
 	for _, rec := range records {
 		t.OnCommit(rec)
 	}
+	t.hydrateContentHashes(st)
 	return t, nil
+}
+
+func recordsInCommitOrder(records []record.Record, order []string) []record.Record {
+	if len(records) == 0 || len(order) == 0 {
+		return records
+	}
+	index := make(map[string]int, len(order))
+	for i, relayID := range order {
+		index[relayID] = i
+	}
+	sort.SliceStable(records, func(i, j int) bool {
+		left, leftOK := index[records[i].Envelope.RelayID]
+		right, rightOK := index[records[j].Envelope.RelayID]
+		switch {
+		case leftOK && rightOK:
+			return left < right
+		case leftOK:
+			return true
+		case rightOK:
+			return false
+		default:
+			return records[i].Envelope.RelayID < records[j].Envelope.RelayID
+		}
+	})
+	return records
+}
+
+func (t *T) hydrateContentHashes(st *store.Store) {
+	journal, err := intake.Open(st.Root)
+	if err != nil {
+		return
+	}
+	entries, err := journal.ReadAll()
+	if err != nil {
+		return
+	}
+	for _, entry := range entries {
+		if entry.IntakeID == "" || entry.ContentHash == "" {
+			continue
+		}
+		if _, ok := t.OutcomeByIntake[entry.IntakeID]; ok {
+			t.ContentHash[entry.ContentHash] = entry.IntakeID
+		}
+	}
 }
 
 func (t *T) OnCommit(rec record.Record) {
@@ -149,9 +203,10 @@ func (t *T) OnCommit(rec record.Record) {
 	if rec.Headers["PHASE"] == "MERGE-GATE" {
 		t.MergeGates[rec.Envelope.DispatchID] = append(t.MergeGates[rec.Envelope.DispatchID], rec)
 	}
-	if rec.Headers["ORCH_REVIEW_WAIVER"] != "" {
+	if rec.Headers["ORCH_REVIEW_WAIVER"] != "" || rec.Headers["waiver_scope"] != "" {
 		t.Waivers = append(t.Waivers, rec)
 	}
+	t.updateLifecycle(rec)
 	t.updateCompletion(rec)
 }
 
@@ -213,6 +268,14 @@ func cloneRecordSliceMap(in map[string][]record.Record) map[string][]record.Reco
 func cloneRecord(rec record.Record) record.Record {
 	rec.Headers = cloneStringMap(rec.Headers)
 	return rec
+}
+
+func cloneLifecycleMap(in map[string]Lifecycle) map[string]Lifecycle {
+	out := make(map[string]Lifecycle, len(in))
+	for key, value := range in {
+		out[key] = value
+	}
+	return out
 }
 
 func cloneStringMap(in map[string]string) map[string]string {
