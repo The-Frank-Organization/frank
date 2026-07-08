@@ -46,7 +46,9 @@ This procedure is the operator-run gate-3 script for the fixed s6 conductor. It 
 
    Evidence artifact: `results/step-exit-registry-apply.json`
 
-   Operator submits an operator-authored `record_kind: config_change` for member `fieldspec`, with `new_digest` recomputed from the target member bytes. Expected reply state: `accepted`.
+   Operator submits an operator-authored `record_kind: config_change` for member `fieldspec`, with `new_digest` set to the composite pinned-config chain digest (`config.Digest` over all members after replacing the target member), not the target member's standalone hash. Expected reply state: `accepted`.
+
+   Gate-day note: the operator refused to attest until this digest rule was shown and independently reproduced. That hold was the intended custody discipline.
 
 5. Run the ROADMAP:83-85 legs against the live conductor.
 
@@ -72,6 +74,7 @@ This procedure is the operator-run gate-3 script for the fixed s6 conductor. It 
    - Operator captures the credential and endpoint from that one accept reply.
    - The new seat connects through `frank-mcp`.
    - The new seat renders the pre-active boot form.
+   - If any hosted-seat session receives a form re-render bounce, re-read the schema before retrying. Hosted seats do not consume `tools/list_changed`; do not trust a cached tool constant after any re-render bounce.
    - The new seat submits boot fields `PHASE`, `CEREMONY_TIER`, `SUBJECT`, `charter_loaded`, and `dispatch_status`.
    - Operator calls `project` with `{"view":"roster"}` and records the row showing the seat moved from `minted` to `active`.
 

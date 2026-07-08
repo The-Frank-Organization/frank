@@ -41,6 +41,8 @@ Stop with SIGINT or SIGTERM. The intake journal, canonical records, and recovery
 
 Status is socket liveness plus channel diagnostics. If phase-0 cannot open for submit, read-only diagnostics expose `project` and `read`; `submit` is absent until the store opens Ready.
 
+After any form re-render bounce, hosted seats must re-read the schema before retrying. Hosted seats do not consume `tools/list_changed`, so a cached tool constant can remain stale even after the conductor announces a schema change.
+
 ## Seat wiring
 
 One seat = one current credential = one host MCP config entry. A session occupies a durable seat by launching `frank-mcp` with that seat credential. Killing the host session or shim closes the socket; relaunching with the same current credential reoccupies the same seat and mailbox.
