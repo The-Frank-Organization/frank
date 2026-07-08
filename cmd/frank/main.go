@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sort"
 	"strings"
 	"syscall"
 
@@ -203,7 +204,7 @@ func run(ctx context.Context, cfg config) error {
 	if err != nil {
 		return err
 	}
-	if err := completeMissingSeatMintBindings(postRecoveryTables, mgr); err != nil {
+	if err := completeMissingSeatMintBindings(st, postRecoveryTables, mgr); err != nil {
 		return err
 	}
 
@@ -519,7 +520,7 @@ func completeSeatMintBinding(rec record.Record, mgr *seat.Manager, server *chann
 	if violation != nil {
 		return engine.OutcomeExtras{}, fmt.Errorf("accepted seat_mint failed parse: %s:%s", violation.Field, violation.Class)
 	}
-	cred, err := mgr.MintOrReplace(req.Seat, req.Role, req.IsOperator)
+	cred, err := mgr.MintOrReplace(req.Seat, req.Role, req.IsOperator, rec.Envelope.RelayID)
 	if err != nil {
 		return engine.OutcomeExtras{}, err
 	}
@@ -532,26 +533,57 @@ func completeSeatMintBinding(rec record.Record, mgr *seat.Manager, server *chann
 	return engine.OutcomeExtras{Credential: cred.Value, Endpoint: endpoint}, nil
 }
 
-func completeMissingSeatMintBindings(tab *tables.T, mgr *seat.Manager) error {
-	if tab == nil {
+type seatMintPivot struct {
+	relayID string
+	req     engine.SeatMintRequest
+}
+
+func completeMissingSeatMintBindings(st *store.Store, tab *tables.T, mgr *seat.Manager) error {
+	if st == nil || tab == nil {
 		return nil
 	}
-	for _, rec := range tab.Records {
+	pivots, err := latestSeatMintPivots(st, tab)
+	if err != nil {
+		return err
+	}
+	seats := make([]string, 0, len(pivots))
+	for seatName := range pivots {
+		seats = append(seats, seatName)
+	}
+	sort.Strings(seats)
+	for _, seatName := range seats {
+		pivot := pivots[seatName]
+		if realized, ok := mgr.RealizedMintRef(seatName); ok && realized == pivot.relayID {
+			continue
+		}
+		if _, err := mgr.MintOrReplace(pivot.req.Seat, pivot.req.Role, pivot.req.IsOperator, pivot.relayID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func latestSeatMintPivots(st *store.Store, tab *tables.T) (map[string]seatMintPivot, error) {
+	order, err := st.CommitOrder()
+	if err != nil {
+		return nil, err
+	}
+	pivots := map[string]seatMintPivot{}
+	for _, relayID := range order {
+		rec, ok := tab.ByRelay[relayID]
+		if !ok {
+			continue
+		}
 		if rec.Envelope.DeliveryState != record.Accepted || rec.Headers["record_kind"] != "seat_mint" {
 			continue
 		}
 		req, violation := engine.ParseSeatMintBody(rec.Body, rec.Envelope.From)
 		if violation != nil {
-			return fmt.Errorf("accepted seat_mint failed parse: %s:%s", violation.Field, violation.Class)
+			return nil, fmt.Errorf("accepted seat_mint failed parse: %s:%s", violation.Field, violation.Class)
 		}
-		if mgr.CredentialsFor(req.Seat) != 0 {
-			continue
-		}
-		if _, err := mgr.MintOrReplace(req.Seat, req.Role, req.IsOperator); err != nil {
-			return err
-		}
+		pivots[req.Seat] = seatMintPivot{relayID: rec.Envelope.RelayID, req: req}
 	}
-	return nil
+	return pivots, nil
 }
 
 func requireGenesisTimeMint(root string) error {

@@ -2,6 +2,7 @@ package seat_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -70,7 +71,7 @@ func TestMintOrReplaceReplacesCredentialAndKeepsSingleBinding(t *testing.T) {
 		t.Fatalf("Mint first: %v", err)
 	}
 
-	replacement, err := mgr.MintOrReplace("seat-a", "planner", true)
+	replacement, err := mgr.MintOrReplace("seat-a", "planner", true, "pivot-1")
 	if err != nil {
 		t.Fatalf("MintOrReplace: %v", err)
 	}
@@ -89,6 +90,22 @@ func TestMintOrReplaceReplacesCredentialAndKeepsSingleBinding(t *testing.T) {
 	}
 	if got := mgr.CredentialsFor("seat-a"); got != 1 {
 		t.Fatalf("credentials for seat-a = %d, want 1", got)
+	}
+	if got, ok := mgr.RealizedMintRef("seat-a"); !ok || got != "pivot-1" {
+		t.Fatalf("RealizedMintRef = %q, %v; want pivot-1, true", got, ok)
+	}
+	var table struct {
+		Seats map[string]struct {
+			Credential      string `json:"credential"`
+			RealizedMintRef string `json:"realized_mint_ref"`
+		} `json:"seats"`
+	}
+	if err := json.Unmarshal(mustRead(t, filepath.Join(root, "binding", "seats.json")), &table); err != nil {
+		t.Fatalf("decode binding table: %v", err)
+	}
+	row := table.Seats["seat-a"]
+	if row.Credential != replacement.Value || row.RealizedMintRef != "pivot-1" {
+		t.Fatalf("binding row = %+v, want replacement credential and pivot", row)
 	}
 }
 

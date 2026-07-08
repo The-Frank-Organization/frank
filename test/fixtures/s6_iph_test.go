@@ -59,7 +59,7 @@ func TestS6IPHSeatMintReplyCarveOutsScoped(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read mint record: %v", err)
 	}
-	for _, forbidden := range []string{mint.Credential, mint.Endpoint, root, filepath.Join(root, "records")} {
+	for _, forbidden := range []string{mint.Credential, mint.Endpoint, root, filepath.Join(root, "records"), "realized_mint_ref"} {
 		if forbidden != "" && strings.Contains(string(readRaw), forbidden) {
 			t.Fatalf("read surface leaked %q in %s", forbidden, readRaw)
 		}
@@ -68,9 +68,10 @@ func TestS6IPHSeatMintReplyCarveOutsScoped(t *testing.T) {
 	if err != nil {
 		t.Fatalf("roster: %v", err)
 	}
-	if strings.Contains(string(rosterRaw), mint.Credential) || strings.Contains(string(rosterRaw), mint.Endpoint) {
+	if strings.Contains(string(rosterRaw), mint.Credential) || strings.Contains(string(rosterRaw), mint.Endpoint) || strings.Contains(string(rosterRaw), "realized_mint_ref") {
 		t.Fatalf("roster leaked carve-out material: %s", rosterRaw)
 	}
+	assertStringAbsentFromTree(t, root, "realized_mint_ref", filepath.Join(root, "binding"))
 }
 
 func TestS6IPHNewPayloadFamiliesPathFree(t *testing.T) {

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -187,6 +188,78 @@ func TestS6StartupCompletesCommittedInitialSeatMintBinding(t *testing.T) {
 	if got := mgr.CredentialsFor("startup-seat.implementer"); got != 1 {
 		t.Fatalf("startup-seat credentials = %d, want one binding completed from pivot", got)
 	}
+	if got, ok := mgr.RealizedMintRef("startup-seat.implementer"); !ok || got != "seat-mint-pivot" {
+		t.Fatalf("startup-seat realized pivot = %q, %v; want seat-mint-pivot, true", got, ok)
+	}
+}
+
+func TestS6RemintCrashBeforeBindingReplacementRecoversBeforeServe(t *testing.T) {
+	root := t.TempDir()
+	initFixtureStore(t, root)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	bin := buildFrank(t, ctx)
+	mgr, err := seat.Open(root)
+	if err != nil {
+		t.Fatalf("Open seats: %v", err)
+	}
+	operatorCred, err := mgr.Mint("operator", "operator", true)
+	if err != nil {
+		t.Fatalf("Mint operator: %v", err)
+	}
+	oldCred, err := mgr.Mint("s6-remint-crash.implementer", "implementer", false)
+	if err != nil {
+		t.Fatalf("Mint old seat: %v", err)
+	}
+	sock := filepath.Join(os.TempDir(), "frank-s6-remint-crash-"+filepath.Base(root)+".sock")
+	t.Cleanup(func() { _ = os.Remove(sock) })
+	counter := filepath.Join(root, "rename-counter.log")
+
+	crashCmd, crashStderr := startFrankWithEnv(t, ctx, bin, root, sock, []string{
+		"FRANK_TEST_CRASHPOINT=post_rename:3",
+		"FRANK_TEST_RENAME_COUNTER=" + counter,
+	})
+	waitForSocket(t, sock)
+	operator, err := channel.DialAuthenticated(ctx, sock, operatorCred.Value)
+	if err != nil {
+		t.Fatalf("operator dial before crash stderr=%s: %v", crashStderr.String(), err)
+	}
+	describe, err := operator.DescribeTools(ctx, channel.DescribeRequest{Phase: "SITREP", Tier: "medium"})
+	if err != nil {
+		t.Fatalf("DescribeTools before crash: %v", err)
+	}
+	_, err = operator.Call(ctx, "submit", s6SeatMintPayload(t, describe.FormDigest, "s6-remint-crash.implementer", "planner", false))
+	if err == nil {
+		t.Fatalf("remint submit unexpectedly returned before crash")
+	}
+	_ = operator.Close()
+	waitErr := crashCmd.Wait()
+	if waitErr == nil {
+		t.Fatalf("crash process exited cleanly; stderr=%s", crashStderr.String())
+	}
+	assertSIGKILL(t, waitErr)
+	pivot := onlySeatMintPivot(t, root, "s6-remint-crash.implementer")
+	assertLastRename(t, counter, filepath.Join("records", pivot+".json"))
+	_ = os.Remove(sock)
+
+	restarted, restartStderr := startFrank(t, ctx, bin, root, sock)
+	t.Cleanup(func() {
+		if restarted.Process != nil {
+			_ = restarted.Process.Kill()
+		}
+		_ = restarted.Wait()
+	})
+	waitForSocket(t, sock)
+	if old, err := channel.DialAuthenticated(ctx, sock, oldCred.Value); err == nil {
+		_ = old.Close()
+		t.Fatalf("old credential authenticated on first post-restart attempt; stderr=%s", restartStderr.String())
+	}
+	row := bindingRowForSeat(t, root, "s6-remint-crash.implementer")
+	if got, _ := row["realized_mint_ref"].(string); got != pivot {
+		t.Fatalf("realized_mint_ref = %q, want latest pivot %q; row=%#v", got, pivot, row)
+	}
+	assertStringAbsentFromTree(t, root, "realized_mint_ref", filepath.Join(root, "binding"))
+	assertCredentialAbsentFromTree(t, root, oldCred.Value, filepath.Join(root, "binding"))
 }
 
 func s6SeatMintPayload(t *testing.T, formDigest, seatName, role string, isOperator bool) []byte {
@@ -210,6 +283,107 @@ func s6SeatMintPayload(t *testing.T, formDigest, seatName, role string, isOperat
 		},
 		Body: string(body),
 	}, FormDigest: formDigest})
+}
+
+func startFrankWithEnv(t *testing.T, ctx context.Context, bin, root, sock string, env []string) (*exec.Cmd, *bytes.Buffer) {
+	t.Helper()
+	cmd := exec.CommandContext(ctx, bin, "-root", root, "-socket", sock, "-registry", filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
+	cmd.Env = append(os.Environ(), env...)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start frank: %v", err)
+	}
+	return cmd, &stderr
+}
+
+func onlySeatMintPivot(t *testing.T, root, seatName string) string {
+	t.Helper()
+	st, err := store.Open(root)
+	if err != nil {
+		t.Fatalf("Open store: %v", err)
+	}
+	records, err := st.Records()
+	if err != nil {
+		t.Fatalf("Records: %v", err)
+	}
+	var pivot string
+	for _, rec := range records {
+		if rec.Envelope.DeliveryState != record.Accepted || rec.Headers["record_kind"] != "seat_mint" {
+			continue
+		}
+		var body struct {
+			Seat string `json:"seat"`
+		}
+		if json.Unmarshal([]byte(rec.Body), &body) != nil || body.Seat != seatName {
+			continue
+		}
+		if pivot != "" {
+			t.Fatalf("multiple seat_mint pivots for %s: %s and %s", seatName, pivot, rec.Envelope.RelayID)
+		}
+		pivot = rec.Envelope.RelayID
+	}
+	if pivot == "" {
+		t.Fatalf("missing accepted seat_mint pivot for %s", seatName)
+	}
+	return pivot
+}
+
+func bindingRowForSeat(t *testing.T, root, seatName string) map[string]any {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(root, "binding", "seats.json"))
+	if err != nil {
+		t.Fatalf("read binding table: %v", err)
+	}
+	var table struct {
+		Seats map[string]map[string]any `json:"seats"`
+	}
+	if err := json.Unmarshal(data, &table); err != nil {
+		t.Fatalf("decode binding table %s: %v", data, err)
+	}
+	row := table.Seats[seatName]
+	if row == nil {
+		t.Fatalf("binding table missing seat %s: %s", seatName, data)
+	}
+	return row
+}
+
+func assertLastRename(t *testing.T, counter, want string) {
+	t.Helper()
+	data, err := os.ReadFile(counter)
+	if err != nil {
+		t.Fatalf("read rename counter: %v", err)
+	}
+	lines := strings.Fields(string(data))
+	if len(lines) == 0 {
+		t.Fatalf("rename counter empty")
+	}
+	if got := lines[len(lines)-1]; got != want {
+		t.Fatalf("last rename = %q, want %q; all=%q", got, want, string(data))
+	}
+}
+
+func assertStringAbsentFromTree(t *testing.T, root, forbidden, allowedPrefix string) {
+	t.Helper()
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || strings.HasPrefix(path, allowedPrefix) {
+			return nil
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if bytes.Contains(data, []byte(forbidden)) {
+			t.Fatalf("%q leaked into %s", forbidden, path)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walk %s: %v", root, err)
+	}
 }
 
 func assertCredentialAbsentFromTree(t *testing.T, root, credential string, allowedPrefix string) {

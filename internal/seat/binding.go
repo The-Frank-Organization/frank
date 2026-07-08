@@ -41,8 +41,9 @@ type bindingTable struct {
 }
 
 type binding struct {
-	Credential string   `json:"credential"`
-	Meta       SeatMeta `json:"meta"`
+	Credential      string   `json:"credential"`
+	Meta            SeatMeta `json:"meta"`
+	RealizedMintRef string   `json:"realized_mint_ref,omitempty"`
 }
 
 func Open(root string) (*Manager, error) {
@@ -90,7 +91,7 @@ func (m *Manager) Mint(name, role string, isOperator bool) (Cred, error) {
 	return Cred{Value: value}, nil
 }
 
-func (m *Manager) MintOrReplace(name, role string, isOperator bool) (Cred, error) {
+func (m *Manager) MintOrReplace(name, role string, isOperator bool, realizedMintRef string) (Cred, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if name == "system" {
@@ -102,8 +103,9 @@ func (m *Manager) MintOrReplace(name, role string, isOperator bool) (Cred, error
 	}
 	previous, hadPrevious := m.table.Seats[name]
 	m.table.Seats[name] = binding{
-		Credential: value,
-		Meta:       SeatMeta{Name: name, Role: role, IsOperator: isOperator},
+		Credential:      value,
+		Meta:            SeatMeta{Name: name, Role: role, IsOperator: isOperator},
+		RealizedMintRef: realizedMintRef,
 	}
 	if err := m.persist(); err != nil {
 		if hadPrevious {
@@ -134,6 +136,16 @@ func (m *Manager) CredentialsFor(name string) int {
 		return 1
 	}
 	return 0
+}
+
+func (m *Manager) RealizedMintRef(name string) (string, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	binding, ok := m.table.Seats[name]
+	if !ok {
+		return "", false
+	}
+	return binding.RealizedMintRef, true
 }
 
 func (m *Manager) Seats() []SeatMeta {
