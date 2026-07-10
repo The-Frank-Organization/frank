@@ -357,6 +357,41 @@ func TestRegistryLoadRejectsBadPredicateReferences(t *testing.T) {
 	})
 }
 
+func TestRegistryLoadRejectsNonAllowlistedRowColumns(t *testing.T) {
+	tests := []struct {
+		name          string
+		predicateKind string
+		column        string
+	}{
+		{name: "required model identity column", predicateKind: "required_when", column: "chosen_model"},
+		{name: "visible model identity column", predicateKind: "visible_when", column: "chosen_model"},
+		{name: "required non-model column", predicateKind: "required_when", column: "seat"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			path := writeRegistryFixture(t, mutateRegistryFixture(t, func(fixture map[string]any) {
+				fields := fixture["fields"].([]any)
+				trigger := fields[0].(map[string]any)
+				rows := fields[2].(map[string]any)
+				rows["id"] = "routing_assignments"
+				rows["gate_referenceable"] = true
+				trigger[tc.predicateKind] = map[string]any{
+					"any_row": "routing_assignments." + tc.column,
+					"op":      "present",
+				}
+			}))
+			assertLoadReject(
+				t,
+				path,
+				"TRIGGER",
+				"non gate-referenceable row field",
+				"routing_assignments."+tc.column,
+			)
+		})
+	}
+}
+
 func TestRegistryLoadRejectsInvalidRows(t *testing.T) {
 	t.Run("model identity cannot be gate referenceable", func(t *testing.T) {
 		path := writeRegistryFixture(t, mutateRegistryFixture(t, func(fixture map[string]any) {
