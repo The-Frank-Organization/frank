@@ -44,6 +44,13 @@ type sinkSite struct {
 	Location  string
 }
 
+type canonicalPathFamily struct {
+	ID        string
+	Relative  string
+	Forbidden string
+	Directory bool
+}
+
 func TestLawPathHygiene(t *testing.T) {
 	cat, _ := requireCatalogLaw(t, "TestLawPathHygiene")
 	wantFamilies := []string{
@@ -67,22 +74,17 @@ func TestLawPathHygiene(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
+	canonicalFamilies := liveCanonicalPathFamilies(t)
 	mintRoot := t.TempDir()
 	mintReply, mintRead, mintCredential, mintEndpoint := liveSeatMintCapture(t, ctx, mintRoot)
+	bounceRoot, bounceDetail := rejectedSubmitDetailCapture(t)
 	projectionRoot, projectionBytes := renderedProjectionCapture(t)
 	processBytes, processSocket := processErrorCapture(t)
 	toolBytes, toolSocket := toolDescriptionCapture(t)
 	deliveryBytes, deliverySocket := deliveryCapture(t)
 
 	captures := []surfaceCapture{
-		{
-			Family: "bounce-reason",
-			Bytes: []byte(bounce.Format(fieldspec.Violation{
-				Field:  "AUTHORITY",
-				Class:  "non-boot-before-active",
-				Reason: filepath.Join(mintRoot, "records", "planted"),
-			})),
-		},
+		{Family: "bounce-reason", Bytes: bounceDetail},
 		{Family: "process-tool-errors", Bytes: processBytes},
 		{Family: "tool-descriptions-results", Bytes: toolBytes},
 		{Family: "rendered-projections", Bytes: projectionBytes},
@@ -97,22 +99,25 @@ func TestLawPathHygiene(t *testing.T) {
 	}
 	forbidden := []string{
 		mintRoot,
+		bounceRoot,
 		projectionRoot,
 		processSocket,
 		toolSocket,
 		deliverySocket,
 		mintCredential,
 		mintEndpoint,
-		"/records/",
-		"/staging/",
-		"/outbox/",
-		"/binding/",
-		"registry.json",
-		"engine.json",
 		"realized_mint_ref",
+	}
+	for _, family := range canonicalFamilies {
+		forbidden = append(forbidden, family.Forbidden)
 	}
 	if err := scanSurfaceCorpus(cat, captures, forbidden); err != nil {
 		t.Fatalf("complete seat-delivered corpus: %v", err)
+	}
+	hostileReason := filepath.Join(mintRoot, "records", "planted")
+	formatted := bounce.Format(fieldspec.Violation{Field: "AUTHORITY", Class: "non-boot-before-active", Reason: hostileReason})
+	if strings.Contains(formatted, hostileReason) {
+		t.Fatalf("formatted bounce retained hostile canonical path: %s", formatted)
 	}
 	for _, forbiddenValue := range []string{mintCredential, mintEndpoint, mintRoot, "realized_mint_ref"} {
 		if forbiddenValue != "" && bytes.Contains(mintRead, []byte(forbiddenValue)) {
@@ -134,6 +139,26 @@ func TestLawPathHygiene(t *testing.T) {
 		bad[5].Bytes = data
 		if err := scanSurfaceCorpus(cat, bad, forbidden); err == nil {
 			t.Fatal("planted mint-reply store path did not fail the scanner")
+		}
+	})
+	t.Run("bounce-reason rejects every canonical path family", func(t *testing.T) {
+		plantedRoot := t.TempDir()
+		if plantedRoot == bounceRoot || plantedRoot == mintRoot || plantedRoot == projectionRoot {
+			t.Fatal("planted negative root reused a positive capture root")
+		}
+		for _, family := range canonicalFamilies {
+			family := family
+			t.Run(family.ID, func(t *testing.T) {
+				planted := filepath.Join(plantedRoot, family.Relative)
+				if family.Directory {
+					planted = filepath.Join(planted, "leak")
+				}
+				bad := append([]surfaceCapture(nil), captures...)
+				bad[0].Bytes = []byte("rejected detail with " + planted)
+				if err := scanSurfaceCorpus(cat, bad, forbidden); err == nil {
+					t.Fatalf("bounce-reason planted %s path did not fail the scanner: %s", family.ID, planted)
+				}
+			})
 		}
 	})
 	t.Run("mint carve-outs are operator-channel only", func(t *testing.T) {
@@ -167,6 +192,138 @@ func TestLawPathHygiene(t *testing.T) {
 			t.Fatal("unregistered AST sink did not fail the census")
 		}
 	})
+}
+
+func liveCanonicalPathFamilies(t *testing.T) []canonicalPathFamily {
+	t.Helper()
+	root := t.TempDir()
+	initPinnedStore(t, root)
+	st, err := store.Open(root)
+	if err != nil {
+		t.Fatalf("open canonical-census store: %v", err)
+	}
+	lock, err := store.AcquireRoot(root)
+	if err != nil {
+		t.Fatalf("acquire canonical-census root: %v", err)
+	}
+	t.Cleanup(func() { _ = lock.Release() })
+
+	commitRecordDefault(t, st, record.Record{
+		Envelope: record.Envelope{
+			RelayID:       "canonical-census-corrupt",
+			From:          "system",
+			Role:          "system",
+			DeliveryState: record.Accepted,
+			SchemaVersion: 1,
+		},
+		Headers: map[string]string{"SUBJECT": "exercise lazy quarantine home"},
+	})
+	corruptPath := filepath.Join(root, "records", "canonical-census-corrupt.json")
+	if err := os.WriteFile(corruptPath, []byte(`{"corrupt":true}`), 0o644); err != nil {
+		t.Fatalf("corrupt canonical-census record: %v", err)
+	}
+	if evicted, err := st.ScanQuarantine(); err != nil || !reflect.DeepEqual(evicted, []string{"canonical-census-corrupt"}) {
+		t.Fatalf("exercise canonical quarantine home: evicted=%v err=%v", evicted, err)
+	}
+
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		t.Fatalf("read canonical root homes: %v", err)
+	}
+	var gotHomes []string
+	for _, entry := range entries {
+		gotHomes = append(gotHomes, entry.Name())
+	}
+	sort.Strings(gotHomes)
+	wantHomes := []string{
+		"binding", "conductor.lock", "config", "journal", "mailboxes",
+		"outbox", "projections", "quarantine", "records", "staging",
+	}
+	if !reflect.DeepEqual(gotHomes, wantHomes) {
+		t.Fatalf("canonical root homes = %q, want literal census %q", gotHomes, wantHomes)
+	}
+
+	var gotConfigPaths []string
+	for _, path := range store.StoreRootConfigPaths(root) {
+		relative, err := filepath.Rel(root, path)
+		if err != nil {
+			t.Fatalf("relativize canonical config path %s: %v", path, err)
+		}
+		gotConfigPaths = append(gotConfigPaths, relative)
+	}
+	sort.Strings(gotConfigPaths)
+	wantConfigPaths := []string{filepath.Join("config", "engine.json"), filepath.Join("config", "fieldspec", "registry.json")}
+	if !reflect.DeepEqual(gotConfigPaths, wantConfigPaths) {
+		t.Fatalf("canonical config paths = %q, want literal census %q", gotConfigPaths, wantConfigPaths)
+	}
+
+	separator := string(filepath.Separator)
+	return []canonicalPathFamily{
+		{ID: "records", Relative: "records", Forbidden: separator + "records" + separator, Directory: true},
+		{ID: "staging", Relative: "staging", Forbidden: separator + "staging" + separator, Directory: true},
+		{ID: "journal", Relative: "journal", Forbidden: separator + "journal" + separator, Directory: true},
+		{ID: "projections", Relative: "projections", Forbidden: separator + "projections" + separator, Directory: true},
+		{ID: "mailboxes", Relative: "mailboxes", Forbidden: separator + "mailboxes" + separator, Directory: true},
+		{ID: "outbox", Relative: "outbox", Forbidden: separator + "outbox" + separator, Directory: true},
+		{ID: "binding", Relative: "binding", Forbidden: separator + "binding" + separator, Directory: true},
+		{ID: "quarantine", Relative: "quarantine", Forbidden: separator + "quarantine" + separator, Directory: true},
+		{ID: "conductor-lock", Relative: "conductor.lock", Forbidden: "conductor.lock"},
+		{ID: "engine-config", Relative: wantConfigPaths[0], Forbidden: wantConfigPaths[0]},
+		{ID: "fieldspec-registry", Relative: wantConfigPaths[1], Forbidden: wantConfigPaths[1]},
+	}
+}
+
+func rejectedSubmitDetailCapture(t *testing.T) (string, []byte) {
+	t.Helper()
+	root := t.TempDir()
+	st, err := store.Open(root)
+	if err != nil {
+		t.Fatalf("open rejected-submit capture store: %v", err)
+	}
+	reg := loadRegistry(t)
+	meta := seat.SeatMeta{Name: "path-seat.implementer", Role: "implementer"}
+	candidate := record.Record{Headers: map[string]string{
+		"PHASE":           "SITREP",
+		"AUTHORITY":       "not-authority",
+		"CEREMONY_TIER":   "small",
+		"EVIDENCE_TARGET": "E1",
+		"SUBJECT":         "live rejected path-hygiene capture",
+	}}
+	_, digest := reg.Render(
+		fieldspec.RenderEnv{},
+		fieldspec.SeatMeta{Name: meta.Name, Role: meta.Role},
+		candidate.Headers["PHASE"],
+		candidate.Headers["CEREMONY_TIER"],
+		fieldspec.ClosedGrantState,
+	)
+	payload, err := json.Marshal(fieldspec.SubmitPayload{Record: candidate, FormDigest: digest})
+	if err != nil {
+		t.Fatalf("marshal rejected-submit capture: %v", err)
+	}
+	loop := engine.New(st, engine.SubmitHandler(st, reg, meta), engine.TestReady())
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go loop.Run(ctx)
+	reply := make(chan engine.Outcome, 1)
+	loop.In <- engine.Job{Cmd: intake.Cmd{
+		IntakeID: "intake-path-rejected-detail",
+		Seat:     meta.Name,
+		Role:     meta.Role,
+		Verb:     "submit",
+		Payload:  payload,
+	}, ReplyCh: reply}
+	out := waitOutcome(t, reply)
+	if out.State != record.Rejected || out.RelayID == "" || out.Detail == "" {
+		t.Fatalf("live rejected-submit outcome = %+v", out)
+	}
+	stored, err := st.Read(out.RelayID)
+	if err != nil {
+		t.Fatalf("read live rejected-submit record: %v", err)
+	}
+	if out.Detail != stored.Body {
+		t.Fatalf("rejected-submit detail = %q, want stored body %q", out.Detail, stored.Body)
+	}
+	return root, []byte(out.Detail)
 }
 
 func scanSurfaceCorpus(cat catalog, captures []surfaceCapture, forbidden []string) error {
