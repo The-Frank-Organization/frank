@@ -1,10 +1,10 @@
 {
   "version": "s7a-fieldspec-v5",
   "provenance": {
-    "owner": "s6-core-registry",
-    "design_doc_id": "s6-slice-6-design",
-    "plan_lock_id": "s6-slice-6-plan",
-    "note": "s6 registry pass: additive transport and boot rows; no envelope migrator"
+    "owner": "m-2",
+    "design_doc_id": "F-S7-R2-COLGRAIN",
+    "plan_lock_id": "s7a-plan-m2",
+    "note": "s7a m-2 pair build under the operator B10 second-application ruling; restores c1 section 5 column-grain fidelity"
   },
   "named_enums": {
     "PHASE": [
