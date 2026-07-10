@@ -15,11 +15,17 @@ import (
 func TestRegistryV2MemberParsesAndExposesLockedEnums(t *testing.T) {
 	reg := loadRegistry(t)
 
-	if reg.Version != "s6-fieldspec-v4" {
-		t.Fatalf("Version = %q, want s6-fieldspec-v4", reg.Version)
+	if reg.Version != "s7a-fieldspec-v5" {
+		t.Fatalf("Version = %q, want s7a-fieldspec-v5", reg.Version)
 	}
-	if reg.Provenance["owner"] == "" {
-		t.Fatalf("Provenance owner empty: %#v", reg.Provenance)
+	wantProvenance := map[string]string{
+		"owner":         "m-2",
+		"design_doc_id": "F-S7-R2-COLGRAIN",
+		"plan_lock_id":  "s7a-plan-m2",
+		"note":          "s7a m-2 pair build under the operator B10 second-application ruling; restores c1 section 5 column-grain fidelity",
+	}
+	if !reflect.DeepEqual(reg.Provenance, wantProvenance) {
+		t.Fatalf("Provenance = %#v, want %#v", reg.Provenance, wantProvenance)
 	}
 	if len(reg.NamedEnums) != 25 {
 		t.Fatalf("named enum count = %d, want 25", len(reg.NamedEnums))
@@ -96,6 +102,7 @@ func TestRegistryS5MemberContainsRegistryPassRows(t *testing.T) {
 		len(routingAssignments.SeatScope) != 0 {
 		t.Fatalf("routing_assignments row = %+v", routingAssignments)
 	}
+	assertTokens(t, routingAssignments.GateReferenceableColumns, []string{"declared_deviated"})
 	assertPredicateRaw(t, routingAssignments.VisibleWhen.Raw, `{"all_of":[{"layer_present":"observe"}]}`)
 
 	gateCategoryPick := requireField(t, reg, "gate_category_pick")
@@ -355,6 +362,41 @@ func TestRegistryLoadRejectsBadPredicateReferences(t *testing.T) {
 		}))
 		assertLoadReject(t, path, "TRIGGER", "gate-referenceable")
 	})
+}
+
+func TestRegistryLoadRejectsNonAllowlistedRowColumns(t *testing.T) {
+	tests := []struct {
+		name          string
+		predicateKind string
+		column        string
+	}{
+		{name: "required model identity column", predicateKind: "required_when", column: "chosen_model"},
+		{name: "visible model identity column", predicateKind: "visible_when", column: "chosen_model"},
+		{name: "required non-model column", predicateKind: "required_when", column: "seat"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			path := writeRegistryFixture(t, mutateRegistryFixture(t, func(fixture map[string]any) {
+				fields := fixture["fields"].([]any)
+				trigger := fields[0].(map[string]any)
+				rows := fields[2].(map[string]any)
+				rows["id"] = "routing_assignments"
+				rows["gate_referenceable"] = true
+				trigger[tc.predicateKind] = map[string]any{
+					"any_row": "routing_assignments." + tc.column,
+					"op":      "present",
+				}
+			}))
+			assertLoadReject(
+				t,
+				path,
+				"TRIGGER",
+				"non gate-referenceable row field",
+				"routing_assignments."+tc.column,
+			)
+		})
+	}
 }
 
 func TestRegistryLoadRejectsInvalidRows(t *testing.T) {

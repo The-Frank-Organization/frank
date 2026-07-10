@@ -24,20 +24,21 @@ type Registry struct {
 }
 
 type FieldSpec struct {
-	ID                string              `json:"id"`
-	Layer             string              `json:"layer"`
-	Owner             string              `json:"owner"`
-	Type              string              `json:"type"`
-	EnumSet           string              `json:"enum_set,omitempty"`
-	Options           []string            `json:"options,omitempty"`
-	GateReferenceable bool                `json:"gate_referenceable,omitempty"`
-	ModelIdentity     bool                `json:"model_identity,omitempty"`
-	SeatScope         map[string][]string `json:"seat_scope,omitempty"`
-	RequiredWhen      Predicate           `json:"required_when,omitempty"`
-	VisibleWhen       Predicate           `json:"visible_when,omitempty"`
-	FillConstraints   string              `json:"fill_constraints,omitempty"`
-	Consumers         []string            `json:"consumers,omitempty"`
-	LineageRole       string              `json:"lineage_role,omitempty"`
+	ID                       string              `json:"id"`
+	Layer                    string              `json:"layer"`
+	Owner                    string              `json:"owner"`
+	Type                     string              `json:"type"`
+	EnumSet                  string              `json:"enum_set,omitempty"`
+	Options                  []string            `json:"options,omitempty"`
+	GateReferenceable        bool                `json:"gate_referenceable,omitempty"`
+	GateReferenceableColumns []string            `json:"gate_referenceable_columns,omitempty"`
+	ModelIdentity            bool                `json:"model_identity,omitempty"`
+	SeatScope                map[string][]string `json:"seat_scope,omitempty"`
+	RequiredWhen             Predicate           `json:"required_when,omitempty"`
+	VisibleWhen              Predicate           `json:"visible_when,omitempty"`
+	FillConstraints          string              `json:"fill_constraints,omitempty"`
+	Consumers                []string            `json:"consumers,omitempty"`
+	LineageRole              string              `json:"lineage_role,omitempty"`
 }
 
 type Predicate struct {
@@ -206,6 +207,19 @@ func (r *Registry) validateGateReference(owner, ref string) error {
 		return fmt.Errorf("field %s: predicate references non gate-referenceable field %s", owner, ref)
 	}
 	return nil
+}
+
+func (r *Registry) validateGateRowReference(owner, array, rowField string) error {
+	field, ok := r.ByID(array)
+	if !ok {
+		return fmt.Errorf("field %s: predicate references unknown field %s", owner, array)
+	}
+	for _, allowed := range field.GateReferenceableColumns {
+		if rowField == allowed {
+			return nil
+		}
+	}
+	return fmt.Errorf("field %s: predicate references non gate-referenceable row field %s.%s", owner, array, rowField)
 }
 
 func known(set map[string]struct{}, value string) bool {
