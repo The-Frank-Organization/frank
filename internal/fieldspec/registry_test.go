@@ -15,8 +15,8 @@ import (
 func TestRegistryV2MemberParsesAndExposesLockedEnums(t *testing.T) {
 	reg := loadRegistry(t)
 
-	if reg.Version != "s6-fieldspec-v4" {
-		t.Fatalf("Version = %q, want s6-fieldspec-v4", reg.Version)
+	if reg.Version != "s7a-fieldspec-v5" {
+		t.Fatalf("Version = %q, want s7a-fieldspec-v5", reg.Version)
 	}
 	if reg.Provenance["owner"] == "" {
 		t.Fatalf("Provenance owner empty: %#v", reg.Provenance)
@@ -96,6 +96,7 @@ func TestRegistryS5MemberContainsRegistryPassRows(t *testing.T) {
 		len(routingAssignments.SeatScope) != 0 {
 		t.Fatalf("routing_assignments row = %+v", routingAssignments)
 	}
+	assertTokens(t, routingAssignments.GateReferenceableColumns, []string{"declared_deviated"})
 	assertPredicateRaw(t, routingAssignments.VisibleWhen.Raw, `{"all_of":[{"layer_present":"observe"}]}`)
 
 	gateCategoryPick := requireField(t, reg, "gate_category_pick")

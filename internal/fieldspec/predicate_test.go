@@ -16,8 +16,8 @@ func TestPredicateAtomsAndCombinators(t *testing.T) {
 		"ACTIONS_GIT_REF": "branch@sha",
 	}
 	rows := func(array, field string) []string {
-		if array == "SCOPE_DIFF" && field == "path" {
-			return []string{"README.md", "internal/fieldspec/registry.go"}
+		if array == "routing_assignments" && field == "declared_deviated" {
+			return []string{"no", "yes"}
 		}
 		return nil
 	}
@@ -44,7 +44,7 @@ func TestPredicateAtomsAndCombinators(t *testing.T) {
 		{"field equals", `{"field":"GRILL_REQUIRED","op":"==","value":"yes"}`, true},
 		{"field in", `{"field":"GRILL_REQUIRED","op":"in","value":["yes"]}`, true},
 		{"field present", `{"field":"GRILL_REQUIRED","op":"present"}`, true},
-		{"any row equals", `{"any_row":"SCOPE_DIFF.path","op":"==","value":"README.md"}`, true},
+		{"any row equals", `{"any_row":"routing_assignments.declared_deviated","op":"==","value":"yes"}`, true},
 		{"layer default", `{"layer_present":"lineage"}`, true},
 		{"layer absent", `{"layer_present":"observe"}`, false},
 		{"all of", `{"all_of":[{"phase_in":["IMPL"]},{"field":"GRILL_REQUIRED","op":"==","value":"yes"}]}`, true},

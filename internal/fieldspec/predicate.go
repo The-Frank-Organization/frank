@@ -145,6 +145,9 @@ func parsePredicateValue(owner string, value any, reg *Registry) (*predicateExpr
 			if err := validateGateReference(reg, owner, array); err != nil {
 				return nil, err
 			}
+			if err := validateGateRowReference(reg, owner, array, rowField); err != nil {
+				return nil, err
+			}
 			op, values, err := parsePredicateOp(owner, obj)
 			if err != nil {
 				return nil, err
@@ -210,6 +213,13 @@ func parsePredicateValue(owner string, value any, reg *Registry) (*predicateExpr
 		return nil, fmt.Errorf("field %s: unknown predicate atom", owner)
 	}
 	return expr, nil
+}
+
+func validateGateRowReference(reg *Registry, owner, array, rowField string) error {
+	if reg == nil {
+		return fmt.Errorf("field %s: predicate registry required", owner)
+	}
+	return reg.validateGateRowReference(owner, array, rowField)
 }
 
 func parsePredicateOp(owner string, obj map[string]any) (string, []string, error) {
