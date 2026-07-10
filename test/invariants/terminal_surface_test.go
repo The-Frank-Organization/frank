@@ -114,11 +114,27 @@ func TestLawThreeVerbSurface(t *testing.T) {
 			return json.RawMessage(fmt.Sprintf(`{"tool":%q}`, value)), nil
 		}
 	}
-	server, err := channel.Serve(sock, channel.FullSurface(engine.TestReady(), channel.ToolSet{
+	toolSet := channel.ToolSet{
 		Submit:  result("submit"),
 		Project: result("project"),
 		Read:    result("read"),
-	}))
+		Describe: func(context.Context, json.RawMessage) (json.RawMessage, error) {
+			return json.Marshal(channel.DescriptionResponse{
+				Tools: want,
+				Descriptions: map[string]string{
+					"submit": "submit", "project": "project", "read": "read",
+				},
+			})
+		},
+	}
+	var toolSetFields []string
+	for i, typ := 0, reflect.TypeOf(toolSet); i < typ.NumField(); i++ {
+		toolSetFields = append(toolSetFields, typ.Field(i).Name)
+	}
+	if wantFields := []string{"Submit", "Project", "Read", "Describe"}; !reflect.DeepEqual(toolSetFields, wantFields) {
+		t.Fatalf("ToolSet fields = %q, want literal census %q", toolSetFields, wantFields)
+	}
+	server, err := channel.Serve(sock, channel.FullSurface(engine.TestReady(), toolSet))
 	if err != nil {
 		t.Fatalf("serve three-verb surface: %v", err)
 	}
@@ -159,6 +175,11 @@ func TestLawThreeVerbSurface(t *testing.T) {
 		}
 		if !bytes.Contains(raw, []byte(name)) {
 			t.Fatalf("%s result = %s, want named tool result", name, raw)
+		}
+	}
+	for _, name := range []string{"describe", "arbitrary"} {
+		if _, err := client.Call(ctx, name, nil); err == nil || !strings.Contains(err.Error(), "unknown tool") {
+			t.Fatalf("call %s error = %v, want unknown tool", name, err)
 		}
 	}
 }
