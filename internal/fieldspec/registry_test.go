@@ -18,8 +18,14 @@ func TestRegistryV2MemberParsesAndExposesLockedEnums(t *testing.T) {
 	if reg.Version != "s7a-fieldspec-v5" {
 		t.Fatalf("Version = %q, want s7a-fieldspec-v5", reg.Version)
 	}
-	if reg.Provenance["owner"] == "" {
-		t.Fatalf("Provenance owner empty: %#v", reg.Provenance)
+	wantProvenance := map[string]string{
+		"owner":         "m-2",
+		"design_doc_id": "F-S7-R2-COLGRAIN",
+		"plan_lock_id":  "s7a-plan-m2",
+		"note":          "s7a m-2 pair build under the operator B10 second-application ruling; restores c1 section 5 column-grain fidelity",
+	}
+	if !reflect.DeepEqual(reg.Provenance, wantProvenance) {
+		t.Fatalf("Provenance = %#v, want %#v", reg.Provenance, wantProvenance)
 	}
 	if len(reg.NamedEnums) != 25 {
 		t.Fatalf("named enum count = %d, want 25", len(reg.NamedEnums))
