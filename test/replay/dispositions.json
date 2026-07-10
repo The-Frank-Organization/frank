@@ -824,7 +824,7 @@
   },
   {
     "anchor": "relay-lint.py:1214",
-    "check": "result.error(f\"{f.relative_to(path)}: DESIGN_LOCK_ID present with v2.8.5 design-review context but DESIGN_RECORD_KIND is missing\")",
+    "check": "result.error(f\"{f.relative_to(path)}: DESIGN_LOCK_ID present with design-review context but DESIGN_RECORD_KIND is missing\")",
     "class_10": "10c",
     "disposition": "dissolved-lineage",
     "surface": "lineage.Engine table-backed walk",

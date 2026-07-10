@@ -208,7 +208,7 @@ func TestFrankBinaryOperatorChannelO3OwedSweepOpenAndDisposition(t *testing.T) {
 		return outcome
 	}
 
-	source := "docs/sprints/2026-07-03-s1-slice-1/RECONCILE.md:160-161 + master/relays/s1-exit-gate/SITREP-planner-20260703-200827.md"
+	source := "docs/sprints/2026-07-03-s1-slice-1/RECONCILE.md:160-161 + .relays/s1/s1-exit-gate/SITREP-planner-20260703-200827.md"
 	owed := submit(record.Record{
 		Envelope: record.Envelope{To: "operator", DispatchID: "oi-s1-f11-sweep"},
 		Headers: map[string]string{

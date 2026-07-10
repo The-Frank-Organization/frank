@@ -7,7 +7,7 @@ Append-only. Each entry: date, what was reconciled, agreement/disagreement/cover
 Reconciled the three boot-ACK SITREPs against disk (relay files read, INDEX rows present, `git status --short` clean):
 
 - `s1.orchestrator-reviewer` — ACK `boot/s1-boot-orchestrator-reviewer/SITREP-orchestrator-reviewer-20260703-134923.md`; skill loaded from `~/.codex/skills` (distinct lane, as intended); standing by for CC'd broad-SET relays. E1/E2 claims verified.
-- `s1-core.planner` — ACK `boot/s1-boot-s1-core-planner/SITREP-planner-20260703-134904.md`; agent-pair-planner + protocol v2.8.8 loaded; sees the s1-core-audit dispatch but holds under a direct operator instruction ("only boot"). E1/E2 claims verified.
+- `s1-core.planner` — ACK `boot/s1-boot-s1-core-planner/SITREP-planner-20260703-134904.md`; agent-pair-planner + the agentic dev team protocol loaded; sees the s1-core-audit dispatch but holds under a direct operator instruction ("only boot"). E1/E2 claims verified.
 - `s1-core.implementer` — ACK `boot/s1-boot-s1-core-implementer/SITREP-implementer-20260703-134911.md`; agent-pair-implementer loaded (`~/.codex` lane); same operator hold noted. Used a fresh DISPATCH_ID (`…-ack`, parented to the boot id) vs the others reusing the boot id — both shapes acceptable; no action.
 
 Agreement: full — all three assumed the intended identities, claimed no work authority, and left the tree clean. Coverage delta: none. Disposition: team online; the only pending item is the **operator's release of the audit hold** (orchestrator-side, the s1-core-audit AUDIT dispatch is live and unmodified).
@@ -19,7 +19,7 @@ Inputs: `AUDIT-planner-20260703-140226.md` + `AUDIT-implementer-20260703-135833.
 **Agreement (full, no contradictions found):**
 - `PRIMARY_BUCKET: still-open` — greenfield confirmed independently (E2 both sides); recommended-next = DESIGN.
 - Spec-to-exit-gate map complete on both sides; **no spec gaps** — every exit-gate line maps to locked spec (file:line cited both sides, consistent).
-- Duplicate gate: nothing to promote in `frank/`; v2.8.8 relay-lint = DO-NOT-COPY (m-2 §10 dissolves it); v2.8.8 store layout = REUSE-AS-SPEC'D; fixture corpus = read-only replay input; jcode/claude-code = prior-art-only.
+- Duplicate gate: nothing to promote in `frank/`; the upstream relay-lint = DO-NOT-COPY (m-2 §10 dissolves it); the upstream store layout = REUSE-AS-SPEC'D; fixture corpus = read-only replay input; jcode/claude-code = prior-art-only.
 - Frozen m-1/m-2 surfaces enumerated consistently (same lines cited: m-1 :124-131/:135-145, m-2 :21-97/:118-126/:278-283).
 - Replay corpus located at the same path; implementer added E2 execution proof (`check-relay-lint-fixtures.py` all-PASS; changelog 146/146). S1-minimal subset selection = DESIGN/PLAN task.
 - Q-A scope boundary (S1-minimal recovery vs S2 full recovery): both read it the same way — S1 needs intake journal + §4 pivot + dumb-replay recovery sufficient for the crash matrix; genesis/quarantine/GC/segment-rotation stay S2-OUT. **Needs guide confirmation** → relayed to m-7.planner as `s1-guide-q1`.
@@ -30,7 +30,7 @@ Inputs: `AUDIT-planner-20260703-140226.md` + `AUDIT-implementer-20260703-135833.
 
 **Planner's reconcile questions → dispositions (orchestrator):**
 1. Q-A boundary agreement — implementer's scope-OUT re-check concurs; guide confirm pending (`s1-guide-q1`).
-2. Additional organic corpus (master-trail failed relays) — the v2.8.8 fixture matrix is the S1 corpus of record; organic master-trail failures MAY enrich DESIGN thinking but are NOT R1 gate inputs (keeps the S1-minimal replay bounded; full dissolve validation is S3).
+2. Additional organic corpus (master-trail failed relays) — the upstream fixture matrix is the S1 corpus of record; organic master-trail failures MAY enrich DESIGN thinking but are NOT R1 gate inputs (keeps the S1-minimal replay bounded; full dissolve validation is S3).
 3. m-2 §9 migrator-registry — concur out of S1: `schema_version` stamping only; no migrator machinery.
 
 **Reviewer watch item adopted:** downstream relays cite the current `main` head they actually inspected (now `461fae0`+), not a stale BASE.
@@ -39,7 +39,7 @@ Disposition: **proceed to DESIGN** — dispatch `s1-core-design` issued to `s1-c
 
 ## 2026-07-03 — guide answers reconciled (s1-guide-q1): both readings CONFIRMED; design de-provisioned
 
-Input: `master/relays/s1-guide-q1/SITREP-planner-20260703-141628.md` (m-7 guide; answered entirely from locked text — no amendment, no master escalation). Reviewer RECONCILE on the DESIGN dispatch: approve, no blockers (`s1-core-design/RECONCILE-orchestrator-reviewer-20260703-141544.md`), one watch item (Implementer is CC-context during DESIGN until the Template-I review request — expected shape, no action).
+Input: `.relays/s1/s1-guide-q1/SITREP-planner-20260703-141628.md` (m-7 guide; answered entirely from locked text — no amendment, no master escalation). Reviewer RECONCILE on the DESIGN dispatch: approve, no blockers (`s1-core-design/RECONCILE-orchestrator-reviewer-20260703-141544.md`), one watch item (Implementer is CC-context during DESIGN until the Template-I review request — expected shape, no action).
 
 **Q-A CONFIRMED** — the pair's recovery line IS the locked line ("recovery = dumb replay" is GRILL_LOCK verbatim, m-7 :186). S1 builds: §2.2 intake journal with FULL semantics (fsync-before-FIFO, ack-on-outcome, `intake_id` on every entry, clear-on-pop atomic with outcome commit, content-hash dedupe) + §4 pivot + dumb replay (staging cleanup :91, projection rebuild :92, binding-table restore :93, re-enqueue intake−outcomes in arrival order :94, wake re-issue). S1 does NOT build: genesis, quarantine disposition, GC/segment rotation, the reified phase-0→4 machine (:95). Resolution of the apparent IN/OUT tension: journal *semantics* in S1, journal *lifecycle machinery* in S2. **F9 runs whole in S1** — name the fixture F9 itself, not an F9-minimal variant; S2 re-runs it under added machinery.
 
@@ -75,7 +75,7 @@ Disposition: **PROCEED-TO-PLAN** issued (`s1-core-plan/PLAN-orchestrator-planner
 
 ## 2026-07-03 — m-7 guide advisory read of the design reconciled: faithful, zero must-fix; two should-fix folded to the pair
 
-Input: `master/relays/s1-guide-design-read/SITREP-planner-20260703-154742.md` (advisory, per the operator-suggested early read; locked cites re-verified by the guide that session).
+Input: `.relays/s1/s1-guide-design-read/SITREP-planner-20260703-154742.md` (advisory, per the operator-suggested early read; locked cites re-verified by the guide that session).
 
 **Verdicts on the six asks:** C7 fold faithful to §4/§6/F11 and the right idiom (instantiates the locked presence-based-derivation pattern); R-1..R-3/O-1..O-3/F9-whole all landed, no drift; B1 narrowing consistent with §16 modulo the held-visibility qualifier (should-fix ①); §J2 set **pre-verified byte-exact** by the guide against ARCHITECTURE :110-115 (formal byte-custody stays with the m-2 fidelity review); grant narrowing forecloses nothing m-7-side (authoritative in-loop check is what matters; A2 covers it); Go stack fine, D-2 faithful.
 

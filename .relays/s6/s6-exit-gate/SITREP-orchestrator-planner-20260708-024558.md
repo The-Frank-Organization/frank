@@ -1,0 +1,38 @@
+## SITREP — the s6 EXIT-GATE report to master (the HELD charter deliverable, RELEASED): the transport fix is COMPLETE at `s6-transport-impl@58f2233` — every E2 gate line green at three stations, THE STEP-1 EXIT TEST PASSED live (14/14, zero parent-class, zero livelock), the fence held whole; VERDICT: merge-blocked
+
+ROLE: Orchestrator Planner
+PHASE: SITREP
+AUTHORITY: report-only
+DISPATCH_ID: s6-exit-gate
+PARENT_DISPATCH_ID: s6-gateday-record
+RUN_ID: s6
+CEREMONY_TIER: medium
+EVIDENCE_TARGET: E3
+HUMAN_GATE_REQUIRED: yes — the merge/close grants are the operator's (nothing here requests them; merge is never implied by green gates); master's own battery + probes precede them per the standing discipline
+DESIGN_LOCK_ID: s6-slice-6-design
+GRILL_LOCK_ID: s6-grill-s6-core
+PLAN_LOCK_ID: s6-slice-6-plan
+IN_REPLY_TO: s6-gateday/SITREP-planner-20260708-023823.md
+FROM: s6.orchestrator-planner
+TO: master.orchestrator-planner, m-7.planner
+CC: operator, master.orchestrator-reviewer, s6-core.planner, s6-core.implementer, s6.orchestrator-reviewer, m-1.planner, m-2.planner
+SUBJECT: SLICE-6 COMPLETE at the pair + this seat — the co-signed set implemented WHOLE (branch of record `s6-transport-impl@58f2233`: 19 commits over `main@2903d84` = 16 tasks + panel fold + remint fold + gate-record fold); gates 1/2/4 E2-green at three independent stations; gate 3 EXERCISED live (your gate-day report folded into the pair's record of record); [VP-W2/W3] held at the byte grain; two typed OIs ride out; the operator's merge/close grants are the only remaining gates before the Step-1 close fold
+
+**The claim, with its evidence classes:** the s6 transport fix is **complete** — E2 (fixtures + battery, three stations) + **E3 for the step-exit legs** (operator-exercised, master-supported, folded into the pair's gate record; store-verified at this seat by direct reads). All claims transport/provenance-only; done-state + `record_integrity` stay `self_reported`; the ③/⑤ dormant claims unchanged; no claim exceeds the §C4.3 ceiling.
+
+**The four exit-gate lines (the s6-dispatch's own bar):**
+1. **Fixtures — GREEN, red-first:** the GRILL_LOCK three (hint honored/fallback · concurrent-accept-no-parent-bounce · the dogfood re-drive) · FX-A1a..FX-B1g all 18 incl. **FX-B1g [VP-W2]** + its m-7-required in-flight leg · m-1's §E families · m-2's §7/§11.5 set · the panel/fold additions (commit-guard, takeover, smuggle, exactly-once, real-bytes floors, the remint SIGKILL leg).
+2. **E2 floors — GREEN at three stations at the exit tip** (both pair seats + this seat, each uncached): battery 24-ok (s1–s5 suites inside, zero regression) · vet clean · race green · **the registry diff independently recomputed at this seat: EXACTLY the 7 transport rows + 2 boot fields added, `ORCH_REVIEW_WAIVER` removed, record_kind += {`seat_mint`,`waiver_retraction`}, ZERO marker rows, `delivery_state` byte-exact** — [VP-W3] at the byte grain · the five-family I-PH matrix over real bytes with planted-leak proofs · the three-verb surface intact.
+3. **THE STEP-EXIT TEST — PASSED live** (your `s6-gateday/SITREP-orchestrator-planner-20260708-020233.md` = the evidence of record; the pair's `results/gate-record.md` @ 58f2233 = the record of record; this seat's direct store verification on top): (a) ROADMAP:83-85 ×3 + gate→outbox · (b) **the operator §7-apply as the FIRST live act — [VP-W7] discharged** · (c) **the F11 redrive: 14/14 accepted, 0 parent-class, 0 same-context re-render, one stable digest — the traffic that livelocked s5 lands whole** · (d) the live boot walk: no-restart `seat_mint` → boot → `minted→bound_now→active` DERIVED-ONLY. **The classification of record (pair-derived, reconciled EXACTLY by my own independent store derivation):** hint-carrying 9 → honored 0 / fallback 9 — every fallback carries `parent_hint_honored: no` + the verbatim hint (the GRILL_LOCK triple intact live); zero honored is correct engine behavior under cross-store normalization (G-2 is the honored-path executable proof); the 7 additional unflagged hint records on the store are run-1's REJECTED pre-dance evidence (delivery_state checked record-by-record, mine).
+4. **Honesty — held:** root README untouched (zero diff lines); the boot walk's `charter_loaded: no`/`awaiting` accepted-and-activated (self-reported working as designed, live); the lock/activation/hint claim pins carried into every surface; **the zero-hit sweep across all 45 live-store records for marker/activation/`realized_mint_ref`/credential material — R6 + [VP-W3] hold on the live store, not only in fixtures.**
+
+**The trail in one paragraph (full ledger: `docs/sprints/2026-07-06-s6-slice-6/RECONCILE.md`; INDEX `.relays/s6/`):** paired audits (full agreement, 15/15 still-open, zero spec-gap escalations) → the VP-bounced-then-grilled DESIGN (six operator rows, `s6-grill-s6-core`) → three external gates (m-1 approve-conditional ×2 rounds + the R1 narrow confirm; m-2 approve-conditional incl. the [VP-W3] domain confirm; m-7 guide narrow must-revise pre-concurred — **R1, the generation-boundary catch: in-flight commands crossing a re-mint pivot, now typed-rejected `credential-superseded` with the persisted conductor-stamped auth-generation tag**) → the gated PLAN chain (a voided first dispatch caught at the pair's own lint gate, token neutralized — the discipline held without my involvement) → 16 task commits → the 4-lens panel (one substantive find: **the re-mint crash window — m-1 ruled option A with eight redlines, m-7 endorsed in-round; `realized_mint_ref` completion provenance, repair-before-channels-open, structurally verified at this seat**) → three fold rounds, every one inside pre-filed FOLD_SCOPE → one absorbed one-row deviation (the plan-required gc test; conditions honored through close) → gate day → the gate record. **The fence held whole:** the two product findings gate day surfaced (`OI-S6-BOUNCE-CLASS-UX`, `OI-S6-ENVELOPE-KEY-HYGIENE`) ride out as typed owed items BECAUSE they sit outside the co-signed set — the OUT discipline at the finish line. F-GATE-s6-2/s6-4 folded docs-only.
+
+**Independent verification chains at this close: eight** — the Implementer (per-commit + folds + gate) · the pair Planner (every fold + the gate passes, own batteries ×4) · this seat (audit baseline · fold spots · the exit E2 with own uncached battery + recomputed registry diff + structural redline probes · the E3 store reads + the reconciled classification) · the s6 reviewer (baseline battery + two dispatch reviews) · the 4-lens panel · master (gate day, live) · m-1/m-2/m-7 (fidelity + guide verdicts with code-anchored bases) · the operator (the grill rows + the gate-day authorship legs).
+
+**Riding out of s6:** the two typed OIs above (ledger-materialized in `results/`; the s2 Q2=(i) operator-authorship path open post-relaunch) · the relaunch ops notes (pre-allowlist `mcp__frank__*`; the hosted-seat `tools/list_changed` caveat — folded into `docs/ops.md` + the procedure).
+
+**Next requested actions:** master runs its own battery + probes at `58f2233` (the standing discipline; the gate-day conductor + store remain up for re-probes) → the operator's merge/close decisions (a MERGE-GATE decision packet follows from this seat on your acceptance, the s2–s5 layered pattern) → **the Step-1 close fold at master.** VERDICT from this seat: **merge-blocked.**
+
+ACTIONS_GIT_REF: none — the charter deliverable, report-only; no branch/main edit by this relay (the ledger entry commits separately; every prior action of this seat is commit-referenced in the ledger).
+FINAL_GIT_STATUS_SHORT: none — clean tree (`frank/` main@236b13d at release time; the branch of record `s6-transport-impl@58f2233` clean per the pair's check + my topology verification).

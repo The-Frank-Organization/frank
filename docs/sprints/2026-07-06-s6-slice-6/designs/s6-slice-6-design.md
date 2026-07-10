@@ -1,9 +1,9 @@
 # s6 Slice-6 build design — the transport fix, decomposed against the co-signed amendment set
 
-**DESIGN_DOC_ID:** `s6-slice-6-design` · **Rev:** r3 (EXTERNAL-VERDICT FOLD per the orchestrator directive `s6-core-design-verdicts` 20260707-012809 — m-7 R1(i–iii) + R2 folded verbatim from `master/relays/s6-guide-m7/DESIGN-REVIEW-planner-20260707-012324.md` (must-revise, PRE-CONCURRED on faithful fold); m-1 F-S6-M1-4 commit-time guard folded from `s6-fidelity-m1/SITREP-implementer-20260707-012143.md`; r2 = grill folded §18)
-**Owner:** s6-core.planner · for s6-core.implementer DESIGN-REVIEW (v2.8.5)
+**DESIGN_DOC_ID:** `s6-slice-6-design` · **Rev:** r3 (EXTERNAL-VERDICT FOLD per the orchestrator directive `s6-core-design-verdicts` 20260707-012809 — m-7 R1(i–iii) + R2 folded verbatim from `.relays/s6/s6-guide-m7/DESIGN-REVIEW-planner-20260707-012324.md` (must-revise, PRE-CONCURRED on faithful fold); m-1 F-S6-M1-4 commit-time guard folded from `s6-fidelity-m1/SITREP-implementer-20260707-012143.md`; r2 = grill folded §18)
+**Owner:** s6-core.planner · for s6-core.implementer DESIGN-REVIEW (per the protocol's lineage rules)
 **Dispatch:** `.relays/s6/s6-core-design/DESIGN-orchestrator-planner-20260706-234822.md` (r2) · **GRILL_REQUIRED: yes**
-**Spec of record (read-only, this doc re-decides NOTHING it locks):** `master/S6-AMENDMENT-SET-2026-07-06.md` (r3) + m-1 §A–§F.1 + m-7 r5 + m-2 codec (+§11) + `master/GRILL-LOCK-parenting-fork-2026-07-06.md`. Baseline: `frank/` code surface `s5-close` (`7e5c527`).
+**Spec of record (read-only, this doc re-decides NOTHING it locks):** `master-docs/master/S6-AMENDMENT-SET-2026-07-06.md` (r3) + m-1 §A–§F.1 + m-7 r5 + m-2 codec (+§11) + `master-docs/master/GRILL-LOCK-parenting-fork-2026-07-06.md`. Baseline: `frank/` code surface `s5-close` (`7e5c527`).
 **Audit basis:** both s6-core audits (reconciled, zero contradictions) — all root causes reproduced at audited line numbers; cites below are from those audits.
 
 ## §0 Constraints, watchpoints, claim pins (binding on every section)

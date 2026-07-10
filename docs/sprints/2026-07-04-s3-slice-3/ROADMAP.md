@@ -7,25 +7,25 @@
 **S3 makes frank speak the real protocol.** Build the **FORM SYSTEM** against the **LOCKED m-2 design-of-record** — build against it, do **not** redefine it:
 
 - **Full FieldSpec registry** — the complete typed-envelope field catalog (field · owner ∈ {system, seat_scoped_enum, agent_enum_pick, free_text} · type · required-when · enum · seat_scope · gate_referenceable), replacing the S1 MVP dialect (`internal/fieldspec`'s flat 6-enum registry); registry-driven render + validate; **fill-time authority** (forbidden options absent from the rendered form, not rejected after).
-- **The 62-check linter dissolution** — v2.8.8 `relay-lint`'s checks re-homed per the m-2 §10 dissolve/survive map: each check **dissolved into form-validation/lineage** or **retained as an explicit post-submit check** or **genuinely obsolete** — a per-check disposition table for all 62, no silent drops.
-- **The FULL dissolved-linter replay (the S1-deferred F1 gate):** the historical v2.8.8 lint-failure corpus (243 fixtures, 14 categories) through the new validation; every failure **caught-or-genuinely-obsolete**; replaces S1's name-heuristic classifier (`test/replay/classmap.go`) whose deferral bucket is literally named `uncovered-S3`.
+- **The 62-check linter dissolution** — the upstream `relay-lint`'s checks re-homed per the m-2 §10 dissolve/survive map: each check **dissolved into form-validation/lineage** or **retained as an explicit post-submit check** or **genuinely obsolete** — a per-check disposition table for all 62, no silent drops.
+- **The FULL dissolved-linter replay (the S1-deferred F1 gate):** the historical upstream lint-failure corpus (243 fixtures, 14 categories) through the new validation; every failure **caught-or-genuinely-obsolete**; replaces S1's name-heuristic classifier (`test/replay/classmap.go`) whose deferral bucket is literally named `uncovered-S3`.
 - **`schema_version` + the migrator registry** — the version stamp in its `system_only` envelope home (stamped since S1) + the migration mechanism (registry + read-time apply path + a fixture proving a v(n)→v(n+1) walk + fixtured refusal/bounce legs). Zero real migrators; the mechanism ships first.
 - **Owed §C4 carries landing here:** **R2 `gate_referenceable`-per-column negative fixtures** (no model-derived predicate enters a gate through any registry column) · the **`GRILL_REQUIRED` FieldSpec row** (m-6-F6).
 - **Re-render/drift** — a seat holding a stale rendered form gets a bounce carrying "re-render" (S1 seeded the digest mechanism; S3 keeps it correct under a *changing* registry).
 
-Authorizing relay: `../master/relays/s3-dispatch/PLAN-orchestrator-planner-20260704-150904.md`
+Authorizing relay: `../.relays/s3/s3-dispatch/PLAN-orchestrator-planner-20260704-150904.md`
 (read-only reference — the master governance trail lives in cwd-parent `master/`, not here).
 
 ## Spec (read-only references — ABSOLUTE paths; never edit; escalate spec problems via s3.orchestrator-planner to master)
 
-- Charter dispatch (scope/gate/exit of record): `/Users/jack/Programming/harness/master/relays/s3-dispatch/PLAN-orchestrator-planner-20260704-150904.md`
-- **m-2 design-of-record (PRIMARY — this slice IS this domain):** `/Users/jack/Programming/harness/master/domains/m-2-forms-determinism/design/2026-06-28-v3-form-schema-design.md` — FieldSpec shape §4; predicate vocabulary §5; X-overflow §6; versioning §9; the 62-check dissolve/survive map §10; GATE-1 §11; consumer contract §12; ACs §14; gate/delivery/ODB/routing/computed-field specs §17; readiness folds §18
-- Engine spec: `/Users/jack/Programming/harness/master/ARCHITECTURE.md` §C4 (+ §C4.3 claim boundary / I-PH; the §C4 owed-carry ledger this slice discharges)
-- m-7 conductor-core design-of-record (consulted contract — trusted-config seam): `/Users/jack/Programming/harness/master/domains/m-7-conductor-core/design/2026-07-01-v3-conductor-core-design.md`
-- m-1 store contract (consumed via the locked API only): `/Users/jack/Programming/harness/master/domains/m-1-trust-identity/design/2026-06-28-v3-trust-identity-design.md`
-- v2.8.8 linter + fixture corpus (read-only replay input, DO-NOT-COPY as design): `/Users/jack/Programming/harness/extracted/agentic-dev-team-skills-v3-export/v2.8.8-release/v288-unzipped/agentic-dev-team-skills-v2.8.8/tools/` (relay-lint.py = the 62 checks; relay-lint-fixtures/ = the corpus, 243 fixtures)
+- Charter dispatch (scope/gate/exit of record): `.relays/s3/s3-dispatch/PLAN-orchestrator-planner-20260704-150904.md`
+- **m-2 design-of-record (PRIMARY — this slice IS this domain)** — `master-docs/master/domains/m-2-forms-determinism/design/2026-06-28-form-schema-design.md` — FieldSpec shape §4; predicate vocabulary §5; X-overflow §6; versioning §9; the 62-check dissolve/survive map §10; GATE-1 §11; consumer contract §12; ACs §14; gate/delivery/ODB/routing/computed-field specs §17; readiness folds §18
+- Engine spec: `master-docs/master/ARCHITECTURE.md` §C4 (+ §C4.3 claim boundary / I-PH; the §C4 owed-carry ledger this slice discharges)
+- m-7 conductor-core design-of-record (consulted contract — trusted-config seam): `master-docs/master/domains/m-7-conductor-core/design/2026-07-01-conductor-core-design.md`
+- m-1 store contract (consumed via the locked API only): `master-docs/master/domains/m-1-trust-identity/design/2026-06-28-trust-identity-design.md`
+- the upstream linter + fixture corpus (read-only replay input, DO-NOT-COPY as design): the upstream protocol release corpus (governance workspace, `tools/`) (relay-lint.py = the 62 checks; relay-lint-fixtures/ = the corpus, 243 fixtures)
 - S1+S2 continuity (the code this slice thickens): `docs/sprints/2026-07-03-s1-slice-1/` + `docs/sprints/2026-07-03-s2-slice-2/` + the source at tag `s2-close`
-- Sequencing: `/Users/jack/Programming/harness/ROADMAP.md` (Step-1)
+- Sequencing: `master-docs/ROADMAP.md` (Step-1)
 
 **Guide:** m-2 (`m-2.planner`, via operator hand-relay) — the domain continuity; this slice IS m-2's domain.
 **Consult:** m-7 (`m-7.planner`) on engine/config seams — the registry rides the trusted config (per-domain sections, single top-level digest, loaded once at trusted startup); consult, don't improvise.

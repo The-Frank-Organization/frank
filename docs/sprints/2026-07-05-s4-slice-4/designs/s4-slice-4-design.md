@@ -1,9 +1,9 @@
 # s4 Slice-4 — DESIGN: the wire-up (the per-seat MCP shim · seat-lifecycle hardening · the §7 config-change record)
 
 **DESIGN_DOC_ID:** `s4-slice-4-design`
-**Owner:** s4-wire pair — authored by `s4-wire.planner`; design-challenger + formal DESIGN-REVIEW addressee = `s4-wire.implementer` (v2.8.5 lineage)
+**Owner:** s4-wire pair — authored by `s4-wire.planner`; design-challenger + formal DESIGN-REVIEW addressee = `s4-wire.implementer` (per the protocol's lineage rules)
 **Dispatch:** `.relays/s4/s4-wire-design/DESIGN-orchestrator-planner-20260705-013107.md` (twelve binding constraints; GRILL_REQUIRED: yes)
-**Rev:** r3 (operator grill COMPLETE — GRILL_LOCK at §12; **guide answers FOLDED** — `master/relays/s4-guide-q1/SITREP-planner-20260705-014633.md`, all six confirmed from locked text, zero amendments; every [PG-Qn] marker resolved in place; the F2 structured-carrier rule closed at §3.2)
+**Rev:** r3 (operator grill COMPLETE — GRILL_LOCK at §12; **guide answers FOLDED** — `.relays/s4/s4-guide-q1/SITREP-planner-20260705-014633.md`, all six confirmed from locked text, zero amendments; every [PG-Qn] marker resolved in place; the F2 structured-carrier rule closed at §3.2)
 **Date:** 2026-07-05 · **Tier:** medium · **Evidence:** E1 (design; all code cites verified in the s4 audits at main@6987367, code = tag `s3-close`)
 
 ---

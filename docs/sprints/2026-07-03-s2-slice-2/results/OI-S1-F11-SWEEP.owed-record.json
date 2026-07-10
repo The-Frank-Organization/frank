@@ -16,7 +16,7 @@
     "disposition_path": "S2 exit gate",
     "owner": "s1 (S2 slice)",
     "record_kind": "owed_item",
-    "source": "docs/sprints/2026-07-03-s1-slice-1/RECONCILE.md:160-161 + master/relays/s1-exit-gate/SITREP-planner-20260703-200827.md",
+    "source": "docs/sprints/2026-07-03-s1-slice-1/RECONCILE.md:160-161 + .relays/s1/s1-exit-gate/SITREP-planner-20260703-200827.md",
     "target_surface": "F11 full class×point sweep"
   },
   "body": "",

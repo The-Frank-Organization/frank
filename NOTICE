@@ -1,0 +1,8 @@
+frank — a governed courier for multi-agent teams
+Copyright 2026 Jack Li
+
+Licensed under the Apache License, Version 2.0. See LICENSE.
+
+This repository additionally ships its own build record (.relays/, docs/sprints/,
+master-docs/) — the dated, append-only working record of the governed multi-agent
+team that designed and built frank, closed at points s1-close through s6-close.

@@ -1,6 +1,6 @@
 # s5 sprint reconcile ledger
 
-Durable summary of the orchestrator-seat reconciliations; the relay files of record live under `.relays/s5/` (operational substrate) and `master/relays/s5-*` (master-side).
+Durable summary of the orchestrator-seat reconciliations; the relay files of record live under `.relays/s5/` (operational substrate) and `.relays/s5/s5-*` (master-side).
 
 - **045327 — the four AUDIT reports reconciled** (s5-a pair + s5-b pair, high convergence, zero unresolved contradictions). FIVE live defects found by the fresh team: DEF-1 raise-stamp byte vs its own enum (`"true"` into `["no","yes"]`) · DEF-2 lane-suppliable system/computed headers · DEF-3 EVIDENCE_TARGET not actually required · DEF-4 ③ stamp path untested · DEF-5 `resolves_gate` consumed-but-undeclared. Rulings R-s5-1..7; escalations M-1..M-4 to master. Record: `.relays/s5/s5-reconcile-audits/RECONCILE-orchestrator-planner-20260706-045327.md`.
 - **052214/053113 (master) — every escalation settled**: M-1 step-gate idiom blessed · M-2 ③ composed (MAX(S1,S2,S3) detector × token-rewrite mechanics + MR-1 pick-provenance row) · M-3 (a)–(k) confirmed · riding legs closed (m-4.impl, m-6.impl, m-1 dual-confirm: genesis in NO scope, owed operator-only as Step-1 posture).

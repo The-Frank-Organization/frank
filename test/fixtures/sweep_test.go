@@ -23,14 +23,18 @@ func TestSweepReadmeClaimHonesty(t *testing.T) {
 		t.Fatalf("README missing: %v", err)
 	}
 	readme := string(data)
+	// Repointed at the Step-1-close README (publication rewrite, 2026-07-08).
+	// Each phrase pins a claim-boundary semantic the S1-era wording carried:
+	// the transport-only scope, the self_reported qualifier, the D5 residual
+	// with its honest strength label, config evolution via the operator §7
+	// record, and the exact terminal enum.
 	for _, want := range []string{
-		"S1 = provenance + transport, not verified work",
+		"transport and provenance facts only",
 		"self_reported",
-		"tool-mediated confusion-resistance",
+		"confusion-resistant, not theft-proof",
 		"D5 residual",
-		"pair-Planner grant rendering lands in S3",
-		"the S3 registry rides `store.Init`",
-		"registry/config evolution on an existing store is live through the operator-authorized §7 record, effective at restart",
+		"operator-authored `config_change` record",
+		"exactly `accepted`, `rejected`, `held`",
 	} {
 		if !strings.Contains(readme, want) {
 			t.Fatalf("README missing honesty phrase %q", want)

@@ -80,7 +80,7 @@ Generated pair: `test/replay/dispositions.json` is the machine-readable source; 
 | relay-lint.py:1136 | result.error(f"no .md relay files found under {path}") | 10c | dissolved-lineage | lineage.Engine table-backed walk | live |  |  |
 | relay-lint.py:1141 | result.error(f"{f.relative_to(path)}: {e}") | 10c | dissolved-lineage | lineage.Engine table-backed walk | live |  |  |
 | relay-lint.py:1143 | result.warn(f"{f.relative_to(path)}: {w}") | 10c | dissolved-lineage | lineage.Engine table-backed walk | live |  |  |
-| relay-lint.py:1214 | result.error(f"{f.relative_to(path)}: DESIGN_LOCK_ID present with v2.8.5 design-review context but DESIGN_RECORD_KIND is missing") | 10c | dissolved-lineage | lineage.Engine table-backed walk | live |  |  |
+| relay-lint.py:1214 | result.error(f"{f.relative_to(path)}: DESIGN_LOCK_ID present with design-review context but DESIGN_RECORD_KIND is missing") | 10c | dissolved-lineage | lineage.Engine table-backed walk | live |  |  |
 | relay-lint.py:1219 | result.error(f"{f.relative_to(path)}: pair Planner cannot use DESIGN_RECORD_KIND: direct-override; only operator/orchestrator/orchestrator-planner authority may override design review") | 10c | dissolved-lineage | lineage.Engine table-backed walk | live |  |  |
 | relay-lint.py:1225 | result.error(f"{f.relative_to(path)}: DESIGN_RECORD_KIND: audit-record conflicts with observable same-owner DESIGN relay carrying DESIGN_DOC_ID") | 10c | dissolved-lineage | lineage.Engine table-backed walk | live |  |  |
 | relay-lint.py:1241 | result.error(f"{f.relative_to(path)}: DESIGN_LOCK_ID {lock_id!r} has no earlier same-owner DESIGN relay carrying matching DESIGN_DOC_ID") | 10c | dissolved-lineage | lineage.Engine table-backed walk | live |  |  |

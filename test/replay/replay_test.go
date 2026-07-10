@@ -10,7 +10,17 @@ import (
 	"testing"
 )
 
+// requireOracle skips oracle-replay tests when the external relay-lint
+// tooling (prior-art reference material, not vendored here) is absent.
+func requireOracle(t *testing.T) {
+	t.Helper()
+	if !OracleAvailable() {
+		t.Skip("relay-lint oracle not present; set FRANK_RELAY_LINT_TOOLS_DIR to its tools/ directory to run the oracle replay")
+	}
+}
+
 func TestFullOracleReplayBothLegsGreen(t *testing.T) {
+	requireOracle(t)
 	results := ReplayAll()
 	if len(results) != 146 {
 		t.Fatalf("ReplayAll returned %d results, want frozen oracle size 146", len(results))
@@ -99,6 +109,7 @@ func TestDispositionTableMatchesRelayLintInventory(t *testing.T) {
 		}
 		rowAnchors[row.Anchor] = true
 	}
+	requireOracle(t)
 	inventory, err := RelayLintInventory()
 	if err != nil {
 		t.Fatalf("RelayLintInventory: %v", err)
@@ -136,6 +147,7 @@ func TestObserveContextLabelAndTallyAreStructural(t *testing.T) {
 	if reconstructed == 0 {
 		t.Fatalf("no reconstructed-observe rows")
 	}
+	requireOracle(t)
 	results := ReplayAll()
 	if got := LiveCaughtCount(results); got >= live+reconstructed {
 		t.Fatalf("live caught tally %d appears to include reconstructed rows; live rows=%d reconstructed=%d", got, live, reconstructed)

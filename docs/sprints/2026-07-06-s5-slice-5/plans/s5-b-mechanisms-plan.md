@@ -4,7 +4,7 @@
 
 **Goal:** land the s5-b bundle of Slice-5 (consumer schemas): the ③ known-A raise at the validate locus, the DEF-2 submit guard, the ⑤ egress drain+scanner present-but-dormant behind the Renderer contract, the Q4 zero-loss replay + read-path refusal legs, the §7 legs over the real s5-a registry delta, and the I-PH sweep extension — zero regression, byte-exact terminal enum, guardrail surface untouched.
 
-**Locked design:** `docs/sprints/2026-07-06-s5-slice-5/designs/s5-b-mechanisms-design.md` **r3** (DESIGN_DOC_ID `s5-b-mechanisms-design`; approving review `DESIGN-REVIEW-implementer-20260706-060550.md`). §n references below are design sections. **The design rules; this plan sequences it.** ③ semantics of record: `master/relays/s5-escalations/RECONCILE-orchestrator-planner-20260706-052214.md` §2.
+**Locked design:** `docs/sprints/2026-07-06-s5-slice-5/designs/s5-b-mechanisms-design.md` **r3** (DESIGN_DOC_ID `s5-b-mechanisms-design`; approving review `DESIGN-REVIEW-implementer-20260706-060550.md`). §n references below are design sections. **The design rules; this plan sequences it.** ③ semantics of record: `.relays/s5/s5-escalations/RECONCILE-orchestrator-planner-20260706-052214.md` §2.
 
 **Build surface:** branch `s5-b-mechanisms` off `main @ 67ee23e` (operator-cut worktree). Baseline: 21 packages green (audit E2).
 
@@ -60,7 +60,7 @@
 - [ ] Battery green; commit.
 
 ### T6 — zero-loss replay + refusal legs (§4)
-- [ ] NEW `test/replay/zeroloss/`: `Replay(root, reg)` walking redo+records through `migrate.Reader` — zero imports of the parity harness/oracle.
+- [ ] NEW `test/replay/zeroloss/`: `Replay(root, reg)` walking redo+records through `migrate.Reader` — zero imports of the parity master-docs/oracle.
 - [ ] Constructed-store leg (mandatory): `store.Init` fresh + variety (accepted/rejected/held, gate → park+outbox, owed pair, config_change chain); assert count (all readable, zero lost, quarantine accounted) / identity (SourceVersion==Current ⇒ deep-equal) / canonical-wins (record beats projection).
 - [ ] Refusal legs THROUGH `Reader.Read` over the real store: planted SchemaVersion 0 / future / gap files ⇒ `ErrUnversioned`/`ErrFutureVersion`/`ErrMigrationGap`. FAIL-first.
 - [ ] Optional archive leg: `FRANK_S5_REPLAY_STORE` param, skip-if-unset, self-derived counts (M-4 pending; never touch the archive in place).

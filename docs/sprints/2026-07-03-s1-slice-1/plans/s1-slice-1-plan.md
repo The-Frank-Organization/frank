@@ -94,7 +94,7 @@ func WriteFileAtomic(root, rel string, data []byte) error {
 **Interfaces produced:** `store.Open(root string) (*Store, error)`; `(*Store).Commit(rec record.Record, redo []store.Intent) (relayID string, err error)` — ONE pivot: seal → stage redo intents (fsync, `crashpoint.Hit("pre_redo_fsync"/"post_redo_fsync")`) → `WriteFileAtomic` into `records/` → apply intents (`crashpoint.Hit("pre_projection_write"/"post_projection_write")`); `store.Intent{Kind: index|render|mailbox|outbox, Payload}`; `(*Store).RebuildProjections() error` (idempotent redo replay; canonical wins; INDEX append-only — a wrong row superseded by an appended correction, never rewritten); `(*Store).Records() iter`; `(*Store).AppendIndex(row string) error`.
 
 - [x] **Step 1: failing tests** — commit-shape (one commit ⇒ exactly one `records/<relay_id>.json` + one INDEX row + one rendered `.md` under `projections/relays/<DISPATCH_ID>/` + a mailbox line per recipient, all checksums valid — the F2 shape); C5 (delete/corrupt INDEX.md, a rendered `.md`, a mailbox ⇒ `RebuildProjections` restores all from canonical; append-only INDEX preserved). Run — FAIL.
-- [x] **Step 2: implement**; INDEX row format mirrors the v2.8.8 columns (REUSE-AS-SPEC'D); rendered `.md` = view-only serialization of the record.
+- [x] **Step 2: implement**; INDEX row format mirrors the upstream columns (REUSE-AS-SPEC'D); rendered `.md` = view-only serialization of the record.
 - [x] **Step 3: green + commit** `s1 IMPL: store pivot + redo projections (F2-shape, C5)`.
 
 ### Task 3: Intake journal, intake-writer, FIFO, loop skeleton (D-2, §2.2 full semantics)

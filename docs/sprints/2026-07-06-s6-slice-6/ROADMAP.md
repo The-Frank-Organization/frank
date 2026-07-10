@@ -1,9 +1,9 @@
 # Sprint s6 — Slice-6: THE TRANSPORT FIX (the last Step-1 slice)
 
 **RUN_ID:** s6 · **Baseline:** `main @ 7e5c527` (tag `s5-close`), battery 23-ok · **Branch (proposed):** `s6-transport-impl`
-**Work dispatch of record:** `../../../../master/relays/s6-dispatch/PLAN-orchestrator-planner-20260706-221040.md`
-**Spec (read-only, design-of-record):** `master/S6-AMENDMENT-SET-2026-07-06.md` (r3, VP co-signed `s6-design/RECONCILE-orchestrator-reviewer-20260706-220325`) + its four constituents — m-1 `2026-07-06-s6-transport-amendments.md` (§A–§F.1), m-7 `2026-07-06-s6-transport-amendments.md` (r5), m-2 `2026-07-06-s6-transport-codec-amendment.md` (+§11), `master/GRILL-LOCK-parenting-fork-2026-07-06.md`.
-**The story:** `master/TRANSPORT-FINDINGS-2026-07-06.md` (F1–F17; evidence archive `~/frank-archives/frank-team-store-s5-dogfood-20260706`).
+**Work dispatch of record:** `../../../../.relays/s6/s6-dispatch/PLAN-orchestrator-planner-20260706-221040.md`
+**Spec (read-only, design-of-record):** `master-docs/master/S6-AMENDMENT-SET-2026-07-06.md` (r3, VP co-signed `s6-design/RECONCILE-orchestrator-reviewer-20260706-220325`) + its four constituents — m-1 `2026-07-06-s6-transport-amendments.md` (§A–§F.1), m-7 `2026-07-06-s6-transport-amendments.md` (r5), m-2 `2026-07-06-s6-transport-codec-amendment.md` (+§11), `master-docs/master/GRILL-LOCK-parenting-fork-2026-07-06.md`.
+**The story:** `master-docs/master/TRANSPORT-FINDINGS-2026-07-06.md` (F1–F17; evidence archive `~/frank-archives/frank-team-store-s5-dogfood-20260706`).
 
 ## The one-line boundary
 Build the co-signed amendment set — whole, nothing else — against the LOCKED amendments. Seat surface stays exactly `submit`/`project`/`read` (roster + audit views are `project` parameters). m-7 guides; m-1 fidelity on store/lineage/waiver/lock/activation; m-2 fidelity on codec/registry/boot-form/render/validate. The set rules; escalate to amend — never improvise a locked-contract change.

@@ -4,7 +4,7 @@
 **Owner:** s1-core — design-lead `s1-core.planner` · adversarial design-reviewer `s1-core.implementer`
 **Status:** r5 — r2 pair-APPROVED (`s1-core-design-r2-review/DESIGN-REVIEW-implementer-20260703-152445.md`); r3 = guide should-fix folds (§9); r4 = plan-review envelope fix (§10); r5 = m-1 fidelity F-M1-1 credential-lifecycle line + guide nit parenthetical (§11) — all bounded folds, no re-architecture, r2 lock content otherwise unchanged
 **Date:** 2026-07-03 · **Tier:** medium · **Evidence:** E1 (spec cites) / E2 (repo + corpus probes from the reconciled audits)
-**Basis:** DESIGN dispatch `.relays/s1/s1-core-design/DESIGN-orchestrator-planner-20260703-140843.md` + de-provision supplement `…-142800.md`; guide answers `master/relays/s1-guide-q1/SITREP-planner-20260703-141628.md` (Q-A + Q-2 CONFIRMED — no provisional sections remain); reconciled paired audits (RECONCILE.md entries 2–3).
+**Basis:** DESIGN dispatch `.relays/s1/s1-core-design/DESIGN-orchestrator-planner-20260703-140843.md` + de-provision supplement `…-142800.md`; guide answers `.relays/s1/s1-guide-q1/SITREP-planner-20260703-141628.md` (Q-A + Q-2 CONFIRMED — no provisional sections remain); reconciled paired audits (RECONCILE.md entries 2–3).
 **Locked inputs (never designed here):** m-1 store API + system-field contract; m-2 FieldSpec envelope + predicate vocabulary; m-7 engine design (topology, pivot, fault taxonomy, guardrail); ARCHITECTURE §C4. This doc designs the *implementation* of the S1 slice against them. Line refs `m-1 :N` / `m-2 :N` / `m-7 :N` are into the locked design docs as in the audits.
 
 **Claim boundary (held in every sentence):** S1 = provenance + transport, not verified work. The only operationally-live by-construction claims are the serialized-loop double-accept kill (m-7 §2.4) and the constrained-grammar R2. Everything identity/isolation-shaped below is **tool-mediated confusion-resistance**: it removes affordance, not access. **D5 residual, stated once here and beside every exclusivity-shaped claim below:** a same-uid shell-bearing seat can reach the store, sockets, and config outside the tool surface; that is the accepted Step-1 residual (ARCHITECTURE §C4.3).
@@ -57,7 +57,7 @@ fsyncs run synchronously on their goroutine (the operator-grilled simplicity rul
   journal/intake.jsonl         # append+fsync ahead of the FIFO; intake_id per entry
   journal/redo.jsonl           # projection intents, staged+fsynced BEFORE the pivot
   projections/INDEX.md         # append-only (corrections appended, never rewritten)
-  projections/relays/<DISPATCH_ID>/<PHASE>-<ROLE>-<ts>.md   # rendered views (v2.8.8 layout, REUSE-AS-SPEC'D)
+  projections/relays/<DISPATCH_ID>/<PHASE>-<ROLE>-<ts>.md   # rendered views (upstream-protocol layout, REUSE-AS-SPEC'D)
   mailboxes/<seat>.jsonl       # per-seat inbox projections
   outbox/<item_id>.json        # store-visible ODB queue items (O-1)
   binding/seats.json           # persisted binding table (conductor-owned)
@@ -81,7 +81,7 @@ fsyncs run synchronously on their goroutine (the operator-grilled simplicity rul
 | certification | envelope | system_only | null-reserved, present in every record |
 | PARENT_DISPATCH_ID | envelope | parent_picker | conductor-derived candidate set + default = woken-on relay; free-typed parent rejected |
 | TO, CC | envelope | recipient_picker | validated ∈ the minted address space (incl. `operator`) |
-| PHASE | header | agent_enum_pick | v2.8.8 11-token enum |
+| PHASE | header | agent_enum_pick | upstream 11-token enum |
 | AUTHORITY | header | seat_scoped_enum | full enum on operator/orchestrator forms; pair-seat forms omit `merge-gated` (an A2 forbidden option) |
 | CEREMONY_TIER | header | agent_enum_pick | `{tiny, small, medium, large, production-risk}` |
 | EVIDENCE_TARGET | header | agent_enum_pick | `{E1..E4}`; Step-1-required (intent field, not observe-owned) |
@@ -131,7 +131,7 @@ On every start, before any channel opens (**R-3 rebuild-before-open**): (1) stag
 
 ### D-10 S1-minimal dissolved-linter replay (R1)
 
-Corpus of record: the v2.8.8 fixture matrix (244 fixtures, checker-verified all-PASS — E2, reconciled audits). Harness = a `go test` that classifies every **fail**-fixture by its v2.8.8 check class (the m-2 §10 map) and, for each MVP-covered class, either:
+Corpus of record: the upstream fixture matrix (244 fixtures, checker-verified all-PASS — E2, reconciled audits). Harness = a `go test` that classifies every **fail**-fixture by its upstream check class (the m-2 §10 map) and, for each MVP-covered class, either:
 - **caught** — construct the typed-submission equivalent and assert the MVP validator rejects it with the matching class (driving the same in-process validation functions the loop runs — never a markdown submit path; §8 strictness is preserved: the importer lives in test code only); or
 - **obsolete-by-construction** — the failure shape is unexpressible through the typed envelope (fences, bare tokens, detached rows, ambiguous continuations, ROLE/FROM mismatch, address-grammar corruption), with the specific reason recorded; or
 - **uncovered-S3** — the check class needs registry surface outside the MVP (scan/scope/fold row-arrays, downgrade ordering, design-review/merge lineage beyond the S1 edges) — named in the emitted report, never silently dropped.
@@ -201,7 +201,7 @@ Python/TS/Rust stacks (D-1); external syscall injection (D-8); markdown import a
 
 No other section changed; operator decisions (D-1 Go) and the guide-locked constraints (R-1..R-3, O-1..O-3, F9-whole) are untouched. Resent for re-review on the same DESIGN_DOC_ID.
 
-## 9. r3 fold-log (m-7 guide advisory read `master/relays/s1-guide-design-read/SITREP-planner-20260703-154742.md` — zero must-fix; two should-fix folded per the PROCEED-TO-PLAN supplement `s1-core-plan/SITREP-orchestrator-planner-20260703-155605.md`)
+## 9. r3 fold-log (m-7 guide advisory read `.relays/s1/s1-guide-design-read/SITREP-planner-20260703-154742.md` — zero must-fix; two should-fix folded per the PROCEED-TO-PLAN supplement `s1-core-plan/SITREP-orchestrator-planner-20260703-155605.md`)
 
 1. **Should-fix ① — held-visibility posture.** Folded as the guide-recommended shape (i): a committed `held` record is a derived-intent class in the C7 derived-work mechanism and derives an operator-visible ODB/outbox item; the m-2 carve-out is now stated beside B1; held *resolution* stays S2, SWEEP-covered. New D-7 paragraph, B1 reword, H r3 leg. Shape (ii) (stated deferral) declined because (i) is one more key class in machinery S1 already builds — cheaper than defending a visibility gap at the gate.
 2. **Should-fix ② — wake-push fallback invariant.** Folded into D-3: "server-initiated nudge push on the held per-seat connection" joins the fallback invariants; the first-task capability check tests for it explicitly.

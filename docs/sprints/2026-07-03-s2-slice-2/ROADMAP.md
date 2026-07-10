@@ -8,20 +8,20 @@ Thicken the **ENGINE** against the **LOCKED m-1 store contract** — build **aga
 
 - **Full crash-recovery, phases 0–4** (S1 shipped crash-atomic commit + dumb-replay recovery; S2 completes the reified phase machinery: validate genesis → scan/quarantine → rebuild projections → restore runtime tables → open).
 - **Durable FIFO** — the intake queue's full durability + ordering under crash/restart.
-- **GC / genesis** — store genesis + garbage-collection of superseded/consumed derived artifacts, crash-safe (canonical records are never GC'd in v3.0; retain-everything posture, m-7 §10).
+- **GC / genesis** — store genesis + garbage-collection of superseded/consumed derived artifacts, crash-safe (canonical records are never GC'd in the current release; retain-everything posture, m-7 §10).
 - **The owed-item-as-typed-record projection** — an owed-item `record_kind` (m-1 fidelity) + a `project()` over it; **`open` = owed-record with no disposition-record** (materialize-first). **`OI-S1-F11-SWEEP` is its first real customer** and closes at the S2 exit gate.
 
-Authorizing relay: `../master/relays/s2-dispatch/PLAN-orchestrator-planner-20260703-223913.md` (r2)
+Authorizing relay: `../.relays/s2/s2-dispatch/PLAN-orchestrator-planner-20260703-223913.md` (r2)
 (read-only reference — the master governance trail lives in cwd-parent `master/`, not here).
 
 ## Spec (read-only references — ABSOLUTE paths; never edit; escalate spec problems via s2.orchestrator-planner to master)
 
-- Charter dispatch (scope/gate/exit of record): `/Users/jack/Programming/harness/master/relays/s2-dispatch/PLAN-orchestrator-planner-20260703-223913.md`
-- Engine spec: `/Users/jack/Programming/harness/master/ARCHITECTURE.md` §C4 (+ §C4.3 claim boundary / I-PH)
-- m-7 conductor-core design-of-record (DESIGN-LOCKED): `/Users/jack/Programming/harness/master/domains/m-7-conductor-core/design/2026-07-01-v3-conductor-core-design.md` — for S2: §2.2 (durable FIFO), §5 (recovery phases 0–4), §6 (fault/quarantine posture), §10 (genesis + GC), §13 (F9/F10/F11)
-- LOCKED m-1 store contract: `/Users/jack/Programming/harness/master/domains/m-1-trust-identity/design/2026-06-28-v3-trust-identity-design.md`
+- Charter dispatch (scope/gate/exit of record): `.relays/s2/s2-dispatch/PLAN-orchestrator-planner-20260703-223913.md`
+- Engine spec: `master-docs/master/ARCHITECTURE.md` §C4 (+ §C4.3 claim boundary / I-PH)
+- m-7 conductor-core design-of-record (DESIGN-LOCKED) — `master-docs/master/domains/m-7-conductor-core/design/2026-07-01-conductor-core-design.md` — for S2: §2.2 (durable FIFO), §5 (recovery phases 0–4), §6 (fault/quarantine posture), §10 (genesis + GC), §13 (F9/F10/F11)
+- LOCKED m-1 store contract: `master-docs/master/domains/m-1-trust-identity/design/2026-06-28-trust-identity-design.md`
 - S1 continuity (the code this slice thickens): `docs/sprints/2026-07-03-s1-slice-1/` (design r5, plan r3, RECONCILE.md) + the S1 source at tag `s1-close`
-- Sequencing: `/Users/jack/Programming/harness/ROADMAP.md` (Step-1)
+- Sequencing: `master-docs/ROADMAP.md` (Step-1)
 
 **Guide:** m-7 (`m-7.planner`, via operator hand-relay) — engine implementation guidance; it guided S1 and is this team's continuity into the S1 design.
 **Fidelity:** m-1 keeps authority over the owed-item `record_kind`, the store layout, and store-API fidelity; `m-1.implementer` fidelity-reviews store-touches **before** their dispatch.

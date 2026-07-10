@@ -21,8 +21,26 @@ import (
 	"github.com/jackli/frank/internal/tables"
 )
 
-const checkerPath = "/Users/jack/Programming/harness/extracted/agentic-dev-team-skills-v3-export/v2.8.8-release/v288-unzipped/agentic-dev-team-skills-v2.8.8/tools/check-relay-lint-fixtures.py"
-const relayLintPath = "/Users/jack/Programming/harness/extracted/agentic-dev-team-skills-v3-export/v2.8.8-release/v288-unzipped/agentic-dev-team-skills-v2.8.8/tools/relay-lint.py"
+// The replay oracle is the upstream agentic dev team relay-lint tooling —
+// prior-art reference material that lives outside this repository and is not
+// vendored here. Set FRANK_RELAY_LINT_TOOLS_DIR to its tools/ directory; the
+// oracle-replay tests skip when it is unset or the tooling is absent.
+var relayLintToolsDir = os.Getenv("FRANK_RELAY_LINT_TOOLS_DIR")
+
+var checkerPath = filepath.Join(relayLintToolsDir, "check-relay-lint-fixtures.py")
+var relayLintPath = filepath.Join(relayLintToolsDir, "relay-lint.py")
+
+// OracleAvailable reports whether the external relay-lint oracle is present.
+func OracleAvailable() bool {
+	if relayLintToolsDir == "" {
+		return false
+	}
+	if _, err := os.Stat(checkerPath); err != nil {
+		return false
+	}
+	_, err := os.Stat(relayLintPath)
+	return err == nil
+}
 
 type OracleEntry struct {
 	Mode         string

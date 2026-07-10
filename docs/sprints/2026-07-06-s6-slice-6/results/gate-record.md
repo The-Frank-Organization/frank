@@ -14,7 +14,7 @@ Evidence directory: `~/frank-s6-gate/results/`.
 
 Procedure of record: `docs/sprints/2026-07-06-s6-slice-6/results/step-exit-procedure.md`.
 
-Master evidence set and caveats, carried verbatim from `master/relays/s6-gateday/SITREP-orchestrator-planner-20260708-020233.md`:
+Master evidence set and caveats, carried verbatim from `.relays/s6/s6-gateday/SITREP-orchestrator-planner-20260708-020233.md`:
 
 > **The run (2026-07-08, store `frank-s6-step`, conductor from `s6-transport-impl@1f6cd08`, procedure of record followed; evidence files in `~/frank-s6-gate/results/`, division per the standing rule — operator-authorship legs operator-run, mechanical legs master-driven with that caveat stated):**
 >

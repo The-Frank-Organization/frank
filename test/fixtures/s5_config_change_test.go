@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -19,14 +18,13 @@ import (
 	"github.com/jackli/frank/internal/store"
 )
 
-const (
-	s5ARegistryCommit = "dd7d0b5"
-	// SHA-256 of internal/fieldspec/registry.json from s5-a-registry @ dd7d0b5.
-	s5ARegistrySHA256   = "827d24dafd0c1bc47e0968c9596aeae2f1575ad4b6e8c2f46a483b4187f1a9db"
-	s5PreRegistryCommit = "67ee23e"
-	// SHA-256 of internal/fieldspec/registry.json from main @ 67ee23e.
-	s5PreRegistrySHA256 = "e31c4b1e72b69699df7e100a9264ee9c10f0d9107c2dd645ddd58107244d7363"
-)
+// s5PreRegistrySHA256 pins the vendored genesis fixture (testdata/s5_pre_registry.json)
+// so a corrupted checkout is caught. The config_change tests below drive a real
+// old→new registry swap: genesis on this pre-registry, then a config_change to the
+// registry currently landed in the tree (internal/fieldspec/registry.json), which is
+// a superset and differs — exercising the §7 path with two registries that both ship
+// in the repo, no git history required.
+const s5PreRegistrySHA256 = "e31c4b1e72b69699df7e100a9264ee9c10f0d9107c2dd645ddd58107244d7363"
 
 func TestS5ConfigChangeOperatorAcceptsLandedRegistryShape(t *testing.T) {
 	st, reg := s5ConfigChangeDeps(t)
@@ -76,7 +74,7 @@ func TestS5ConfigChangeMovesOldToNewDigestOverLandedRegistry(t *testing.T) {
 		t.Fatalf("config_change digest does not match landed registry bytes")
 	}
 	if materialized := mustReadFile(t, filepath.Join(st.Root, "config", "fieldspec", "registry.json")); !bytes.Equal(materialized, body) {
-		t.Fatalf("materialized registry differs from s5-a %s bytes", s5ARegistryCommit)
+		t.Fatalf("materialized registry differs from the config_change body bytes")
 	}
 }
 
@@ -245,88 +243,37 @@ func s5PreRegistryPath(t *testing.T) string {
 	}
 	sum := sha256.Sum256(data)
 	if got := hex.EncodeToString(sum[:]); got != s5PreRegistrySHA256 {
-		t.Fatalf("pre-s5 registry SHA256 = %s at %s, want %s from %s", got, path, s5PreRegistrySHA256, s5PreRegistryCommit)
+		t.Fatalf("pre-s5 registry fixture %s SHA256 = %s, want %s (corrupted checkout?)", path, got, s5PreRegistrySHA256)
 	}
 	return path
 }
 
+// s5ALandedRegistryBytes returns the registry currently landed in the tree. The
+// config_change tests use it as the new registry in an old→new swap (genesis is the
+// pre-registry fixture). It only needs to be a valid registry that differs from the
+// pre-registry and carries the routing_escalation member — both true of the shipped
+// registry — so the tests are self-contained with no git history or frozen snapshot.
 func s5ALandedRegistryBytes(t *testing.T) []byte {
 	t.Helper()
-	var mismatches []string
-	for _, path := range s5ALandedRegistryPaths() {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			continue
-		}
-		sum := sha256.Sum256(data)
-		got := hex.EncodeToString(sum[:])
-		if got != s5ARegistrySHA256 {
-			mismatches = append(mismatches, path+"="+got)
-			continue
-		}
-		return data
-	}
-	if data, ok := s5ARegistryFromGit(t); ok {
-		return data
-	}
-	if len(mismatches) > 0 {
-		t.Fatalf("no s5-a registry candidate matched SHA256 %s from %s; mismatches=%v", s5ARegistrySHA256, s5ARegistryCommit, mismatches)
-	}
-	t.Skipf("s5-a registry @ %s not found; set FRANK_S5_A_REGISTRY", s5ARegistryCommit)
-	return nil
-}
-
-func s5ARegistryFromGit(t *testing.T) ([]byte, bool) {
-	t.Helper()
-	cmd := exec.Command("git", "show", s5ARegistryCommit+":internal/fieldspec/registry.json")
-	data, err := cmd.Output()
+	path := filepath.Clean(filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
+	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, false
+		t.Fatalf("read landed registry %s: %v", path, err)
 	}
-	sum := sha256.Sum256(data)
-	if got := hex.EncodeToString(sum[:]); got != s5ARegistrySHA256 {
-		t.Fatalf("git %s registry SHA256 = %s, want %s", s5ARegistryCommit, got, s5ARegistrySHA256)
-	}
-	return data, true
-}
-
-func TestS5ALandedRegistryBytesSkipsMismatchedCandidateWhenLaterCandidateMatches(t *testing.T) {
-	mismatch := filepath.Join(t.TempDir(), "registry.json")
-	if err := os.WriteFile(mismatch, []byte(`{"version":"wrong"}`), 0o644); err != nil {
-		t.Fatalf("write mismatch registry: %v", err)
-	}
-	t.Setenv("FRANK_S5_A_REGISTRY", mismatch)
-
-	data := s5ALandedRegistryBytes(t)
-	sum := sha256.Sum256(data)
-	if got := hex.EncodeToString(sum[:]); got != s5ARegistrySHA256 {
-		t.Fatalf("registry SHA256 = %s, want %s", got, s5ARegistrySHA256)
-	}
+	return data
 }
 
 func s5ALandedRegistry(t *testing.T) *fieldspec.Registry {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "registry.json")
 	if err := os.WriteFile(path, s5ALandedRegistryBytes(t), 0o644); err != nil {
-		t.Fatalf("write s5-a registry fixture: %v", err)
+		t.Fatalf("write landed registry fixture: %v", err)
 	}
 	reg, err := fieldspec.Load(path)
 	if err != nil {
-		t.Fatalf("Load s5-a registry fixture: %v", err)
+		t.Fatalf("Load landed registry fixture: %v", err)
 	}
 	return reg
-}
-
-func s5ALandedRegistryPaths() []string {
-	var paths []string
-	if path := os.Getenv("FRANK_S5_A_REGISTRY"); path != "" {
-		paths = append(paths, path)
-	}
-	paths = append(paths,
-		filepath.Clean(filepath.Join("..", "..", "internal", "fieldspec", "registry.json")),
-		filepath.Clean(filepath.Join("..", "..", "..", "s5-a", "internal", "fieldspec", "registry.json")),
-	)
-	return paths
 }
 
 func s5OperatorMeta() seat.SeatMeta {

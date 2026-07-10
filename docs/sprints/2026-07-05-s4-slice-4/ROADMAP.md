@@ -15,7 +15,7 @@
 
 **OUT (escalate before any delegated dispatch that touches these):** consumer schema content (s5) · observe/evidence (Step-2) · routing execution (Step-3) · TUI/email UX (Step-4) · federation (horizon, zero pre-work) · external send/away-bridge · steer/interrupt beyond host-native · any replacement of the operator's *authority* (transport only).
 
-Authorizing relay: `../master/relays/s4-dispatch/PLAN-orchestrator-planner-20260705-000914.md`
+Authorizing relay: `../.relays/s4/s4-dispatch/PLAN-orchestrator-planner-20260705-000914.md`
 (read-only reference — the master governance trail lives in cwd-parent `master/`, not here).
 
 ## Exit gate (HARD acceptance — E3 arrives here, scoped to transport)
@@ -29,14 +29,14 @@ Authorizing relay: `../master/relays/s4-dispatch/PLAN-orchestrator-planner-20260
 
 ## Spec (read-only references — ABSOLUTE paths; never edit; escalate spec problems via s4.orchestrator-planner to master)
 
-- Charter dispatch (scope/gate/exit of record): `/Users/jack/Programming/harness/master/relays/s4-dispatch/PLAN-orchestrator-planner-20260705-000914.md`
-- Engine spec (PRIMARY — the shim IS the attach surface): `/Users/jack/Programming/harness/master/ARCHITECTURE.md` §C4.1 (engine + interface guardrail) + §C4.3 (claim boundary — tool-mediated confusion-resistance, I-PH, D5)
-- **m-7 conductor-core design-of-record (GUIDE — attach/pipe lifecycle §8, trusted config §7 :109):** `/Users/jack/Programming/harness/master/domains/m-7-conductor-core/design/2026-07-01-v3-conductor-core-design.md`
-- m-1 store/identity contract (consulted + fidelity — channel identity §4/§5, credential lifecycle §13.3, conductor-internal provenance §6): `/Users/jack/Programming/harness/master/domains/m-1-trust-identity/design/2026-06-28-v3-trust-identity-design.md`
-- The s3-scope-q1 ruling (the §7 conditions this slice inherits): `/Users/jack/Programming/harness/master/relays/s3-scope-q1/RECONCILE-orchestrator-planner-20260704-171608.md`
-- m-2 (light consult — describe-grade form + re-render bounce crossing the shim intact): `/Users/jack/Programming/harness/master/domains/m-2-forms-determinism/design/2026-06-28-v3-form-schema-design.md`
+- Charter dispatch (scope/gate/exit of record): `.relays/s4/s4-dispatch/PLAN-orchestrator-planner-20260705-000914.md`
+- Engine spec (PRIMARY — the shim IS the attach surface): `master-docs/master/ARCHITECTURE.md` §C4.1 (engine + interface guardrail) + §C4.3 (claim boundary — tool-mediated confusion-resistance, I-PH, D5)
+- **m-7 conductor-core design-of-record (GUIDE — attach/pipe lifecycle §8, trusted config §7 :109)** — `master-docs/master/domains/m-7-conductor-core/design/2026-07-01-conductor-core-design.md`
+- m-1 store/identity contract (consulted + fidelity — channel identity §4/§5, credential lifecycle §13.3, conductor-internal provenance §6): `master-docs/master/domains/m-1-trust-identity/design/2026-06-28-trust-identity-design.md`
+- The s3-scope-q1 ruling (the §7 conditions this slice inherits): `.relays/s3/s3-scope-q1/RECONCILE-orchestrator-planner-20260704-171608.md`
+- m-2 (light consult — describe-grade form + re-render bounce crossing the shim intact): `master-docs/master/domains/m-2-forms-determinism/design/2026-06-28-form-schema-design.md`
 - S1+S2+S3 continuity (the code this slice bridges): `docs/sprints/2026-07-03-s1-slice-1/` + `docs/sprints/2026-07-03-s2-slice-2/` + `docs/sprints/2026-07-04-s3-slice-3/` + the source at tag `s3-close`
-- Sequencing: `/Users/jack/Programming/harness/ROADMAP.md` (Step-1)
+- Sequencing: `master-docs/ROADMAP.md` (Step-1)
 
 **Guide:** m-7 (`m-7.planner`, via operator hand-relay) — the engine continuity; the shim is the attach/pipe-lifecycle surface (m-7-owned); the §7 record is an engine mutation class (m-7-guided per the s3-scope-q1 ruling, condition 4).
 

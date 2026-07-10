@@ -1,9 +1,9 @@
 # s5-b "mechanisms & versioning" — DESIGN: the ③ known-A raise · DEF-2 submit guard · the ⑤ egress drain+scanner (dormant) · zero-loss replay · §7 s5-delta legs · I-PH extensions
 
 **DESIGN_DOC_ID:** `s5-b-mechanisms-design`
-**Owner:** s5-b pair — authored by `s5-b.planner`; design-challenger + formal DESIGN-REVIEW addressee = `s5-b.implementer` (v2.8.5 lineage)
+**Owner:** s5-b pair — authored by `s5-b.planner`; design-challenger + formal DESIGN-REVIEW addressee = `s5-b.implementer` (per the protocol's lineage rules)
 **Dispatch:** `.relays/s5/s5-design-s5-b/DESIGN-orchestrator-planner-20260706-045327.md` (base) + `…-052753.md` (③ HOLD lifted; DEF-2 wire-in-full)
-**Specification of record for ③:** `master/relays/s5-escalations/RECONCILE-orchestrator-planner-20260706-052214.md` §2 (composed m-6 detector × m-7 mechanics + MR-1); §C4 registrations cited, not restated
+**Specification of record for ③:** `.relays/s5/s5-escalations/RECONCILE-orchestrator-planner-20260706-052214.md` §2 (composed m-6 detector × m-7 mechanics + MR-1); §C4 registrations cited, not restated
 **Rev:** r3 (DESIGN-REVIEW folds — r2: `…-055134` blocker 1, the ⑤ drain provenance/render contract §3.1a; r3: `…-060027` blocker 1, the scanned item carries the rendered value — `Item.Field` is now a full `RenderedField {Name, Value, Origin}` so `Scan` inspects the actual outbound bytes; findings stay Field:Class-only) · **Date:** 2026-07-06 · **Tier:** medium · **Evidence:** E1 (all code cites verified in the s5-b audits at `main @ 67ee23e`) · **GRILL_REQUIRED:** no
 
 ---

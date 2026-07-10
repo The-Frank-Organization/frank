@@ -1,6 +1,6 @@
 # OI-S3-CONFIG-CHANGE — typed owed record (ledger materialization)
 
-Materialized per master's s3-scope-q1 ruling condition 2 (`master/relays/s3-scope-q1/RECONCILE-orchestrator-planner-20260704-171608.md`), the OI-S1-F11-SWEEP pattern. Ledger-materialized here (the ruling's stated minimum); the optional real-store submit is the operator's channel to author (the S2 Q2=(i) precedent: owed records on the real store are operator-authored, never synthetically stamped).
+Materialized per master's s3-scope-q1 ruling condition 2 (`.relays/s3/s3-scope-q1/RECONCILE-orchestrator-planner-20260704-171608.md`), the OI-S1-F11-SWEEP pattern. Ledger-materialized here (the ruling's stated minimum); the optional real-store submit is the operator's channel to author (the S2 Q2=(i) precedent: owed records on the real store are operator-authored, never synthetically stamped).
 
 ```text
 OI-S3-CONFIG-CHANGE = {
