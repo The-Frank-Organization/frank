@@ -250,6 +250,47 @@ func TestLawR2NoModelPredicate(t *testing.T) {
 			}
 		})
 	}
+
+	for _, predicateKind := range []string{"required_when", "visible_when"} {
+		t.Run("synthetic any-row "+predicateKind, func(t *testing.T) {
+			data, err := os.ReadFile(filepath.Join(repoRoot(t), "internal", "fieldspec", "registry.json"))
+			if err != nil {
+				t.Fatalf("read registry fixture: %v", err)
+			}
+			var fixture map[string]any
+			if err := json.Unmarshal(data, &fixture); err != nil {
+				t.Fatalf("decode registry fixture: %v", err)
+			}
+			fields, ok := fixture["fields"].([]any)
+			if !ok || len(fields) == 0 {
+				t.Fatalf("registry fields shape = %T", fixture["fields"])
+			}
+			target, ok := fields[0].(map[string]any)
+			if !ok {
+				t.Fatalf("registry first field shape = %T", fields[0])
+			}
+			target[predicateKind] = map[string]any{
+				"any_row": "routing_assignments.chosen_model",
+				"op":      "present",
+			}
+			mutated, err := json.Marshal(fixture)
+			if err != nil {
+				t.Fatalf("marshal chosen_model registry: %v", err)
+			}
+			path := filepath.Join(t.TempDir(), "registry.json")
+			if err := os.WriteFile(path, mutated, 0o644); err != nil {
+				t.Fatalf("write chosen_model registry: %v", err)
+			}
+			_, err = fieldspec.Load(path)
+			if err == nil {
+				t.Fatalf("chosen_model any-row %s loaded successfully", predicateKind)
+			}
+			if !strings.Contains(err.Error(), "non gate-referenceable row field") ||
+				!strings.Contains(err.Error(), "routing_assignments.chosen_model") {
+				t.Fatalf("chosen_model any-row %s error = %q", predicateKind, err)
+			}
+		})
+	}
 }
 
 func loadRegistry(t *testing.T) *fieldspec.Registry {
