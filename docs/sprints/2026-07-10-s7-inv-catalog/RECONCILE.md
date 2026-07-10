@@ -20,3 +20,15 @@ Next: planner co-sign, then the ten-row invariant package and versioned catalog.
 - These are realization conditions already present in the locked record, not contract amendments. No second co-sign round is required.
 
 Next: implement the ten named checks inside `test/invariants/**`; production paths remain read-only.
+
+## 2026-07-10 - implementation and first E2 pass
+
+- Implementation commit `eaaf5f0` adds exactly ten top-level `TestLaw*` checks plus `test/invariants/catalog.v1.json`.
+- Row 6's runtime corpus has six named families and its catalog pins six AST sink patterns at exact site counts. The planted path leak, non-operator mint carve-out, unregistered family, and unregistered sink negatives all prove the checker bites.
+- Row 4 now obtains the activation edge through the real pre-active boot admission handler, then proves active-but-disconnected after runtime restart with no activation/bound marker.
+- The command-pinned scratch weakening failed under `TestLawTerminalEnumByteExact`; the scratch worktree and branch were removed; the same command returned green on `s7-inv-catalog`.
+- Invariant package: one uncached run green, `-race` green, and `-count=3` green.
+- Full repository first pass: `go test -count=1 ./...` exited 0 with 25 tested packages and 2 no-test-file packages; `go vet ./...` exited 0 with no output.
+- Diff audit: only `test/invariants/**`, this sprint tree, and `.relays/s7/**`; no `cmd/**`, `internal/**`, registry, or record-kind edit.
+
+Next: commit the evidence record, rerun at the new tip, and send the IMPL report to `m-7.planner` for adversarial pair review.

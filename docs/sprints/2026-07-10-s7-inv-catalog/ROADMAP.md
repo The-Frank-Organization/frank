@@ -1,6 +1,6 @@
 # s7 INV-CATALOG execution roadmap
 
-Status: intake co-signed; implementation in progress.
+Status: implementation and first verification complete; final-tip rerun and pair review pending.
 
 Authority of record: `master/relays/s7-dispatch/PLAN-orchestrator-planner-20260710-032426.md`, consuming r2 `...-023635.md`, the four r3 replacements in `...-030148.md`, and VP approval `RECONCILE-orchestrator-reviewer-20260710-030737.md` under operator ruling B10.
 
@@ -45,8 +45,8 @@ Any production defect exposed by a named invariant is reported to master and is 
 ## Work order
 
 1. Obtain the `m-7.planner` intake co-sign before code. Complete: `PLAN-REVIEW-planner-20260710-033918.md`.
-2. Build the invariant package and catalog with red/green cycles for test harness behavior. In progress.
-3. Run `go test -count=1 ./test/invariants` with all ten names green.
-4. Demonstrate the command-pinned red battery on scratch, discard the weakening, then rerun green.
-5. Run the full uncached repository battery and `go vet ./...`; audit the diff as test-only.
+2. Build the invariant package and catalog with red/green cycles for test harness behavior. Complete at `eaaf5f0`.
+3. Run `go test -count=1 ./test/invariants` with all ten names green. Complete.
+4. Demonstrate the command-pinned red battery on scratch, discard the weakening, then rerun green. Complete; see `results/red-battery-transcript.md`.
+5. Run the full uncached repository battery and `go vet ./...`; audit the diff as test-only. First pass complete; final-tip repeat pending.
 6. Send the IMPL report first to `m-7.planner` for adversarial pair review, then follow the master fidelity and integration route.
