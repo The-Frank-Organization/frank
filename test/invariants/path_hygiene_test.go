@@ -200,8 +200,12 @@ func TestLawPathHygiene(t *testing.T) {
 		"internal/channel/server.go:serverConn.writePush->writeLocked",
 		"internal/channel/server.go:writePushes->writePush",
 	}
-	if got := discoverSeatEgressBoundary(t); !reflect.DeepEqual(got, wantBoundary) {
-		t.Fatalf("seat-egress boundary census = %q, want %q", got, wantBoundary)
+	gotBoundary, outsideBoundary := discoverSeatEgressBoundary(t)
+	if len(outsideBoundary) > 0 {
+		t.Fatalf("seat-egress capability outside registered boundary files = %q", outsideBoundary)
+	}
+	if !reflect.DeepEqual(gotBoundary, wantBoundary) {
+		t.Fatalf("seat-egress boundary census = %q, want %q", gotBoundary, wantBoundary)
 	}
 	t.Run("unregistered sink pattern is rejected", func(t *testing.T) {
 		bad := append([]sinkSite(nil), sites...)
@@ -217,39 +221,42 @@ func TestLawPathHygiene(t *testing.T) {
 	})
 }
 
-func discoverSeatEgressBoundary(t *testing.T) []string {
+func discoverSeatEgressBoundary(t *testing.T) ([]string, []string) {
 	t.Helper()
-	type boundaryFile struct {
-		path        string
-		callTargets map[string]bool
-		caseOwner   string
-	}
-	files := []boundaryFile{
-		{
-			path: filepath.Join("internal", "channel", "server.go"),
-			callTargets: map[string]bool{
-				"writePushes": true,
-				"writePush":   true,
-				"write":       true,
-				"writeLocked": true,
-				"Write":       true,
-			},
-			caseOwner: "serverConn.handle",
-		},
-		{
-			path:        filepath.Join("cmd", "frank-mcp", "mcp.go"),
-			callTargets: map[string]bool{"Encode": true},
-			caseOwner:   "MCPServer.handle",
-		},
+	registered := map[string]bool{
+		"internal/channel/server.go": true,
+		"cmd/frank-mcp/mcp.go":       true,
 	}
 
-	var sites []string
+	var sites, outside []string
 	fset := token.NewFileSet()
-	for _, boundary := range files {
-		path := filepath.Join(repoRoot(t), boundary.path)
+	err := filepath.WalkDir(repoRoot(t), func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			if path != repoRoot(t) && strings.HasPrefix(entry.Name(), ".") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if filepath.Ext(path) != ".go" || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		relative, err := filepath.Rel(repoRoot(t), path)
+		if err != nil {
+			return fmt.Errorf("relativize production source %s: %w", path, err)
+		}
+		relative = filepath.ToSlash(relative)
+		channelTransport := strings.HasPrefix(relative, "internal/channel/")
+		mcpTransport := strings.HasPrefix(relative, "cmd/frank-mcp/")
+		if !channelTransport && !mcpTransport {
+			return nil
+		}
+
 		file, err := parser.ParseFile(fset, path, nil, 0)
 		if err != nil {
-			t.Fatalf("parse seat-egress boundary %s: %v", boundary.path, err)
+			return fmt.Errorf("parse seat-egress production file %s: %w", relative, err)
 		}
 		for _, declaration := range file.Decls {
 			function, ok := declaration.(*ast.FuncDecl)
@@ -258,20 +265,23 @@ func discoverSeatEgressBoundary(t *testing.T) []string {
 			}
 			owner := functionOwner(function)
 			ast.Inspect(function.Body, func(node ast.Node) bool {
+				var capability string
 				switch value := node.(type) {
 				case *ast.CallExpr:
-					callee := ""
-					switch target := value.Fun.(type) {
-					case *ast.Ident:
-						callee = target.Name
-					case *ast.SelectorExpr:
-						callee = target.Sel.Name
-					}
-					if boundary.callTargets[callee] {
-						sites = append(sites, fmt.Sprintf("%s:%s->%s", filepath.ToSlash(boundary.path), owner, callee))
+					if target, ok := value.Fun.(*ast.SelectorExpr); ok {
+						switch {
+						case channelTransport && (target.Sel.Name == "writePushes" || target.Sel.Name == "writePush" || target.Sel.Name == "write" || target.Sel.Name == "writeLocked"):
+							capability = target.Sel.Name
+						case channelTransport && target.Sel.Name == "Write" && isConnectionReceiver(target.X):
+							capability = target.Sel.Name
+						case mcpTransport && target.Sel.Name == "Encode":
+							capability = target.Sel.Name
+						}
+					} else if target, ok := value.Fun.(*ast.Ident); ok && channelTransport && target.Name == "writePushes" {
+						capability = target.Name
 					}
 				case *ast.SwitchStmt:
-					if owner != boundary.caseOwner {
+					if !isProtocolMethodSwitch(value.Tag) {
 						return true
 					}
 					for _, statement := range value.Body.List {
@@ -288,16 +298,42 @@ func discoverSeatEgressBoundary(t *testing.T) []string {
 							if err != nil {
 								t.Fatalf("decode egress method %s: %v", literal.Value, err)
 							}
-							sites = append(sites, fmt.Sprintf("%s:%s=>%s", filepath.ToSlash(boundary.path), owner, method))
+							appendBoundarySite(relative, fmt.Sprintf("%s:%s=>%s", relative, owner, method), registered, &sites, &outside)
 						}
 					}
+				}
+				if capability != "" {
+					appendBoundarySite(relative, fmt.Sprintf("%s:%s->%s", relative, owner, capability), registered, &sites, &outside)
 				}
 				return true
 			})
 		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("scan production seat-egress boundary: %v", err)
 	}
 	sort.Strings(sites)
-	return sites
+	sort.Strings(outside)
+	return sites, outside
+}
+
+func appendBoundarySite(path, site string, registered map[string]bool, sites, outside *[]string) {
+	if registered[path] {
+		*sites = append(*sites, site)
+		return
+	}
+	*outside = append(*outside, site)
+}
+
+func isConnectionReceiver(expression ast.Expr) bool {
+	selector, ok := expression.(*ast.SelectorExpr)
+	return ok && selector.Sel.Name == "conn"
+}
+
+func isProtocolMethodSwitch(expression ast.Expr) bool {
+	selector, ok := expression.(*ast.SelectorExpr)
+	return ok && selector.Sel.Name == "Method"
 }
 
 func functionOwner(function *ast.FuncDecl) string {
