@@ -30,6 +30,13 @@ var (
 )
 
 func TestMain(m *testing.M) {
+	if fixtureChildMode() {
+		buildErr := fmt.Errorf("child-mode: no cached binary")
+		frankFixtureBinary.err = buildErr
+		frankMCPFixtureBinary.err = buildErr
+		os.Exit(m.Run())
+	}
+
 	dir, err := os.MkdirTemp("", "frank-fixtures-")
 	if err != nil {
 		buildErr := fmt.Errorf("create fixture binary directory: %w", err)
@@ -48,6 +55,20 @@ func TestMain(m *testing.M) {
 		}
 	}
 	os.Exit(code)
+}
+
+func fixtureChildMode() bool {
+	for _, marker := range []string{
+		"FRANK_F10_CHILD",
+		"FRANK_F11_CHILD",
+		"FRANK_F11_TRACE_CHILD",
+		"FRANK_F9_CHILD",
+	} {
+		if os.Getenv(marker) == "1" {
+			return true
+		}
+	}
+	return false
 }
 
 func buildCachedFixtureBinary(dir, name, target string) cachedFixtureBinary {

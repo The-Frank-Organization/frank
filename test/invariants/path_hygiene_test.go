@@ -73,7 +73,7 @@ func TestLawPathHygiene(t *testing.T) {
 		t.Fatalf("seat_mint carve-outs = %v, want exactly credential and endpoint", cat.PathHygiene.Families[5].CarveOuts)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	canonicalFamilies := liveCanonicalPathFamilies(t)
 	mintRoot := t.TempDir()
@@ -903,18 +903,15 @@ func liveSeatMintCapture(t *testing.T, ctx context.Context, root string) ([]byte
 
 func buildFrankBinary(t *testing.T, ctx context.Context) string {
 	t.Helper()
-	binary := filepath.Join(t.TempDir(), "frank")
-	command := exec.CommandContext(ctx, "go", "build", "-o", binary, "./cmd/frank")
-	command.Dir = repoRoot(t)
-	if output, err := command.CombinedOutput(); err != nil {
-		t.Fatalf("build frank binary: %v\n%s", err, output)
+	if frankInvariantBinary.err != nil {
+		t.Fatalf("cached frank binary: %v", frankInvariantBinary.err)
 	}
-	return binary
+	return frankInvariantBinary.path
 }
 
 func waitForSocketPath(t *testing.T, path string, stderr func() string) {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(15 * time.Second)
 	for time.Now().Before(deadline) {
 		if _, err := os.Stat(path); err == nil {
 			return

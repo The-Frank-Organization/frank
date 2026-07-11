@@ -63,6 +63,7 @@ func Hit(name string) {
 	mu.Unlock()
 	if count == nth {
 		_ = syscall.Kill(os.Getpid(), syscall.SIGKILL)
+		select {}
 	}
 }
 
