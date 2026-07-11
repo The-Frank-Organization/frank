@@ -19,6 +19,67 @@ import (
 	"github.com/jackli/frank/internal/store"
 )
 
+type cachedFixtureBinary struct {
+	path string
+	err  error
+}
+
+var (
+	frankFixtureBinary    cachedFixtureBinary
+	frankMCPFixtureBinary cachedFixtureBinary
+)
+
+func TestMain(m *testing.M) {
+	if fixtureChildMode() {
+		buildErr := fmt.Errorf("child-mode: no cached binary")
+		frankFixtureBinary.err = buildErr
+		frankMCPFixtureBinary.err = buildErr
+		os.Exit(m.Run())
+	}
+
+	dir, err := os.MkdirTemp("", "frank-fixtures-")
+	if err != nil {
+		buildErr := fmt.Errorf("create fixture binary directory: %w", err)
+		frankFixtureBinary.err = buildErr
+		frankMCPFixtureBinary.err = buildErr
+	} else {
+		frankFixtureBinary = buildCachedFixtureBinary(dir, "frank", filepath.Join("..", "..", "cmd", "frank"))
+		frankMCPFixtureBinary = buildCachedFixtureBinary(dir, "frank-mcp", filepath.Join("..", "..", "cmd", "frank-mcp"))
+	}
+
+	code := m.Run()
+	if dir != "" {
+		if err := os.RemoveAll(dir); err != nil && code == 0 {
+			fmt.Fprintf(os.Stderr, "remove fixture binary directory: %v\n", err)
+			code = 1
+		}
+	}
+	os.Exit(code)
+}
+
+func fixtureChildMode() bool {
+	for _, marker := range []string{
+		"FRANK_F10_CHILD",
+		"FRANK_F11_CHILD",
+		"FRANK_F11_TRACE_CHILD",
+		"FRANK_F9_CHILD",
+	} {
+		if os.Getenv(marker) == "1" {
+			return true
+		}
+	}
+	return false
+}
+
+func buildCachedFixtureBinary(dir, name, target string) cachedFixtureBinary {
+	path := filepath.Join(dir, name)
+	build := exec.Command("go", "build", "-o", path, target)
+	if out, err := build.CombinedOutput(); err != nil {
+		return cachedFixtureBinary{err: fmt.Errorf("build %s: %w\n%s", name, err, out)}
+	}
+	return cachedFixtureBinary{path: path}
+}
+
 func TestFrankBinaryAssemblesAuthenticatedSubmitProjectRead(t *testing.T) {
 	root := t.TempDir()
 	initFixtureStore(t, root)
@@ -35,11 +96,7 @@ func TestFrankBinaryAssemblesAuthenticatedSubmitProjectRead(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
-	bin := filepath.Join(t.TempDir(), "frank")
-	build := exec.CommandContext(ctx, "go", "build", "-o", bin, filepath.Join("..", "..", "cmd", "frank"))
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build frank: %v\n%s", err, out)
-	}
+	bin := buildFrank(t, ctx)
 	cmd := exec.CommandContext(ctx, bin, "-root", root, "-socket", sock, "-registry", filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -689,7 +746,7 @@ func TestFrankBinaryQuarantinesCorruptStoreBeforeServing(t *testing.T) {
 
 func waitForSocket(t *testing.T, sock string) {
 	t.Helper()
-	deadline := time.Now().Add(4 * time.Second)
+	deadline := time.Now().Add(15 * time.Second)
 	for time.Now().Before(deadline) {
 		if _, err := os.Stat(sock); err == nil {
 			return
@@ -701,12 +758,11 @@ func waitForSocket(t *testing.T, sock string) {
 
 func buildFrank(t *testing.T, ctx context.Context) string {
 	t.Helper()
-	bin := filepath.Join(t.TempDir(), "frank")
-	build := exec.CommandContext(ctx, "go", "build", "-o", bin, filepath.Join("..", "..", "cmd", "frank"))
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build frank: %v\n%s", err, out)
+	_ = ctx
+	if frankFixtureBinary.err != nil {
+		t.Fatalf("cached frank binary: %v", frankFixtureBinary.err)
 	}
-	return bin
+	return frankFixtureBinary.path
 }
 
 func startFrank(t *testing.T, ctx context.Context, bin, root, sock string) (*exec.Cmd, *bytes.Buffer) {

@@ -106,6 +106,7 @@ type Server struct {
 	active     map[[32]byte]*serverConn
 	limit      int
 	authPushes AuthPushFunc
+	closeOnce  sync.Once
 	mu         sync.Mutex
 }
 
@@ -214,11 +215,7 @@ func writePushes(clients []*serverConn, frame []byte) error {
 }
 
 func (s *Server) Close() error {
-	select {
-	case <-s.done:
-	default:
-		close(s.done)
-	}
+	s.closeDone()
 	err := s.ln.Close()
 	s.mu.Lock()
 	for c := range s.clients {
@@ -227,6 +224,10 @@ func (s *Server) Close() error {
 	s.clients = map[*serverConn]struct{}{}
 	s.mu.Unlock()
 	return err
+}
+
+func (s *Server) closeDone() {
+	s.closeOnce.Do(func() { close(s.done) })
 }
 
 type serverConn struct {
@@ -415,14 +416,15 @@ func (t ToolSet) names() []string {
 }
 
 type Client struct {
-	conn    net.Conn
-	enc     *json.Encoder
-	mu      sync.Mutex
-	nextID  atomic.Int64
-	pending map[int64]chan rpcMessage
-	pushes  chan []byte
-	done    chan struct{}
-	limit   int
+	conn      net.Conn
+	enc       *json.Encoder
+	mu        sync.Mutex
+	nextID    atomic.Int64
+	pending   map[int64]chan rpcMessage
+	pushes    chan []byte
+	done      chan struct{}
+	limit     int
+	closeOnce sync.Once
 }
 
 func Dial(ctx context.Context, sockPath string, opts ...Option) (*Client, error) {
@@ -517,12 +519,12 @@ func (c *Client) NextPush(ctx context.Context) ([]byte, error) {
 }
 
 func (c *Client) Close() error {
-	select {
-	case <-c.done:
-	default:
-		close(c.done)
-	}
+	c.closeDone()
 	return c.conn.Close()
+}
+
+func (c *Client) closeDone() {
+	c.closeOnce.Do(func() { close(c.done) })
 }
 
 func (c *Client) request(ctx context.Context, method string, params json.RawMessage) (rpcMessage, error) {
@@ -553,13 +555,7 @@ func (c *Client) request(ctx context.Context, method string, params json.RawMess
 }
 
 func (c *Client) readLoop() {
-	defer func() {
-		select {
-		case <-c.done:
-		default:
-			close(c.done)
-		}
-	}()
+	defer c.closeDone()
 	reader := bufio.NewReaderSize(c.conn, 64*1024)
 	for {
 		frame, err := readFrame(reader, c.limit)
