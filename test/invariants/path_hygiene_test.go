@@ -250,9 +250,6 @@ func discoverSeatEgressBoundary(t *testing.T) ([]string, []string) {
 		relative = filepath.ToSlash(relative)
 		channelTransport := strings.HasPrefix(relative, "internal/channel/")
 		mcpTransport := strings.HasPrefix(relative, "cmd/frank-mcp/")
-		if !channelTransport && !mcpTransport {
-			return nil
-		}
 
 		file, err := parser.ParseFile(fset, path, nil, 0)
 		if err != nil {
@@ -270,9 +267,9 @@ func discoverSeatEgressBoundary(t *testing.T) ([]string, []string) {
 				case *ast.CallExpr:
 					if target, ok := value.Fun.(*ast.SelectorExpr); ok {
 						switch {
-						case channelTransport && (target.Sel.Name == "writePushes" || target.Sel.Name == "writePush" || target.Sel.Name == "write" || target.Sel.Name == "writeLocked"):
+						case target.Sel.Name == "Write" && isConnectionReceiver(target.X):
 							capability = target.Sel.Name
-						case channelTransport && target.Sel.Name == "Write" && isConnectionReceiver(target.X):
+						case channelTransport && (target.Sel.Name == "writePushes" || target.Sel.Name == "writePush" || target.Sel.Name == "write" || target.Sel.Name == "writeLocked"):
 							capability = target.Sel.Name
 						case mcpTransport && target.Sel.Name == "Encode":
 							capability = target.Sel.Name
