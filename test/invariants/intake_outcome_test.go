@@ -12,6 +12,7 @@ import (
 	"github.com/jackli/frank/internal/engine"
 	"github.com/jackli/frank/internal/intake"
 	"github.com/jackli/frank/internal/record"
+	frankrecover "github.com/jackli/frank/internal/recover"
 	"github.com/jackli/frank/internal/store"
 	"github.com/jackli/frank/internal/tables"
 )
@@ -28,6 +29,7 @@ func TestLawIntakeOutcomeOneToOne(t *testing.T) {
 			t.Fatalf("row-9 claim %q missing %q", law.Claim, required)
 		}
 	}
+	assertRecoveryReenqueueSelection(t)
 
 	root := t.TempDir()
 	st, err := store.Open(root)
@@ -166,6 +168,65 @@ func TestLawIntakeOutcomeOneToOne(t *testing.T) {
 		t.Fatalf("settled intakes still pending: %+v", unconsumed)
 	}
 	assertIntakeOutcomeCardinality(t, journal, recordsAfterSecondRecovery)
+}
+
+func assertRecoveryReenqueueSelection(t *testing.T) {
+	t.Helper()
+	root := t.TempDir()
+	pinned := initPinnedStore(t, root)
+	st, err := store.Open(root)
+	if err != nil {
+		t.Fatalf("open recovery-selection store: %v", err)
+	}
+	journal, err := intake.Open(root)
+	if err != nil {
+		t.Fatalf("open recovery-selection journal: %v", err)
+	}
+	settledID, err := journal.Append(intake.Cmd{
+		Seat: "s7.implementer", Role: "implementer", Verb: "submit", Payload: json.RawMessage(`{"settled":true}`),
+	})
+	if err != nil {
+		t.Fatalf("append settled recovery intake: %v", err)
+	}
+	pendingID, err := journal.Append(intake.Cmd{
+		Seat: "s7.implementer", Role: "implementer", Verb: "submit", Payload: json.RawMessage(`{"pending":true}`),
+	})
+	if err != nil {
+		t.Fatalf("append pending recovery intake: %v", err)
+	}
+	if _, err := st.Commit(record.Record{
+		Envelope: record.Envelope{
+			RelayID:       "settled-recovery-outcome",
+			From:          "s7.implementer",
+			Role:          "implementer",
+			DeliveryState: record.Accepted,
+			IntakeID:      settledID,
+			SchemaVersion: 1,
+		},
+		Headers: map[string]string{"PHASE": "SITREP", "SUBJECT": "settled recovery outcome"},
+	}, nil); err != nil {
+		t.Fatalf("commit settled recovery outcome: %v", err)
+	}
+	if tab, err := tables.Build(st); err != nil {
+		t.Fatalf("build recovery-selection table: %v", err)
+	} else if _, exists := tab.OutcomeByIntake[pendingID]; exists {
+		t.Fatalf("pending recovery intake %s has an outcome", pendingID)
+	}
+
+	processorCalls := map[string]int{}
+	result, err := frankrecover.RunWithProcessor(root, pinned, func(cmd intake.Cmd) error {
+		processorCalls[cmd.IntakeID]++
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("run production recovery selection: %v", err)
+	}
+	if result.Ready == nil || result.Diag != nil {
+		t.Fatalf("production recovery result = %+v, want Ready", result)
+	}
+	if processorCalls[settledID] != 0 || processorCalls[pendingID] != 1 || len(processorCalls) != 1 {
+		t.Fatalf("recovery processor calls = %v, want only %s exactly once and %s zero", processorCalls, pendingID, settledID)
+	}
 }
 
 func mustRecords(t *testing.T, st *store.Store) []record.Record {

@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -180,6 +181,28 @@ func TestLawPathHygiene(t *testing.T) {
 	if err := validateSinkSites(cat, sites); err != nil {
 		t.Fatalf("AST sink census: %v", err)
 	}
+	wantBoundary := []string{
+		"cmd/frank-mcp/mcp.go:MCPServer.Serve->Encode",
+		"cmd/frank-mcp/mcp.go:MCPServer.handle=>initialize",
+		"cmd/frank-mcp/mcp.go:MCPServer.handle=>notifications/initialized",
+		"cmd/frank-mcp/mcp.go:MCPServer.handle=>ping",
+		"cmd/frank-mcp/mcp.go:MCPServer.handle=>tools/call",
+		"cmd/frank-mcp/mcp.go:MCPServer.handle=>tools/list",
+		"internal/channel/server.go:Server.PushTo->writePushes",
+		"internal/channel/server.go:serverConn.handle->write",
+		"internal/channel/server.go:serverConn.handle=>tools/call",
+		"internal/channel/server.go:serverConn.handle=>tools/descriptions",
+		"internal/channel/server.go:serverConn.handle=>tools/list",
+		"internal/channel/server.go:serverConn.run->write",
+		"internal/channel/server.go:serverConn.run->write",
+		"internal/channel/server.go:serverConn.write->writeLocked",
+		"internal/channel/server.go:serverConn.writeLocked->Write",
+		"internal/channel/server.go:serverConn.writePush->writeLocked",
+		"internal/channel/server.go:writePushes->writePush",
+	}
+	if got := discoverSeatEgressBoundary(t); !reflect.DeepEqual(got, wantBoundary) {
+		t.Fatalf("seat-egress boundary census = %q, want %q", got, wantBoundary)
+	}
 	t.Run("unregistered sink pattern is rejected", func(t *testing.T) {
 		bad := append([]sinkSite(nil), sites...)
 		bad = append(bad, sinkSite{
@@ -192,6 +215,103 @@ func TestLawPathHygiene(t *testing.T) {
 			t.Fatal("unregistered AST sink did not fail the census")
 		}
 	})
+}
+
+func discoverSeatEgressBoundary(t *testing.T) []string {
+	t.Helper()
+	type boundaryFile struct {
+		path        string
+		callTargets map[string]bool
+		caseOwner   string
+	}
+	files := []boundaryFile{
+		{
+			path: filepath.Join("internal", "channel", "server.go"),
+			callTargets: map[string]bool{
+				"writePushes": true,
+				"writePush":   true,
+				"write":       true,
+				"writeLocked": true,
+				"Write":       true,
+			},
+			caseOwner: "serverConn.handle",
+		},
+		{
+			path:        filepath.Join("cmd", "frank-mcp", "mcp.go"),
+			callTargets: map[string]bool{"Encode": true},
+			caseOwner:   "MCPServer.handle",
+		},
+	}
+
+	var sites []string
+	fset := token.NewFileSet()
+	for _, boundary := range files {
+		path := filepath.Join(repoRoot(t), boundary.path)
+		file, err := parser.ParseFile(fset, path, nil, 0)
+		if err != nil {
+			t.Fatalf("parse seat-egress boundary %s: %v", boundary.path, err)
+		}
+		for _, declaration := range file.Decls {
+			function, ok := declaration.(*ast.FuncDecl)
+			if !ok || function.Body == nil {
+				continue
+			}
+			owner := functionOwner(function)
+			ast.Inspect(function.Body, func(node ast.Node) bool {
+				switch value := node.(type) {
+				case *ast.CallExpr:
+					callee := ""
+					switch target := value.Fun.(type) {
+					case *ast.Ident:
+						callee = target.Name
+					case *ast.SelectorExpr:
+						callee = target.Sel.Name
+					}
+					if boundary.callTargets[callee] {
+						sites = append(sites, fmt.Sprintf("%s:%s->%s", filepath.ToSlash(boundary.path), owner, callee))
+					}
+				case *ast.SwitchStmt:
+					if owner != boundary.caseOwner {
+						return true
+					}
+					for _, statement := range value.Body.List {
+						clause, ok := statement.(*ast.CaseClause)
+						if !ok {
+							continue
+						}
+						for _, expression := range clause.List {
+							literal, ok := expression.(*ast.BasicLit)
+							if !ok || literal.Kind != token.STRING {
+								continue
+							}
+							method, err := strconv.Unquote(literal.Value)
+							if err != nil {
+								t.Fatalf("decode egress method %s: %v", literal.Value, err)
+							}
+							sites = append(sites, fmt.Sprintf("%s:%s=>%s", filepath.ToSlash(boundary.path), owner, method))
+						}
+					}
+				}
+				return true
+			})
+		}
+	}
+	sort.Strings(sites)
+	return sites
+}
+
+func functionOwner(function *ast.FuncDecl) string {
+	if function.Recv == nil || len(function.Recv.List) == 0 {
+		return function.Name.Name
+	}
+	receiver := function.Recv.List[0].Type
+	if pointer, ok := receiver.(*ast.StarExpr); ok {
+		receiver = pointer.X
+	}
+	if ident, ok := receiver.(*ast.Ident); ok {
+		return ident.Name + "." + function.Name.Name
+	}
+	return function.Name.Name
 }
 
 func liveCanonicalPathFamilies(t *testing.T) []canonicalPathFamily {
