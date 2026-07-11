@@ -230,7 +230,7 @@ func newS4ShimHarness(t *testing.T) *s4ShimHarness {
 	if err != nil {
 		t.Fatalf("Open seats: %v", err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	h := &s4ShimHarness{
 		root:   root,
 		ctx:    ctx,

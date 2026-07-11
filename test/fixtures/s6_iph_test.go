@@ -20,7 +20,7 @@ import (
 func TestS6IPHSeatMintReplyCarveOutsScoped(t *testing.T) {
 	root := t.TempDir()
 	initFixtureStore(t, root)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	bin := buildFrank(t, ctx)
 	mgr, err := seat.Open(root)

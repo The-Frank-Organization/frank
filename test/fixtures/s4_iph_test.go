@@ -247,12 +247,11 @@ func assertNoS4IPHLeaks(t *testing.T, forbidden s4IPHForbidden, captures ...s4IP
 
 func buildFrankMCP(t *testing.T, ctx context.Context) string {
 	t.Helper()
-	bin := filepath.Join(t.TempDir(), "frank-mcp")
-	build := exec.CommandContext(ctx, "go", "build", "-o", bin, filepath.Join("..", "..", "cmd", "frank-mcp"))
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build frank-mcp: %v\n%s", err, out)
+	_ = ctx
+	if frankMCPFixtureBinary.err != nil {
+		t.Fatalf("cached frank-mcp binary: %v", frankMCPFixtureBinary.err)
 	}
-	return bin
+	return frankMCPFixtureBinary.path
 }
 
 func runFrankMCP(t *testing.T, ctx context.Context, bin, sock, credential, input string) (string, string) {
