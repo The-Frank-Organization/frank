@@ -121,6 +121,47 @@ func TestS8ProductionInitPinsCatalog(t *testing.T) {
 	}
 }
 
+func TestS8ProductionInitRejectsMissingCatalog(t *testing.T) {
+	root := t.TempDir()
+	sources := s8ConfigSources(t, false)
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, buildFrank(t, ctx),
+		"-root", root,
+		"-registry", sources["fieldspec"],
+		"-engine-config", sources["engine"],
+		"-init",
+	)
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("frank -init without catalog unexpectedly succeeded: %s", out)
+	}
+	if !bytes.Contains(out, []byte("catalog required for init")) {
+		t.Fatalf("frank -init output = %q, want catalog-required refusal", out)
+	}
+}
+
+func TestS8ProductionInitRejectsObserveTrueEngine(t *testing.T) {
+	root := t.TempDir()
+	sources := s8ConfigSources(t, true)
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, buildFrank(t, ctx),
+		"-root", root,
+		"-registry", sources["fieldspec"],
+		"-engine-config", sources["engine"],
+		"-catalog", sources["catalog"],
+		"-init",
+	)
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("frank -init with observe:true unexpectedly succeeded: %s", out)
+	}
+	if !bytes.Contains(out, []byte("observe must be false at genesis")) {
+		t.Fatalf("frank -init output = %q, want observe-at-genesis refusal", out)
+	}
+}
+
 func TestS8ServeRejectsLegacyStoreWithBlessInstruction(t *testing.T) {
 	root := t.TempDir()
 	sources := s8ConfigSources(t, false)

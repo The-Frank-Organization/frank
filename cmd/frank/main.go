@@ -90,9 +90,16 @@ func run(ctx context.Context, cfg config) error {
 		if cfg.EngineConfig == "" {
 			return errors.New("engine-config required for init")
 		}
-		sources := map[string]string{"fieldspec": cfg.Registry, "engine": cfg.EngineConfig}
-		if cfg.Catalog != "" {
-			sources["catalog"] = cfg.Catalog
+		if cfg.Catalog == "" {
+			return errors.New("catalog required for init")
+		}
+		sources := map[string]string{"fieldspec": cfg.Registry, "engine": cfg.EngineConfig, "catalog": cfg.Catalog}
+		pinned, err := frankconfig.Load(sources)
+		if err != nil {
+			return err
+		}
+		if pinned.Engine.PresentLayers["observe"] {
+			return errors.New("observe must be false at genesis")
 		}
 		return store.Init(cfg.Root, sources)
 	}
