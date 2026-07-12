@@ -834,7 +834,11 @@ func mustReadFile(t *testing.T, path string) []byte {
 
 func loadAssemblyRegistry(t *testing.T) *fieldspec.Registry {
 	t.Helper()
-	reg, err := fieldspec.Load(filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
+	root := t.TempDir()
+	if err := store.Init(root, writeFixtureConfigSources(t)); err != nil {
+		t.Fatalf("init assembly registry generation: %v", err)
+	}
+	reg, err := fieldspec.Load(filepath.Join(root, "config", "fieldspec", "registry.json"))
 	if err != nil {
 		t.Fatalf("load assembly registry: %v", err)
 	}

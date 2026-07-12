@@ -15,8 +15,8 @@ import (
 func TestRegistryV2MemberParsesAndExposesLockedEnums(t *testing.T) {
 	reg := loadRegistry(t)
 
-	if reg.Version != "s7a-fieldspec-v5" {
-		t.Fatalf("Version = %q, want s7a-fieldspec-v5", reg.Version)
+	if reg.Version != "s8-fieldspec-v6" {
+		t.Fatalf("Version = %q, want s8-fieldspec-v6", reg.Version)
 	}
 	wantProvenance := map[string]string{
 		"owner":         "m-2",

@@ -338,18 +338,32 @@ func classifyConfigChange(st *store.Store, cand record.Record, meta seat.SeatMet
 		return reject("record_kind", "seat-scope", "config_change requires operator")
 	}
 	member := cand.Headers["member"]
-	if member != "fieldspec" && member != "engine" {
-		return reject("member", "enum", "member must be fieldspec or engine")
+	if member == "adoption" {
+		return reject("member", "offline-bless-only", "adoption requires offline bless")
+	}
+	if member != "fieldspec" && member != "engine" && member != "catalog" {
+		return reject("member", "enum", "unknown config member")
 	}
 	if cand.Headers["new_digest"] == "" {
 		return reject("new_digest", "required", "new_digest required")
 	}
-	digest, err := configDigestWithMember(st, member, []byte(cand.Body))
+	pinned, err := frankconfig.Load(store.StoreRootConfigPaths(st.Root))
+	if err != nil {
+		return reject("member", "config-read-error", "could not load pinned config")
+	}
+	current, ok := pinned.Members[member]
+	if !ok {
+		return reject("member", "not-adopted", "config member requires adoption")
+	}
+	digest, err := configDigestWithPinnedMember(pinned, member, []byte(cand.Body))
 	if err != nil {
 		return reject("new_digest", "config-read-error", "could not recompute config digest")
 	}
 	if cand.Headers["new_digest"] != digest {
 		return reject("new_digest", "digest-mismatch", "new_digest does not match recomputed config digest")
+	}
+	if err := frankconfig.ValidateMemberTransition(member, current, []byte(cand.Body)); err != nil {
+		return reject("member", "config-version-transition", "config member transition refused")
 	}
 	cand.Envelope.DeliveryState = record.Accepted
 	return cand
@@ -362,6 +376,13 @@ func configDigestWithMember(st *store.Store, member string, body []byte) (string
 	pinned, err := frankconfig.Load(store.StoreRootConfigPaths(st.Root))
 	if err != nil {
 		return "", err
+	}
+	return configDigestWithPinnedMember(pinned, member, body)
+}
+
+func configDigestWithPinnedMember(pinned *frankconfig.Pinned, member string, body []byte) (string, error) {
+	if pinned == nil {
+		return "", fmt.Errorf("pinned config required")
 	}
 	members := make(map[string][]byte, len(pinned.Members))
 	for name, data := range pinned.Members {

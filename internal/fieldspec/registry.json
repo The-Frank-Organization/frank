@@ -1,5 +1,5 @@
 {
-  "version": "s7a-fieldspec-v5",
+  "version": "s8-fieldspec-v6",
   "provenance": {
     "owner": "m-2",
     "design_doc_id": "F-S7-R2-COLGRAIN",
@@ -82,7 +82,7 @@
     "DESIGN_RECORD_KIND": ["design-doc", "audit-record", "direct-override"],
     "DESIGN_REVIEW_VERDICT": ["approve", "must-revise", "reject-narrow", "human-decision-required"],
     "record_kind": ["genesis", "owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint"],
-    "config_member": ["fieldspec", "engine"],
+    "config_member": ["fieldspec", "engine", "catalog", "adoption"],
     "dispatch_status": ["read", "awaiting"]
   },
   "fields": [
@@ -133,7 +133,7 @@
     {"id": "target_surface", "layer": "header", "owner": "free_text", "type": "text", "fill_constraints": "free_text", "lineage_role": "none", "gate_referenceable": false, "required_when": {"all_of": [{"record_kind_in": ["owed_item"]}]}},
     {"id": "disposition_path", "layer": "header", "owner": "free_text", "type": "text", "fill_constraints": "free_text", "lineage_role": "none", "gate_referenceable": false, "required_when": {"all_of": [{"record_kind_in": ["owed_item"]}]}},
     {"id": "disposes_owed", "layer": "header", "owner": "free_text", "type": "id_ref", "fill_constraints": "free_text", "lineage_role": "none", "gate_referenceable": false, "required_when": {"all_of": [{"record_kind_in": ["owed_disposition"]}]}},
-    {"id": "member", "layer": "header", "owner": "seat_scoped_enum", "type": "enum", "enum_set": "config_member", "fill_constraints": "seat_allowed_values", "lineage_role": "none", "seat_scope": {"operator": ["fieldspec", "engine"]}},
+    {"id": "member", "layer": "header", "owner": "seat_scoped_enum", "type": "enum", "enum_set": "config_member", "fill_constraints": "seat_allowed_values", "lineage_role": "none", "seat_scope": {"operator": ["fieldspec", "engine", "catalog", "adoption"]}},
     {"id": "new_digest", "layer": "header", "owner": "free_text", "type": "text", "fill_constraints": "free_text", "lineage_role": "none"},
     {"id": "rationale", "layer": "header", "owner": "free_text", "type": "text", "fill_constraints": "free_text", "lineage_role": "none", "visible_when": {"any_of": [{"seat_is": ["operator"]}, {"role_in": ["operator"]}]}},
     {"id": "waiver_scope", "layer": "header", "owner": "free_text", "type": "object", "fill_constraints": "free_text", "lineage_role": "none", "visible_when": {"any_of": [{"seat_is": ["operator"]}, {"role_in": ["operator"]}]}},
@@ -155,7 +155,7 @@
     {"id": "authority_class", "layer": "header", "owner": "computed", "type": "bool", "enum_set": "bool", "fill_constraints": "computed_result", "lineage_role": "none", "required_when": {"all_of": [{"layer_present": "observe"}]}, "visible_when": {"all_of": [{"layer_present": "observe"}]}, "annotation": "computed authority class; record_kind in authority set or gate_category in A; never model-keyed. suppliability guard = the s5-b (h) typed-REJECT validator rule (channel-keyed, envelope-asymmetry preserved); until it lands, dormancy is render-absence, not submit-rejection - no non-lane-writability claim."},
     {"id": "deviated_observed", "layer": "header", "owner": "system", "type": "bool", "enum_set": "bool", "fill_constraints": "computed_result", "lineage_role": "none", "required_when": {"all_of": [{"layer_present": "observe"}]}, "visible_when": {"all_of": [{"layer_present": "observe"}]}, "annotation": "GL-1 bucket-vs-bucket; never gate-referenced. suppliability guard = the s5-b (h) typed-REJECT validator rule (channel-keyed, envelope-asymmetry preserved); until it lands, dormancy is render-absence, not submit-rejection - no non-lane-writability claim."},
     {"id": "bucket_binding_observed", "layer": "header", "owner": "system", "type": "bool", "enum_set": "bool", "fill_constraints": "computed_result", "lineage_role": "none", "required_when": {"all_of": [{"layer_present": "observe"}]}, "visible_when": {"all_of": [{"layer_present": "observe"}]}, "annotation": "chosen_model in members(declared_bucket); observe-side only. suppliability guard = the s5-b (h) typed-REJECT validator rule (channel-keyed, envelope-asymmetry preserved); until it lands, dormancy is render-absence, not submit-rejection - no non-lane-writability claim."},
-    {"id": "surface_intent", "layer": "header", "owner": "system", "type": "enum", "enum_set": "surface_intent", "fill_constraints": "computed_result", "lineage_role": "none", "required_when": {"all_of": [{"layer_present": "observe"}]}, "visible_when": {"all_of": [{"layer_present": "observe"}]}, "annotation": "non-gate-bearing records only; Step-2+ semantics, annotation only. suppliability guard = the s5-b (h) typed-REJECT validator rule (channel-keyed, envelope-asymmetry preserved); until it lands, dormancy is render-absence, not submit-rejection - no non-lane-writability claim."},
+    {"id": "surface_intent", "layer": "header", "owner": "system", "type": "enum", "enum_set": "surface_intent", "fill_constraints": "computed_result", "lineage_role": "none", "annotation": "non-gate-bearing records only; static required_when/visible_when REMOVED per Option B (s8 v6 review-driven amendment) - applicability = the m-5/m-6 producer/profile manifest at step-4.5 completeness, NOT a registry predicate; conductor-derived, never lane-authored (R2). suppliability guard = the s5-b (h) typed-REJECT validator rule (channel-keyed, envelope-asymmetry preserved); until it lands, dormancy is render-absence, not submit-rejection - no non-lane-writability claim."},
 
     {"id": "slot_in", "layer": "header", "owner": "system", "type": "string", "fill_constraints": "system_only", "lineage_role": "none", "annotation": "opaque work-archetype tag; no values declared. suppliability guard = the s5-b (h) typed-REJECT validator rule (channel-keyed, envelope-asymmetry preserved); until it lands, dormancy is render-absence, not submit-rejection - no non-lane-writability claim."},
     {"id": "seat_archetype", "layer": "header", "owner": "system", "type": "string", "fill_constraints": "system_only", "lineage_role": "none", "annotation": "opaque conductor-stamped work-archetype home; per-assignment carriage is routing_assignments. suppliability guard = the s5-b (h) typed-REJECT validator rule (channel-keyed, envelope-asymmetry preserved); until it lands, dormancy is render-absence, not submit-rejection - no non-lane-writability claim."},

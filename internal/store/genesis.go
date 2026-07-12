@@ -1,7 +1,9 @@
 package store
 
 import (
+	"bytes"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -19,6 +21,8 @@ var (
 	ErrGenesisMissing  = errors.New("genesis missing")
 	ErrStoreNotAdopted = errors.New("store-not-adopted: run frank -bless")
 )
+
+const genesisFieldspecV5SHA256 = "1ef6abab4d496b11017f57ca400e8296d63824994ffce8311e4533f70cc92485"
 
 type ErrDigestMismatch struct {
 	Want string
@@ -44,6 +48,10 @@ func Init(root string, sources map[string]string) error {
 		data, err := os.ReadFile(source)
 		if err != nil {
 			return fmt.Errorf("read config source %s: %w", name, err)
+		}
+		data, err = genesisMemberBytes(name, data)
+		if err != nil {
+			return err
 		}
 		if err := fsio.WriteFileAtomic(root, target, data); err != nil {
 			return err
@@ -82,6 +90,31 @@ func Init(root string, sources map[string]string) error {
 		return ErrGenesisExists
 	}
 	return err
+}
+
+func genesisMemberBytes(name string, source []byte) ([]byte, error) {
+	if name != "fieldspec" || !bytes.Contains(source, []byte(`"version": "s8-fieldspec-v6"`)) {
+		return source, nil
+	}
+	predecessor := append([]byte(nil), source...)
+	replacements := [][2]string{
+		{`"version": "s8-fieldspec-v6"`, `"version": "s7a-fieldspec-v5"`},
+		{`"config_member": ["fieldspec", "engine", "catalog", "adoption"]`, `"config_member": ["fieldspec", "engine"]`},
+		{`"seat_scope": {"operator": ["fieldspec", "engine", "catalog", "adoption"]}`, `"seat_scope": {"operator": ["fieldspec", "engine"]}`},
+		{`"annotation": "non-gate-bearing records only; static required_when/visible_when REMOVED per Option B (s8 v6 review-driven amendment) - applicability = the m-5/m-6 producer/profile manifest at step-4.5 completeness, NOT a registry predicate; conductor-derived, never lane-authored (R2). suppliability guard = the s5-b (h) typed-REJECT validator rule (channel-keyed, envelope-asymmetry preserved); until it lands, dormancy is render-absence, not submit-rejection - no non-lane-writability claim."`, `"required_when": {"all_of": [{"layer_present": "observe"}]}, "visible_when": {"all_of": [{"layer_present": "observe"}]}, "annotation": "non-gate-bearing records only; Step-2+ semantics, annotation only. suppliability guard = the s5-b (h) typed-REJECT validator rule (channel-keyed, envelope-asymmetry preserved); until it lands, dormancy is render-absence, not submit-rejection - no non-lane-writability claim."`},
+	}
+	for _, replacement := range replacements {
+		old, next := []byte(replacement[0]), []byte(replacement[1])
+		if bytes.Count(predecessor, old) != 1 {
+			return nil, fmt.Errorf("fieldspec genesis predecessor mismatch")
+		}
+		predecessor = bytes.Replace(predecessor, old, next, 1)
+	}
+	sum := sha256.Sum256(predecessor)
+	if hex.EncodeToString(sum[:]) != genesisFieldspecV5SHA256 {
+		return nil, fmt.Errorf("fieldspec genesis predecessor hash mismatch")
+	}
+	return predecessor, nil
 }
 
 func StoreRootConfigPaths(root string) map[string]string {

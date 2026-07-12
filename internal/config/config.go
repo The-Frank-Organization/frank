@@ -13,6 +13,7 @@ import (
 )
 
 var ErrMissingEngine = errors.New("missing engine config member")
+var ErrConfigVersionTransition = errors.New("config-version-transition")
 
 type Pinned struct {
 	Members  map[string][]byte
@@ -110,4 +111,144 @@ func Digest(members map[string][]byte) string {
 	}
 	sum := sha256.Sum256(manifest)
 	return hex.EncodeToString(sum[:])
+}
+
+// ValidateMemberTransition is the acceptance-time, forward-only member gate.
+// It validates the candidate against the schema named by its marker before
+// checking the owner-supplied successor relation. Error text is deliberately
+// symbolic and path-free for the submit bounce surface.
+func ValidateMemberTransition(member string, current, candidate []byte) error {
+	switch member {
+	case "engine":
+		currentVersion, err := engineVersion(current)
+		if err != nil {
+			return ErrConfigVersionTransition
+		}
+		candidateVersion, err := validateEngineSchema(candidate)
+		if err != nil {
+			return ErrConfigVersionTransition
+		}
+		if candidateVersion == currentVersion || candidateVersion == currentVersion+1 && candidateVersion == 1 {
+			return nil
+		}
+		return ErrConfigVersionTransition
+	case "fieldspec":
+		return validateStringMarkerTransition(current, candidate, "s7a-fieldspec-v5", "s8-fieldspec-v6")
+	case "catalog":
+		return validateStringMarkerTransition(current, candidate, "s7-v1", "s8-v1")
+	default:
+		return ErrConfigVersionTransition
+	}
+}
+
+func engineVersion(data []byte) (int, error) {
+	var raw map[string]any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return 0, err
+	}
+	value, ok := raw["version"]
+	if !ok {
+		return 0, nil
+	}
+	number, ok := value.(float64)
+	if !ok || number < 0 || number != float64(int(number)) {
+		return 0, ErrConfigVersionTransition
+	}
+	return int(number), nil
+}
+
+func validateEngineSchema(data []byte) (int, error) {
+	var raw map[string]any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return 0, err
+	}
+	version, err := engineVersion(data)
+	if err != nil || version < 0 || version > 1 {
+		return 0, ErrConfigVersionTransition
+	}
+	allowed := map[string]string{
+		"gc_enabled":           "bool",
+		"segment_rotate_bytes": "number",
+		"max_frame_bytes":      "number",
+		"detector":             "object",
+	}
+	if version == 1 {
+		allowed["version"] = "number"
+		allowed["present_layers"] = "layers"
+	}
+	for key, value := range raw {
+		kind, ok := allowed[key]
+		if !ok || !matchesConfigKind(kind, value) {
+			return 0, ErrConfigVersionTransition
+		}
+	}
+	for _, required := range []string{"gc_enabled", "segment_rotate_bytes"} {
+		if _, ok := raw[required]; !ok {
+			return 0, ErrConfigVersionTransition
+		}
+	}
+	if version == 1 {
+		if _, ok := raw["version"]; !ok {
+			return 0, ErrConfigVersionTransition
+		}
+		if _, ok := raw["present_layers"]; !ok {
+			return 0, ErrConfigVersionTransition
+		}
+	}
+	return version, nil
+}
+
+func matchesConfigKind(kind string, value any) bool {
+	switch kind {
+	case "bool":
+		_, ok := value.(bool)
+		return ok
+	case "number":
+		number, ok := value.(float64)
+		return ok && number == float64(int64(number))
+	case "object":
+		_, ok := value.(map[string]any)
+		return ok
+	case "layers":
+		layers, ok := value.(map[string]any)
+		if !ok {
+			return false
+		}
+		for name, present := range layers {
+			if name != "observe" {
+				return false
+			}
+			if _, ok := present.(bool); !ok {
+				return false
+			}
+		}
+		return true
+	default:
+		return false
+	}
+}
+
+func validateStringMarkerTransition(current, candidate []byte, from, to string) error {
+	currentMarker, err := stringMarker(current)
+	if err != nil {
+		return ErrConfigVersionTransition
+	}
+	candidateMarker, err := stringMarker(candidate)
+	if err != nil {
+		return ErrConfigVersionTransition
+	}
+	if candidateMarker == currentMarker || currentMarker == from && candidateMarker == to {
+		return nil
+	}
+	return ErrConfigVersionTransition
+}
+
+func stringMarker(data []byte) (string, error) {
+	var raw struct {
+		Version string `json:"version"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil || raw.Version == "" {
+		return "", ErrConfigVersionTransition
+	}
+	return raw.Version, nil
 }

@@ -103,6 +103,12 @@ func TestS5RegistryRequiredLegsAndPredicateControls(t *testing.T) {
 	defaultCtx := fieldspec.EvalContext{PresentLayers: fieldspec.DefaultLayers()}
 	for _, id := range append(s5BlockAFieldNames(), s5BlockCFieldNames()...) {
 		field := requireS5Field(t, reg, id)
+		if id == "surface_intent" {
+			if len(field.RequiredWhen.Raw) != 0 || len(field.VisibleWhen.Raw) != 0 {
+				t.Fatalf("surface_intent retains Option-B static predicates required=%s visible=%s", field.RequiredWhen.Raw, field.VisibleWhen.Raw)
+			}
+			continue
+		}
 		if len(field.VisibleWhen.Raw) == 0 {
 			t.Fatalf("%s missing visible_when", id)
 		}
