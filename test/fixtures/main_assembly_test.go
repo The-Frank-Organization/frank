@@ -437,11 +437,11 @@ func TestFrankInitTwiceRejectsExistingGenesis(t *testing.T) {
 	bin := buildFrank(t, ctx)
 	sources := writeFixtureConfigSources(t)
 
-	first := exec.CommandContext(ctx, bin, "-root", root, "-registry", sources["fieldspec"], "-engine-config", sources["engine"], "-init")
+	first := exec.CommandContext(ctx, bin, "-root", root, "-registry", sources["fieldspec"], "-engine-config", sources["engine"], "-catalog", sources["catalog"], "-init")
 	if out, err := first.CombinedOutput(); err != nil {
 		t.Fatalf("first init: %v\n%s", err, out)
 	}
-	second := exec.CommandContext(ctx, bin, "-root", root, "-registry", sources["fieldspec"], "-engine-config", sources["engine"], "-init")
+	second := exec.CommandContext(ctx, bin, "-root", root, "-registry", sources["fieldspec"], "-engine-config", sources["engine"], "-catalog", sources["catalog"], "-init")
 	out, err := second.CombinedOutput()
 	if err == nil {
 		t.Fatalf("second init unexpectedly succeeded")
