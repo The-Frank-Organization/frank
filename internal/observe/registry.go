@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 type CheckEntry struct {
@@ -40,10 +41,12 @@ type SuiteExecutor interface {
 }
 
 type RegistryEnv struct {
-	Lanes       map[string]string
-	SchemaRefs  map[string]string
-	NamedSuites map[string]bool
-	Executor    SuiteExecutor
+	Lanes         map[string]string
+	SchemaRefs    map[string]string
+	NamedSuites   map[string]bool
+	Executor      SuiteExecutor
+	GitExecutable string
+	ReadTimeout   time.Duration
 }
 
 type Registry struct {
@@ -52,12 +55,22 @@ type Registry struct {
 }
 
 func NewRegistry(env RegistryEnv) *Registry {
+	gitExecutable := env.GitExecutable
+	if gitExecutable == "" {
+		gitExecutable = "git"
+	}
+	readTimeout := env.ReadTimeout
+	if readTimeout <= 0 {
+		readTimeout = readCheckTimeout
+	}
 	return &Registry{
 		env: RegistryEnv{
-			Lanes:       cloneMap(env.Lanes),
-			SchemaRefs:  cloneMap(env.SchemaRefs),
-			NamedSuites: cloneBoolMap(env.NamedSuites),
-			Executor:    env.Executor,
+			Lanes:         cloneMap(env.Lanes),
+			SchemaRefs:    cloneMap(env.SchemaRefs),
+			NamedSuites:   cloneBoolMap(env.NamedSuites),
+			Executor:      env.Executor,
+			GitExecutable: gitExecutable,
+			ReadTimeout:   readTimeout,
 		},
 		entries: map[string]CheckEntry{
 			"read-file": {
@@ -125,10 +138,14 @@ func (r *Registry) Evaluator(selection Selection) func(Candidate) PredicateResul
 			id = verdict.CheckID
 		}
 		return PredicateResult{
-			ID: id, Predicate: verdict.Predicate, MachineryFault: strings.HasPrefix(verdict.FailingDetail, "executor-"),
+			ID: id, Predicate: verdict.Predicate, MachineryFault: machineryFaultDetail(verdict.FailingDetail),
 			Verdicts: []CheckVerdict{verdict},
 		}
 	}
+}
+
+func machineryFaultDetail(detail string) bool {
+	return strings.HasPrefix(detail, "executor-") || strings.HasPrefix(detail, "check-machinery-")
 }
 
 func (r *Registry) validParams(entry CheckEntry, params map[string]string) bool {

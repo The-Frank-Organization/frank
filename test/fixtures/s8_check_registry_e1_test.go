@@ -8,14 +8,26 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackli/frank/internal/observe"
 	"github.com/jackli/frank/internal/record"
 )
 
 func TestS8CheckRegistryDescriptorsAndIPHValidation(t *testing.T) {
+	lane := t.TempDir()
+	outside := t.TempDir()
+	if err := os.WriteFile(filepath.Join(outside, "secret"), []byte("x\n"), 0o644); err != nil {
+		t.Fatalf("write outside fixture: %v", err)
+	}
+	if err := os.Symlink(filepath.Join(outside, "secret"), filepath.Join(lane, "escape")); err != nil {
+		t.Fatalf("symlink outside fixture: %v", err)
+	}
+	if err := os.Symlink(filepath.Join(outside, "missing"), filepath.Join(lane, "broken-escape")); err != nil {
+		t.Fatalf("broken symlink outside fixture: %v", err)
+	}
 	reg := observe.NewRegistry(observe.RegistryEnv{
-		Lanes:       map[string]string{"lane-a": t.TempDir()},
+		Lanes:       map[string]string{"lane-a": lane},
 		NamedSuites: map[string]bool{"all": true},
 	})
 	readFile, ok := reg.Entry("read-file")
@@ -34,6 +46,8 @@ func TestS8CheckRegistryDescriptorsAndIPHValidation(t *testing.T) {
 	for _, selection := range []observe.Selection{
 		{CheckID: "read-file", ClaimRef: "abs", Params: map[string]string{"lane_ref": "lane-a", "path": filepath.Join(string(filepath.Separator), "secret"), "expect": "line:x"}},
 		{CheckID: "read-file", ClaimRef: "traversal", Params: map[string]string{"lane_ref": "lane-a", "path": "../secret", "expect": "line:x"}},
+		{CheckID: "read-file", ClaimRef: "symlink-escape", Params: map[string]string{"lane_ref": "lane-a", "path": "escape", "expect": "line:x"}},
+		{CheckID: "read-file", ClaimRef: "broken-symlink-escape", Params: map[string]string{"lane_ref": "lane-a", "path": "broken-escape", "expect": "line:x"}},
 		{CheckID: "run-suite", ClaimRef: "command", Params: map[string]string{"target": "go test ./...; leak", "expect_green": "true"}},
 	} {
 		verdict := reg.Run(selection)
@@ -107,6 +121,63 @@ func TestS8GitStatusObservesCleanDirtyAndVetoesFalseCleanClaim(t *testing.T) {
 	if terminal != record.Rejected || result.FailingPredicate != "clean-tree" {
 		t.Fatalf("false clean claim terminal = %q, result = %#v", terminal, result)
 	}
+}
+
+func TestS8E1DistinguishesMachineryFaultsFromObservedAbsence(t *testing.T) {
+	lane := t.TempDir()
+	if err := os.Mkdir(filepath.Join(lane, "not-a-file"), 0o755); err != nil {
+		t.Fatalf("mkdir read-file machinery fixture: %v", err)
+	}
+	git := s8TimeoutGit(t)
+	reg := observe.NewRegistry(observe.RegistryEnv{
+		Lanes:         map[string]string{"lane-a": lane},
+		GitExecutable: git,
+		ReadTimeout:   20 * time.Millisecond,
+	})
+
+	for _, tc := range []struct {
+		name      string
+		selection observe.Selection
+		detail    string
+	}{
+		{
+			name: "git status timeout is machinery",
+			selection: observe.Selection{CheckID: "git-status", ClaimRef: "git-timeout", Params: map[string]string{
+				"lane_ref": "lane-a", "expect": "clean",
+			}},
+			detail: "check-machinery-git-status-timeout",
+		},
+		{
+			name: "read file IO error is machinery",
+			selection: observe.Selection{CheckID: "read-file", ClaimRef: "read-error", Params: map[string]string{
+				"lane_ref": "lane-a", "path": "not-a-file", "expect": "line:x",
+			}},
+			detail: "check-machinery-read-file",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			verdict := reg.Run(tc.selection)
+			if verdict.Outcome != "skipped" || verdict.Predicate != observe.Blocked || verdict.FailingDetail != tc.detail {
+				t.Fatalf("verdict = %#v", verdict)
+			}
+		})
+	}
+
+	missing := reg.Run(observe.Selection{CheckID: "read-file", ClaimRef: "missing", Params: map[string]string{
+		"lane_ref": "lane-a", "path": "missing.txt", "expect": "line:x",
+	}})
+	if missing.Outcome != "fail" || missing.Predicate != observe.Fail || missing.FailingDetail != "read-file-absent" {
+		t.Fatalf("missing-file verdict = %#v", missing)
+	}
+}
+
+func s8TimeoutGit(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "git")
+	if err := os.WriteFile(path, []byte("#!/bin/sh\nsleep 1\n"), 0o755); err != nil {
+		t.Fatalf("write timeout git: %v", err)
+	}
+	return path
 }
 
 func s8Git(t *testing.T, dir string, args ...string) {

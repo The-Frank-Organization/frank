@@ -22,7 +22,10 @@ func (r *Registry) runReadFile(selection Selection) CheckVerdict {
 	_ = root
 	data, err := os.ReadFile(full)
 	if err != nil {
-		return baseVerdict(selection, false, "read-unavailable")
+		if os.IsNotExist(err) {
+			return baseVerdict(selection, false, "read-file-absent")
+		}
+		return machineryVerdict(selection, "check-machinery-read-file", "")
 	}
 	expect := selection.Params["expect"]
 	matched := false
@@ -47,15 +50,15 @@ func (r *Registry) runReadFile(selection Selection) CheckVerdict {
 
 func (r *Registry) runGitStatus(selection Selection) CheckVerdict {
 	root := r.env.Lanes[selection.Params["lane_ref"]]
-	ctx, cancel := context.WithTimeout(context.Background(), readCheckTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), r.env.ReadTimeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "git", "-C", root, "status", "--porcelain", "--untracked-files=normal")
+	cmd := exec.CommandContext(ctx, r.env.GitExecutable, "-C", root, "status", "--porcelain", "--untracked-files=normal")
 	out, err := cmd.Output()
-	if ctx.Err() != nil || err != nil {
-		return CheckVerdict{
-			CheckID: selection.CheckID, ClaimRef: selection.ClaimRef,
-			Outcome: "unsafe", Predicate: Blocked, FailingDetail: "git-status-unavailable",
-		}
+	if ctx.Err() != nil {
+		return machineryVerdict(selection, "check-machinery-git-status-timeout", "timeout")
+	}
+	if err != nil {
+		return machineryVerdict(selection, "check-machinery-git-status", "")
 	}
 	isClean := len(bytes.TrimSpace(out)) == 0
 	matched := selection.Params["expect"] == "clean" && isClean || selection.Params["expect"] == "dirty" && !isClean
@@ -71,15 +74,34 @@ func (r *Registry) scopedPath(laneRef, relative string) (string, string, bool) {
 	if err != nil {
 		return "", "", false
 	}
-	resolvedFull, err := filepath.EvalSymlinks(filepath.Join(resolvedRoot, filepath.Clean(relative)))
+	full := filepath.Join(resolvedRoot, filepath.Clean(relative))
+	resolvedFull, err := filepath.EvalSymlinks(full)
 	if err != nil {
-		return "", "", false
+		if !os.IsNotExist(err) {
+			return "", "", false
+		}
+		if _, statErr := os.Lstat(full); statErr == nil || !os.IsNotExist(statErr) {
+			return "", "", false
+		}
+		resolvedParent, parentErr := filepath.EvalSymlinks(filepath.Dir(full))
+		if parentErr != nil {
+			return "", "", false
+		}
+		resolvedFull = filepath.Join(resolvedParent, filepath.Base(full))
 	}
 	rel, err := filepath.Rel(resolvedRoot, resolvedFull)
 	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		return "", "", false
 	}
 	return resolvedRoot, resolvedFull, true
+}
+
+func machineryVerdict(selection Selection, detail, timing string) CheckVerdict {
+	return CheckVerdict{
+		CheckID: selection.CheckID, ClaimRef: selection.ClaimRef,
+		Outcome: "skipped", RungReached: "none", Predicate: Blocked,
+		Timing: timing, FailingDetail: detail,
+	}
 }
 
 func baseVerdict(selection Selection, pass bool, failingDetail string) CheckVerdict {
