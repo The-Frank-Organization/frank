@@ -5,28 +5,21 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
-	"time"
 )
 
-const readCheckTimeout = 5 * time.Second
-
 func (r *Registry) runReadFile(selection Selection) CheckVerdict {
-	root, full, ok := r.scopedPath(selection.Params["lane_ref"], selection.Params["path"])
-	if !ok {
-		return refusedVerdict(selection)
+	result := r.executeReadFile(selection.Params["lane_ref"], selection.Params["path"])
+	switch result.kind {
+	case readFileResultAbsent:
+		return baseVerdict(selection, false, result.detail)
+	case readFileResultRefused:
+		return refusedVerdictWithDetail(selection, result.detail)
+	case readFileResultMachinery:
+		return machineryVerdict(selection, result.detail, result.timing)
 	}
-	_ = root
-	data, err := os.ReadFile(full)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return baseVerdict(selection, false, "read-file-absent")
-		}
-		return machineryVerdict(selection, "check-machinery-read-file", "")
-	}
+	data := result.data
 	expect := selection.Params["expect"]
 	matched := false
 	switch {
@@ -63,37 +56,6 @@ func (r *Registry) runGitStatus(selection Selection) CheckVerdict {
 	isClean := len(bytes.TrimSpace(out)) == 0
 	matched := selection.Params["expect"] == "clean" && isClean || selection.Params["expect"] == "dirty" && !isClean
 	return baseVerdict(selection, matched, "git-status-mismatch")
-}
-
-func (r *Registry) scopedPath(laneRef, relative string) (string, string, bool) {
-	root := r.env.Lanes[laneRef]
-	if root == "" || !validRelativePath(relative) {
-		return "", "", false
-	}
-	resolvedRoot, err := filepath.EvalSymlinks(root)
-	if err != nil {
-		return "", "", false
-	}
-	full := filepath.Join(resolvedRoot, filepath.Clean(relative))
-	resolvedFull, err := filepath.EvalSymlinks(full)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			return "", "", false
-		}
-		if _, statErr := os.Lstat(full); statErr == nil || !os.IsNotExist(statErr) {
-			return "", "", false
-		}
-		resolvedParent, parentErr := filepath.EvalSymlinks(filepath.Dir(full))
-		if parentErr != nil {
-			return "", "", false
-		}
-		resolvedFull = filepath.Join(resolvedParent, filepath.Base(full))
-	}
-	rel, err := filepath.Rel(resolvedRoot, resolvedFull)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return "", "", false
-	}
-	return resolvedRoot, resolvedFull, true
 }
 
 func machineryVerdict(selection Selection, detail, timing string) CheckVerdict {
