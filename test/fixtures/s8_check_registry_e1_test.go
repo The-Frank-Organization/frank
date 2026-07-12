@@ -1,0 +1,118 @@
+package fixtures_test
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/jackli/frank/internal/observe"
+	"github.com/jackli/frank/internal/record"
+)
+
+func TestS8CheckRegistryDescriptorsAndIPHValidation(t *testing.T) {
+	reg := observe.NewRegistry(observe.RegistryEnv{
+		Lanes:       map[string]string{"lane-a": t.TempDir()},
+		NamedSuites: map[string]bool{"all": true},
+	})
+	readFile, ok := reg.Entry("read-file")
+	if !ok || readFile.Rung != "E1" || readFile.Class != "base" || readFile.ExecutorRequired || readFile.TimeoutClass != "read_short" {
+		t.Fatalf("read-file descriptor = %#v, ok = %v", readFile, ok)
+	}
+	gitStatus, ok := reg.Entry("git-status")
+	if !ok || gitStatus.Rung != "E1" || gitStatus.Class != "base" || gitStatus.ExecutorRequired {
+		t.Fatalf("git-status descriptor = %#v, ok = %v", gitStatus, ok)
+	}
+	runSuite, ok := reg.Entry("run-suite")
+	if !ok || runSuite.Rung != "E2" || runSuite.Class != "suite" || !runSuite.ExecutorRequired {
+		t.Fatalf("run-suite descriptor = %#v, ok = %v", runSuite, ok)
+	}
+
+	for _, selection := range []observe.Selection{
+		{CheckID: "read-file", ClaimRef: "abs", Params: map[string]string{"lane_ref": "lane-a", "path": filepath.Join(string(filepath.Separator), "secret"), "expect": "line:x"}},
+		{CheckID: "read-file", ClaimRef: "traversal", Params: map[string]string{"lane_ref": "lane-a", "path": "../secret", "expect": "line:x"}},
+		{CheckID: "run-suite", ClaimRef: "command", Params: map[string]string{"target": "go test ./...; leak", "expect_green": "true"}},
+	} {
+		verdict := reg.Run(selection)
+		if verdict.Outcome != "unsafe" || verdict.Predicate != observe.Blocked || verdict.FailingDetail != "check-params-refused" {
+			t.Fatalf("selection %#v was not refused before execution: %#v", selection, verdict)
+		}
+		if strings.Contains(verdict.FailingDetail, "secret") || strings.Contains(verdict.FailingDetail, string(filepath.Separator)) {
+			t.Fatalf("refusal leaked a path: %#v", verdict)
+		}
+	}
+}
+
+func TestS8ReadFileChecksLineHashAndSchemaRef(t *testing.T) {
+	lane := t.TempDir()
+	data := []byte("alpha\nbeta\n")
+	if err := os.WriteFile(filepath.Join(lane, "artifact.txt"), data, 0o644); err != nil {
+		t.Fatalf("write artifact: %v", err)
+	}
+	sum := sha256.Sum256(data)
+	reg := observe.NewRegistry(observe.RegistryEnv{
+		Lanes:      map[string]string{"lane-a": lane},
+		SchemaRefs: map[string]string{"artifact-schema": hex.EncodeToString(sum[:])},
+	})
+	for _, tc := range []struct {
+		name   string
+		expect string
+	}{
+		{name: "line", expect: "line:beta"},
+		{name: "hash", expect: "hash:" + hex.EncodeToString(sum[:])},
+		{name: "schema-ref", expect: "schema_ref:artifact-schema"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			verdict := reg.Run(observe.Selection{
+				CheckID: "read-file", ClaimRef: tc.name,
+				Params: map[string]string{"lane_ref": "lane-a", "path": "artifact.txt", "expect": tc.expect},
+			})
+			if verdict.Outcome != "pass" || verdict.Predicate != observe.Pass || verdict.RungReached != "E1" {
+				t.Fatalf("verdict = %#v", verdict)
+			}
+		})
+	}
+}
+
+func TestS8GitStatusObservesCleanDirtyAndVetoesFalseCleanClaim(t *testing.T) {
+	lane := t.TempDir()
+	s8Git(t, lane, "init", "-q")
+	s8Git(t, lane, "config", "user.email", "fixture@example.invalid")
+	s8Git(t, lane, "config", "user.name", "Fixture")
+	if err := os.WriteFile(filepath.Join(lane, "tracked.txt"), []byte("clean\n"), 0o644); err != nil {
+		t.Fatalf("write tracked: %v", err)
+	}
+	s8Git(t, lane, "add", "tracked.txt")
+	s8Git(t, lane, "commit", "-qm", "fixture")
+	reg := observe.NewRegistry(observe.RegistryEnv{Lanes: map[string]string{"lane-a": lane}})
+	selection := observe.Selection{CheckID: "git-status", ClaimRef: "clean-tree", Params: map[string]string{"lane_ref": "lane-a", "expect": "clean"}}
+	if verdict := reg.Run(selection); verdict.Outcome != "pass" || verdict.Predicate != observe.Pass {
+		t.Fatalf("clean verdict = %#v", verdict)
+	}
+	if err := os.WriteFile(filepath.Join(lane, "tracked.txt"), []byte("dirty\n"), 0o644); err != nil {
+		t.Fatalf("dirty tracked: %v", err)
+	}
+	if verdict := reg.Run(selection); verdict.Outcome != "fail" || verdict.Predicate != observe.Fail || verdict.FailingDetail != "git-status-mismatch" {
+		t.Fatalf("dirty verdict = %#v", verdict)
+	}
+
+	cand := record.Record{Headers: map[string]string{"FINAL_GIT_STATUS_SHORT": "none - clean tree", "EVIDENCE_TARGET": "E1"}}
+	result, terminal := observe.Gate(cand, "seat-a", "SITREP", "report-only", observe.Env{
+		PresentLayers: map[string]bool{"observe": true},
+		Evaluate:      reg.Evaluator(selection),
+	})
+	if terminal != record.Rejected || result.FailingPredicate != "clean-tree" {
+		t.Fatalf("false clean claim terminal = %q, result = %#v", terminal, result)
+	}
+}
+
+func s8Git(t *testing.T, dir string, args ...string) {
+	t.Helper()
+	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git %v: %v: %s", args, err, out)
+	}
+}
