@@ -2,9 +2,11 @@ package observe
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -243,6 +245,51 @@ func (r *Registry) EvaluateClaims(raw string, candidate Candidate) PredicateResu
 		result.ID, result.Predicate = firstNoVantage, Blocked
 	}
 	return result
+}
+
+// Evaluate preserves executable declarations as an additive rung: a present
+// declaration uses the closed claim path unchanged, while absence retains the
+// phase-shaped git-provenance floor.
+func (r *Registry) Evaluate(raw string, candidate Candidate) PredicateResult {
+	if raw != "" {
+		return r.EvaluateClaims(raw, candidate)
+	}
+	return r.evaluateAbsenceFloor(candidate)
+}
+
+func (r *Registry) evaluateAbsenceFloor(candidate Candidate) PredicateResult {
+	root := r.env.Lanes["repo"]
+	if root == "" {
+		return PredicateResult{ID: "git-provenance", Predicate: Blocked, MachineryFault: true}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), r.env.ReadTimeout)
+	defer cancel()
+
+	actionRef := candidate.Record.Headers["ACTIONS_GIT_REF"]
+	at := strings.LastIndexByte(actionRef, '@')
+	if at < 0 || at == len(actionRef)-1 {
+		return PredicateResult{ID: "ACTIONS_GIT_REF", Predicate: Fail}
+	}
+	ref := actionRef[at+1:]
+	if err := exec.CommandContext(ctx, r.env.GitExecutable, "-C", root, "rev-parse", "--verify", ref+"^{commit}").Run(); err != nil {
+		if ctx.Err() != nil {
+			return PredicateResult{ID: "git-provenance", Predicate: Blocked, MachineryFault: true}
+		}
+		return PredicateResult{ID: "ACTIONS_GIT_REF", Predicate: Fail}
+	}
+
+	status, err := exec.CommandContext(ctx, r.env.GitExecutable, "-C", root, "status", "--porcelain", "--untracked-files=normal").Output()
+	if err != nil {
+		return PredicateResult{ID: "git-provenance", Predicate: Blocked, MachineryFault: true}
+	}
+	observedStatus := strings.TrimSpace(string(status))
+	if observedStatus == "" {
+		observedStatus = "none - clean tree"
+	}
+	if candidate.Record.Headers["FINAL_GIT_STATUS_SHORT"] != observedStatus {
+		return PredicateResult{ID: "FINAL_GIT_STATUS_SHORT", Predicate: Fail}
+	}
+	return PredicateResult{ID: "phase-done", Predicate: Pass}
 }
 
 func validClaimRef(value string) bool {

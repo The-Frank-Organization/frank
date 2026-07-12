@@ -34,7 +34,7 @@ func SubmitHandlerWithClaimRegistry(st *store.Store, reg *fieldspec.Registry, me
 	observeEnv := observe.Env{PresentLayers: env.PresentLayers}
 	if checks != nil {
 		observeEnv.Evaluate = func(candidate observe.Candidate) observe.PredicateResult {
-			return checks.EvaluateClaims(candidate.Record.Headers["executable_claims"], candidate)
+			return checks.Evaluate(candidate.Record.Headers["executable_claims"], candidate)
 		}
 	}
 	return submitHandlerWithObservation(st, reg, meta, env, observeEnv, checks, existing...)
