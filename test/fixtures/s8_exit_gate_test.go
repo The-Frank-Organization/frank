@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -77,9 +78,15 @@ func TestS8ExitGateFreshGenesisActivationAndDogfoodLegs(t *testing.T) {
 		"EVIDENCE_TARGET": "E1", "SUBJECT": "dogfood observed send", "TO": `["recipient.planner"]`,
 		"ACTIONS_GIT_REF": "branch@candidate", "FINAL_GIT_STATUS_SHORT": "none - clean tree",
 	}, Body: "done"}
+	laneRoot := t.TempDir()
+	checks := observe.NewRegistry(observe.RegistryEnv{Lanes: map[string]string{"repo": laneRoot}})
+	base.Headers["executable_claims"] = s8Claims(t, map[string]string{
+		"claim_ref": "done-predicate", "check_id": "read-file",
+		"params": s8ClaimParams(t, map[string]string{"lane_ref": "repo", "path": "missing-done", "expect": "line:done"}),
+	})
 
-	failing := s8SubmitWithObservation(t, restarted, activated.Registry, meta, renderEnv, base, observe.PredicateResult{ID: "done-predicate", Predicate: observe.Fail}, "exit-leg-1")
-	if failing.rec.Envelope.DeliveryState != record.Rejected || failing.rec.Headers["achieved_evidence"] != "E0" || failing.rec.Headers["record_integrity"] != "observed" {
+	failing := s8SubmitWithClaimRegistry(t, restarted, activated.Registry, meta, renderEnv, base, checks, "exit-leg-1")
+	if failing.rec.Envelope.DeliveryState != record.Rejected || failing.rec.Headers["achieved_evidence"] != "E0" || failing.rec.Headers["record_integrity"] != "observed" || !strings.Contains(failing.rec.Body, "done-predicate") {
 		t.Fatalf("exit leg 1 record = %#v", failing.rec)
 	}
 	if failing.intents != nil {
@@ -92,7 +99,16 @@ func TestS8ExitGateFreshGenesisActivationAndDogfoodLegs(t *testing.T) {
 		t.Fatalf("exit leg 1 recipient projection = %v, err=%v", projected, err)
 	}
 
-	passing := s8SubmitWithObservation(t, restarted, activated.Registry, meta, renderEnv, base, observe.PredicateResult{ID: "done-predicate", Predicate: observe.Pass}, "exit-leg-2")
+	if err := os.WriteFile(filepath.Join(laneRoot, "done"), []byte("done\n"), 0o600); err != nil {
+		t.Fatalf("write observed done predicate: %v", err)
+	}
+	passingRecord := base
+	passingRecord.Headers = cloneStringMap(base.Headers)
+	passingRecord.Headers["executable_claims"] = s8Claims(t, map[string]string{
+		"claim_ref": "done-predicate", "check_id": "read-file",
+		"params": s8ClaimParams(t, map[string]string{"lane_ref": "repo", "path": "done", "expect": "line:done"}),
+	})
+	passing := s8SubmitWithClaimRegistry(t, restarted, activated.Registry, meta, renderEnv, passingRecord, checks, "exit-leg-2")
 	if passing.rec.Envelope.DeliveryState != record.Accepted || passing.rec.Headers["achieved_evidence"] != "E1" || passing.rec.Headers["target_gap_result"] != "met" || passing.rec.Headers["record_integrity"] != "observed" || passing.rec.Headers["attestation_source"] != "conductor" {
 		t.Fatalf("exit leg 2 record = %#v", passing.rec)
 	}
@@ -456,6 +472,111 @@ func TestS8ExecutableClaimTypedRejects(t *testing.T) {
 	}
 }
 
+func TestS8ClaimlessAbsenceFloor(t *testing.T) {
+	t.Run("report ceiling degrades at E0 and reports the target gap", func(t *testing.T) {
+		root := t.TempDir()
+		gitInit(t, root)
+		reg := observe.NewRegistry(observe.RegistryEnv{Lanes: map[string]string{"repo": root}})
+		cand := record.Record{Headers: map[string]string{
+			"authority_class": "no", "EVIDENCE_TARGET": "E1",
+			"ACTIONS_GIT_REF": "branch@arbitrary-unbound-ref", "FINAL_GIT_STATUS_SHORT": "none - clean tree",
+		}}
+		result, terminal := observe.Gate(cand, "lane-a", "SITREP", "report-only", observe.Env{
+			PresentLayers: map[string]bool{"observe": true},
+			Evaluate:      func(candidate observe.Candidate) observe.PredicateResult { return reg.EvaluateClaims("", candidate) },
+		})
+		if terminal != record.Accepted || result.PredicateResult != observe.Degraded || result.FailingPredicate != "" || result.ObservedFields["achieved_evidence"] != "E0" || result.ObservedFields["target_gap_result"] != "target_gt_achieved" || result.ObservedFields["record_integrity"] != "self_reported" {
+			t.Fatalf("claimless report floor = terminal %s, result %#v", terminal, result)
+		}
+	})
+
+	t.Run("decision two authority holds and escalates at E0", func(t *testing.T) {
+		root := t.TempDir()
+		gitInit(t, root)
+		reg := observe.NewRegistry(observe.RegistryEnv{Lanes: map[string]string{"repo": root}})
+		cand := record.Record{Headers: map[string]string{
+			"authority_class": "yes", "EVIDENCE_TARGET": "E1", "FINAL_GIT_STATUS_SHORT": "none - clean tree",
+		}}
+		result, terminal := observe.Gate(cand, "planner", "PLAN", "plan-only", observe.Env{
+			PresentLayers: map[string]bool{"observe": true},
+			Evaluate:      func(candidate observe.Candidate) observe.PredicateResult { return reg.EvaluateClaims("", candidate) },
+		})
+		if terminal != record.Held || !result.Escalate || result.PredicateResult != observe.Degraded || result.ObservedFields["achieved_evidence"] != "E0" {
+			t.Fatalf("claimless authority floor = terminal %s, result %#v", terminal, result)
+		}
+	})
+
+	t.Run("observed dirt rejects a clean declaration", func(t *testing.T) {
+		root := t.TempDir()
+		gitInit(t, root)
+		if err := os.WriteFile(filepath.Join(root, "dirty.txt"), []byte("dirty"), 0o600); err != nil {
+			t.Fatalf("write observed dirt: %v", err)
+		}
+		reg := observe.NewRegistry(observe.RegistryEnv{Lanes: map[string]string{"repo": root}})
+		cand := record.Record{Headers: map[string]string{"authority_class": "no", "FINAL_GIT_STATUS_SHORT": "none - clean tree"}}
+		result, terminal := observe.Gate(cand, "lane-a", "SITREP", "report-only", observe.Env{
+			PresentLayers: map[string]bool{"observe": true},
+			Evaluate:      func(candidate observe.Candidate) observe.PredicateResult { return reg.EvaluateClaims("", candidate) },
+		})
+		if terminal != record.Rejected || result.PredicateResult != observe.Fail || result.FailingPredicate != "FINAL_GIT_STATUS_SHORT" || result.FailureClass != "observed-false" {
+			t.Fatalf("clean declaration over dirt = terminal %s, result %#v", terminal, result)
+		}
+	})
+
+	t.Run("malformed porcelain fails closed with a typed format fault", func(t *testing.T) {
+		root := t.TempDir()
+		git := fakeGitStatus(t, "M malformed\n")
+		reg := observe.NewRegistry(observe.RegistryEnv{Lanes: map[string]string{"repo": root}, GitExecutable: git})
+		got := reg.EvaluateClaims("", observe.Candidate{Phase: "SITREP", Authority: "report-only", Record: record.Record{Headers: map[string]string{
+			"FINAL_GIT_STATUS_SHORT": "M malformed",
+		}}})
+		if got.Predicate != observe.Fail || got.ID != "FINAL_GIT_STATUS_SHORT" || got.FailureClass != "git-status-porcelain-invalid" {
+			t.Fatalf("malformed porcelain = %#v", got)
+		}
+	})
+
+	t.Run("porcelain preserves both status columns without trimming", func(t *testing.T) {
+		root := t.TempDir()
+		git := fakeGitStatus(t, " M worktree.txt\nR  old.txt -> new.txt\n")
+		reg := observe.NewRegistry(observe.RegistryEnv{Lanes: map[string]string{"repo": root}, GitExecutable: git})
+		got := reg.EvaluateClaims("", observe.Candidate{Phase: "SITREP", Authority: "report-only", Record: record.Record{Headers: map[string]string{
+			"FINAL_GIT_STATUS_SHORT": " M worktree.txt\nR  old.txt -> new.txt",
+		}}})
+		if got.Predicate != observe.Degraded || got.ID == "observe-unavailable" {
+			t.Fatalf("valid fixed-column porcelain = %#v", got)
+		}
+	})
+
+	t.Run("candidate unavailable cannot suppress readable conductor vantage", func(t *testing.T) {
+		root := t.TempDir()
+		gitInit(t, root)
+		reg := observe.NewRegistry(observe.RegistryEnv{Lanes: map[string]string{"repo": root}})
+		got := reg.EvaluateClaims("", observe.Candidate{Phase: "SITREP", Authority: "read-only", Record: record.Record{Headers: map[string]string{
+			"FINAL_GIT_STATUS_SHORT": "unavailable - candidate cwd",
+		}}})
+		if got.Predicate != observe.Fail || got.ID != "FINAL_GIT_STATUS_SHORT" {
+			t.Fatalf("candidate unavailable over readable root = %#v", got)
+		}
+	})
+
+	for _, tc := range []struct {
+		name, phase, authority string
+	}{
+		{name: "implementation IMPL", phase: "IMPL", authority: "implementation"},
+		{name: "fold in REVIEW-FOLD", phase: "REVIEW-FOLD", authority: "fold-in-only"},
+		{name: "merge gated MERGE-GATE", phase: "MERGE-GATE", authority: "merge-gated"},
+		{name: "live verify LIVE-VERIFY", phase: "LIVE-VERIFY", authority: "live-verify"},
+	} {
+		t.Run(tc.name+" refuses typed", func(t *testing.T) {
+			reg := observe.NewRegistry(observe.RegistryEnv{Lanes: map[string]string{"repo": t.TempDir()}})
+			got := reg.EvaluateClaims("", observe.Candidate{Phase: tc.phase, Authority: tc.authority})
+			if got.Predicate != observe.Fail || got.FailureClass != "phase-predicate-deferred" {
+				t.Fatalf("deferred row %s/%s = %#v", tc.authority, tc.phase, got)
+			}
+		})
+	}
+}
+
 func TestS8ExecutableClaimAggregationPrecedence(t *testing.T) {
 	exec := &s8ClaimExecutor{verdicts: map[string]observe.CheckVerdict{
 		"pass":      {Outcome: "pass", RungReached: "E2", Predicate: observe.Pass},
@@ -539,27 +660,49 @@ func s8Claims(t *testing.T, rows ...map[string]string) string {
 	return raw
 }
 
+func gitInit(t *testing.T, root string) {
+	t.Helper()
+	if out, err := exec.Command("git", "-C", root, "init", "--quiet").CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v: %s", err, out)
+	}
+}
+
+func fakeGitStatus(t *testing.T, porcelain string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "git")
+	script := "#!/bin/sh\nprintf '%b' " + fmt.Sprintf("%q", porcelain) + "\n"
+	if err := os.WriteFile(path, []byte(script), 0o700); err != nil {
+		t.Fatalf("write fake git: %v", err)
+	}
+	return path
+}
+
 type s8SubmitResult struct {
 	rec     record.Record
 	intents []store.Intent
 }
 
-func s8SubmitWithObservation(t *testing.T, st *store.Store, reg *fieldspec.Registry, meta seat.SeatMeta, renderEnv fieldspec.RenderEnv, rec record.Record, result observe.PredicateResult, intakeID string) s8SubmitResult {
+func s8SubmitWithClaimRegistry(t *testing.T, st *store.Store, reg *fieldspec.Registry, meta seat.SeatMeta, renderEnv fieldspec.RenderEnv, rec record.Record, checks *observe.Registry, intakeID string) s8SubmitResult {
 	t.Helper()
 	_, digest := reg.Render(renderEnv, fieldspec.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator}, rec.Headers["PHASE"], rec.Headers["CEREMONY_TIER"], fieldspec.ClosedGrantState)
 	payload, err := json.Marshal(fieldspec.SubmitPayload{Record: rec, FormDigest: digest})
 	if err != nil {
 		t.Fatalf("marshal observed submit: %v", err)
 	}
-	handler := engine.SubmitHandlerWithObservation(st, reg, meta, renderEnv, observe.Env{
-		PresentLayers: renderEnv.PresentLayers,
-		Evaluate:      func(observe.Candidate) observe.PredicateResult { return result },
-	})
+	handler := engine.SubmitHandlerWithClaimRegistry(st, reg, meta, renderEnv, checks)
 	got, intents, err := handler(context.Background(), intake.Cmd{IntakeID: intakeID, Seat: meta.Name, Role: meta.Role, Payload: payload})
 	if err != nil {
 		t.Fatalf("observed submit: %v", err)
 	}
 	return s8SubmitResult{rec: got, intents: intents}
+}
+
+func cloneStringMap(in map[string]string) map[string]string {
+	out := make(map[string]string, len(in))
+	for key, value := range in {
+		out[key] = value
+	}
+	return out
 }
 
 func s8CommitOperatorConfigChange(t *testing.T, st *store.Store, member string, body []byte) {

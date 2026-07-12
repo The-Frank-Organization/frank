@@ -211,6 +211,9 @@ func (r *Registry) ValidateClaims(raw string) ([]Selection, *ClaimIssue) {
 }
 
 func (r *Registry) EvaluateClaims(raw string, candidate Candidate) PredicateResult {
+	if raw == "" {
+		return r.evaluateAbsenceFloor(candidate)
+	}
 	selections, issue := r.ValidateClaims(raw)
 	if issue != nil {
 		return PredicateResult{ID: issue.ClaimRef, Predicate: Fail, FailureClass: issue.Class}
