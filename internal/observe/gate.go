@@ -27,6 +27,7 @@ type PredicateResult struct {
 	ID             string
 	Predicate      string
 	ObservedFields map[string]string
+	Verdicts       []CheckVerdict
 }
 
 type Env struct {
@@ -80,15 +81,17 @@ func Gate(cand record.Record, seat, phase, authority string, env Env) (ObserveRe
 			return ObserveResult{
 				PredicateResult:  Fail,
 				Veto:             "block_delivery",
-				ObservedFields:   baseStamps(cand, verdict.ID, Fail),
+				ObservedFields:   baseStamps(cand, PredicateResult{ID: verdict.ID, Predicate: Fail}),
 				FailingPredicate: "observe-write-allowlist",
 			}, record.Rejected
 		}
 	}
 
-	stamps := baseStamps(cand, verdict.ID, verdict.Predicate)
+	stamps := baseStamps(cand, verdict)
 	for field, value := range verdict.ObservedFields {
-		stamps[field] = value
+		if !bindingField(field) {
+			stamps[field] = value
+		}
 	}
 	result := ObserveResult{PredicateResult: verdict.Predicate, ObservedFields: stamps}
 	switch verdict.Predicate {
@@ -110,45 +113,103 @@ func Gate(cand record.Record, seat, phase, authority string, env Env) (ObserveRe
 	}
 }
 
-func baseStamps(cand record.Record, checkID, predicate string) map[string]string {
+func baseStamps(cand record.Record, result PredicateResult) map[string]string {
 	outcome := "fail"
 	achieved := "E0"
 	integrity := "observed"
-	if predicate == Pass {
+	if result.Predicate == Pass {
 		outcome = "pass"
 		achieved = "E1"
 	}
-	if predicate == Blocked || predicate == Degraded {
+	if result.Predicate == Blocked || result.Predicate == Degraded {
 		integrity = "self_reported"
+	}
+	claimRows := []map[string]string{}
+	integrityFields := map[string]string{
+		"ACTIONS_GIT_REF":        "observed",
+		"FINAL_GIT_STATUS_SHORT": "observed",
+	}
+	if len(result.Verdicts) > 0 {
+		achieved = "E0"
+		integrityFields = map[string]string{}
+		observed, selfReported := false, false
+		for _, verdict := range result.Verdicts {
+			claimRows = append(claimRows, map[string]string{
+				"claim_ref": verdict.ClaimRef,
+				"check_id":  verdict.CheckID,
+				"outcome":   verdict.Outcome,
+			})
+			if verdict.Outcome == "pass" && evidenceRank(verdict.RungReached) > evidenceRank(achieved) {
+				achieved = verdict.RungReached
+			}
+			if verdict.Outcome == "pass" || verdict.Outcome == "fail" {
+				observed = true
+				integrityFields[verdict.ClaimRef] = "observed"
+			} else {
+				selfReported = true
+				integrityFields[verdict.ClaimRef] = "self_reported"
+			}
+		}
+		switch {
+		case observed && selfReported:
+			integrity = "mixed"
+		case observed:
+			integrity = "observed"
+		default:
+			integrity = "self_reported"
+		}
+	} else {
+		claimRows = append(claimRows, map[string]string{
+			"claim_ref": "ACTIONS_GIT_REF",
+			"check_id":  result.ID,
+			"outcome":   outcome,
+		})
 	}
 	targetGap := "not_applicable"
 	if target := cand.Headers["EVIDENCE_TARGET"]; target != "" {
-		if target == achieved {
+		if evidenceRank(achieved) >= evidenceRank(target) {
 			targetGap = "met"
 		} else {
 			targetGap = "target_gt_achieved"
 		}
 	}
-	evidenceIntegrity, _ := json.Marshal(map[string]string{
-		"ACTIONS_GIT_REF":        "observed",
-		"FINAL_GIT_STATUS_SHORT": "observed",
-	})
-	claimRows, _ := json.Marshal([]map[string]string{{
-		"claim_ref": "ACTIONS_GIT_REF",
-		"check_id":  checkID,
-		"outcome":   outcome,
-	}})
+	evidenceIntegrity, _ := json.Marshal(integrityFields)
+	encodedClaimRows, _ := json.Marshal(claimRows)
 	return map[string]string{
 		"achieved_evidence":        achieved,
 		"target_gap_result":        targetGap,
 		"evidence_integrity":       string(evidenceIntegrity),
 		"record_integrity":         integrity,
-		"executable_claim_results": string(claimRows),
+		"executable_claim_results": string(encodedClaimRows),
 		"egress_scan_result":       "not_applicable",
 		"degradation_notes":        "",
 		"attestation_source":       "conductor",
 		"deviated_observed":        "no",
 		"bucket_binding_observed":  "no",
+	}
+}
+
+func bindingField(field string) bool {
+	switch field {
+	case "achieved_evidence", "target_gap_result", "evidence_integrity", "record_integrity", "executable_claim_results":
+		return true
+	default:
+		return false
+	}
+}
+
+func evidenceRank(value string) int {
+	switch value {
+	case "E1":
+		return 1
+	case "E2":
+		return 2
+	case "E3":
+		return 3
+	case "E4":
+		return 4
+	default:
+		return 0
 	}
 }
 
