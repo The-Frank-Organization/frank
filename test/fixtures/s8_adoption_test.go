@@ -71,6 +71,24 @@ func TestS8FXCFG12BlessRejectsNonCurrentEngineCandidate(t *testing.T) {
 	}
 }
 
+func TestS8FXCFG12BlessRejectsObserveTrueEngineCandidate(t *testing.T) {
+	root, candidates := s8LegacyStoreAndCandidates(t)
+	if err := os.WriteFile(candidates["engine"], fixtureEngineConfig(t, true), 0o644); err != nil {
+		t.Fatalf("write observe-active engine candidate: %v", err)
+	}
+
+	err := store.BlessS8(root, candidates)
+	if err == nil || !strings.Contains(err.Error(), "optional layer observe must be false") {
+		t.Fatalf("BlessS8 observe-active candidate = %v, want optional-layer refusal", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "records", "s8-adoption.json")); !os.IsNotExist(err) {
+		t.Fatalf("adoption record exists after observe-active refusal: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "config", "catalog", "catalog.json")); !os.IsNotExist(err) {
+		t.Fatalf("catalog projection exists after observe-active refusal: %v", err)
+	}
+}
+
 func TestS8FXCFG12BlessCrashWindowsConvergeBeforeFullLoad(t *testing.T) {
 	if os.Getenv("FRANK_S8_BLESS_CHILD") == "1" {
 		err := store.BlessS8(os.Getenv("FRANK_S8_BLESS_ROOT"), map[string]string{

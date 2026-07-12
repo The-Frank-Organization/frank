@@ -278,6 +278,11 @@ func BlessS8(root string, candidateSources map[string]string) error {
 	if candidate.Engine.Version != 2 || candidate.Supply == nil {
 		return errors.New("current engine v2 with governed supply required")
 	}
+	for name, present := range candidate.Engine.PresentLayers {
+		if present {
+			return fmt.Errorf("bless engine candidate optional layer %s must be false", name)
+		}
+	}
 	body := adoptionBody{Members: make([]adoptionMember, 0, 2)}
 	for _, name := range []string{"catalog", "engine"} {
 		data := candidate.Members[name]
