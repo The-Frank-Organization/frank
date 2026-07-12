@@ -124,7 +124,10 @@ func (r *Registry) Evaluator(selection Selection) func(Candidate) PredicateResul
 		if id == "" {
 			id = verdict.CheckID
 		}
-		return PredicateResult{ID: id, Predicate: verdict.Predicate, Verdicts: []CheckVerdict{verdict}}
+		return PredicateResult{
+			ID: id, Predicate: verdict.Predicate, MachineryFault: strings.HasPrefix(verdict.FailingDetail, "executor-"),
+			Verdicts: []CheckVerdict{verdict},
+		}
 	}
 }
 

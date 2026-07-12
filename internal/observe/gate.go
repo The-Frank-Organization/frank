@@ -26,6 +26,7 @@ type Candidate struct {
 type PredicateResult struct {
 	ID             string
 	Predicate      string
+	MachineryFault bool
 	ObservedFields map[string]string
 	Verdicts       []CheckVerdict
 }
@@ -40,6 +41,8 @@ type ObserveResult struct {
 	Veto             string
 	ObservedFields   map[string]string
 	FailingPredicate string
+	FailureClass     string
+	Escalate         bool
 }
 
 var writableFields = map[string]bool{
@@ -78,12 +81,8 @@ func Gate(cand record.Record, seat, phase, authority string, env Env) (ObserveRe
 
 	for field := range verdict.ObservedFields {
 		if !writableFields[field] {
-			return ObserveResult{
-				PredicateResult:  Fail,
-				Veto:             "block_delivery",
-				ObservedFields:   baseStamps(cand, PredicateResult{ID: verdict.ID, Predicate: Fail}),
-				FailingPredicate: "observe-write-allowlist",
-			}, record.Rejected
+			verdict = PredicateResult{ID: "observe-write-allowlist", Predicate: Blocked, MachineryFault: true}
+			break
 		}
 	}
 
@@ -94,23 +93,54 @@ func Gate(cand record.Record, seat, phase, authority string, env Env) (ObserveRe
 		}
 	}
 	result := ObserveResult{PredicateResult: verdict.Predicate, ObservedFields: stamps}
+	integrity := stamps["record_integrity"]
+	if verdict.MachineryFault {
+		return machineryFaultDisposition(cand, verdict, result)
+	}
 	switch verdict.Predicate {
 	case Pass:
+		if integrity == "self_reported" || integrity == "mixed" {
+			return noVantageDisposition(cand, verdict, result)
+		}
 		return result, record.Accepted
 	case Fail:
 		result.Veto = "block_delivery"
 		result.FailingPredicate = verdict.ID
+		result.FailureClass = "observed-false"
 		return result, record.Rejected
 	case Blocked, Degraded:
-		result.Veto = "block_delivery"
-		result.FailingPredicate = verdict.ID
-		return result, record.Rejected
+		return noVantageDisposition(cand, verdict, result)
 	default:
 		result.PredicateResult = Fail
 		result.Veto = "block_delivery"
 		result.FailingPredicate = "observe-predicate-result"
+		result.FailureClass = "observed-false"
 		return result, record.Rejected
 	}
+}
+
+func noVantageDisposition(cand record.Record, verdict PredicateResult, result ObserveResult) (ObserveResult, string) {
+	result.ObservedFields["degradation_notes"] = "observation-unavailable"
+	if cand.Headers["authority_class"] == "yes" {
+		result.Veto = "block_delivery"
+		result.FailingPredicate = verdict.ID
+		result.FailureClass = "observation-unavailable"
+		result.Escalate = true
+		return result, record.Held
+	}
+	return result, record.Accepted
+}
+
+func machineryFaultDisposition(cand record.Record, verdict PredicateResult, result ObserveResult) (ObserveResult, string) {
+	result.Veto = "block_delivery"
+	result.FailingPredicate = verdict.ID
+	result.FailureClass = "observe-machinery-fault"
+	result.ObservedFields["degradation_notes"] = "observe-machinery-fault"
+	if cand.Headers["authority_class"] == "yes" {
+		result.Escalate = true
+		return result, record.Held
+	}
+	return result, record.Rejected
 }
 
 func baseStamps(cand record.Record, result PredicateResult) map[string]string {

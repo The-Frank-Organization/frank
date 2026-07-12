@@ -101,7 +101,11 @@ func SubmitHandlerWithObservation(st *store.Store, reg *fieldspec.Registry, meta
 		if terminal != record.Accepted {
 			cand = clearGateRaiseHeaders(cand)
 			cand.Envelope.DeliveryState = terminal
-			cand.Body = bounce.Format(fieldspec.Violation{Field: observeResult.FailingPredicate, Class: "observed-false"})
+			failureClass := observeResult.FailureClass
+			if failureClass == "" {
+				failureClass = "observed-false"
+			}
+			cand.Body = bounce.Format(fieldspec.Violation{Field: observeResult.FailingPredicate, Class: failureClass})
 			return cand, nil, nil
 		}
 		if cand.Headers["record_kind"] == "config_change" {
