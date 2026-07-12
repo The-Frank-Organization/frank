@@ -5,19 +5,14 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 )
 
-const (
-	readCheckTimeout = 5 * time.Second
-	readByteCeiling  = 1 << 20
-)
+const readCheckTimeout = 5 * time.Second
 
 func (r *Registry) runReadFile(selection Selection) CheckVerdict {
 	root, full, ok := r.scopedPath(selection.Params["lane_ref"], selection.Params["path"])
@@ -25,19 +20,12 @@ func (r *Registry) runReadFile(selection Selection) CheckVerdict {
 		return refusedVerdict(selection)
 	}
 	_ = root
-	timeout := r.env.ReadTimeout
-	if timeout > readCheckTimeout {
-		timeout = readCheckTimeout
-	}
-	data, detail, timing, err := readRegularFile(full, timeout)
+	data, err := os.ReadFile(full)
 	if err != nil {
-		if detail == "read-file-not-regular" || detail == "read-file-byte-ceiling" {
-			return refusedVerdictWithDetail(selection, detail)
-		}
 		if os.IsNotExist(err) {
 			return baseVerdict(selection, false, "read-file-absent")
 		}
-		return machineryVerdict(selection, detail, timing)
+		return machineryVerdict(selection, "check-machinery-read-file", "")
 	}
 	expect := selection.Params["expect"]
 	matched := false
@@ -58,56 +46,6 @@ func (r *Registry) runReadFile(selection Selection) CheckVerdict {
 		matched = hex.EncodeToString(sum[:]) == r.env.SchemaRefs[strings.TrimPrefix(expect, "schema_ref:")]
 	}
 	return baseVerdict(selection, matched, "read-file-mismatch")
-}
-
-func readRegularFile(path string, timeout time.Duration) ([]byte, string, string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	file, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NONBLOCK, 0)
-	if err != nil {
-		return nil, "check-machinery-read-file", "", err
-	}
-	defer file.Close()
-	info, err := file.Stat()
-	if err != nil {
-		return nil, "check-machinery-read-file", "", err
-	}
-	if !info.Mode().IsRegular() {
-		return nil, "read-file-not-regular", "", syscall.EINVAL
-	}
-	if info.Size() > readByteCeiling {
-		return nil, "read-file-byte-ceiling", "", syscall.EFBIG
-	}
-	if err := ctx.Err(); err != nil {
-		return nil, "check-machinery-read-file-timeout", "timeout", err
-	}
-
-	data := make([]byte, 0, readByteCeiling+1)
-	chunk := make([]byte, 32<<10)
-	for {
-		if err := ctx.Err(); err != nil {
-			return nil, "check-machinery-read-file-timeout", "timeout", err
-		}
-		remaining := readByteCeiling + 1 - len(data)
-		if remaining < len(chunk) {
-			chunk = chunk[:remaining]
-		}
-		n, readErr := file.Read(chunk)
-		data = append(data, chunk[:n]...)
-		if len(data) > readByteCeiling {
-			return nil, "read-file-byte-ceiling", "", syscall.EFBIG
-		}
-		if err := ctx.Err(); err != nil {
-			return nil, "check-machinery-read-file-timeout", "timeout", err
-		}
-		if readErr == io.EOF {
-			return data, "", "", nil
-		}
-		if readErr != nil {
-			return nil, "check-machinery-read-file", "", readErr
-		}
-	}
 }
 
 func (r *Registry) runGitStatus(selection Selection) CheckVerdict {

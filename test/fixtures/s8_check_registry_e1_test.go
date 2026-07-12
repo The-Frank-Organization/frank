@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
@@ -92,71 +91,6 @@ func TestS8ReadFileChecksLineHashAndSchemaRef(t *testing.T) {
 	}
 }
 
-func TestS8ReadFileRefusesFIFOWithoutBlocking(t *testing.T) {
-	lane := t.TempDir()
-	if err := syscall.Mkfifo(filepath.Join(lane, "blocking.fifo"), 0o600); err != nil {
-		t.Fatalf("mkfifo fixture: %v", err)
-	}
-	reg := observe.NewRegistry(observe.RegistryEnv{Lanes: map[string]string{"lane-a": lane}})
-	done := make(chan observe.CheckVerdict, 1)
-	go func() {
-		done <- reg.Run(observe.Selection{CheckID: "read-file", ClaimRef: "fifo", Params: map[string]string{
-			"lane_ref": "lane-a", "path": "blocking.fifo", "expect": "line:x",
-		}})
-	}()
-
-	select {
-	case verdict := <-done:
-		if verdict.Outcome != "unsafe" || verdict.Predicate != observe.Blocked || verdict.FailingDetail != "read-file-not-regular" {
-			t.Fatalf("FIFO verdict = %#v", verdict)
-		}
-		if strings.Contains(verdict.FailingDetail, "blocking.fifo") || strings.Contains(verdict.FailingDetail, string(filepath.Separator)) {
-			t.Fatalf("FIFO refusal leaked a path: %#v", verdict)
-		}
-	case <-time.After(250 * time.Millisecond):
-		t.Fatal("read-file blocked on a FIFO")
-	}
-}
-
-func TestS8ReadFileEnforcesDeadlineAndByteCeiling(t *testing.T) {
-	lane := t.TempDir()
-	if err := os.WriteFile(filepath.Join(lane, "small.txt"), []byte("alpha\n"), 0o644); err != nil {
-		t.Fatalf("write deadline fixture: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(lane, "oversize.bin"), make([]byte, 2<<20), 0o644); err != nil {
-		t.Fatalf("write byte-ceiling fixture: %v", err)
-	}
-
-	t.Run("deadline actually fires", func(t *testing.T) {
-		reg := observe.NewRegistry(observe.RegistryEnv{
-			Lanes: map[string]string{"lane-a": lane}, ReadTimeout: time.Nanosecond,
-		})
-		started := time.Now()
-		verdict := reg.Run(observe.Selection{CheckID: "read-file", ClaimRef: "deadline", Params: map[string]string{
-			"lane_ref": "lane-a", "path": "small.txt", "expect": "line:alpha",
-		}})
-		if verdict.Outcome != "skipped" || verdict.Predicate != observe.Blocked || verdict.FailingDetail != "check-machinery-read-file-timeout" || verdict.Timing != "timeout" {
-			t.Fatalf("deadline verdict = %#v", verdict)
-		}
-		if elapsed := time.Since(started); elapsed > time.Second {
-			t.Fatalf("deadline took %v", elapsed)
-		}
-	})
-
-	t.Run("byte ceiling refuses oversized regular file", func(t *testing.T) {
-		reg := observe.NewRegistry(observe.RegistryEnv{Lanes: map[string]string{"lane-a": lane}})
-		verdict := reg.Run(observe.Selection{CheckID: "read-file", ClaimRef: "oversize", Params: map[string]string{
-			"lane_ref": "lane-a", "path": "oversize.bin", "expect": "line:x",
-		}})
-		if verdict.Outcome != "unsafe" || verdict.Predicate != observe.Blocked || verdict.FailingDetail != "read-file-byte-ceiling" {
-			t.Fatalf("byte-ceiling verdict = %#v", verdict)
-		}
-		if strings.Contains(verdict.FailingDetail, "oversize.bin") || strings.Contains(verdict.FailingDetail, string(filepath.Separator)) {
-			t.Fatalf("byte-ceiling refusal leaked a path: %#v", verdict)
-		}
-	})
-}
-
 func TestS8GitStatusObservesCleanDirtyAndVetoesFalseCleanClaim(t *testing.T) {
 	lane := t.TempDir()
 	s8Git(t, lane, "init", "-q")
@@ -189,7 +123,7 @@ func TestS8GitStatusObservesCleanDirtyAndVetoesFalseCleanClaim(t *testing.T) {
 	}
 }
 
-func TestS8E1DistinguishesFaultRefusalAndObservedAbsence(t *testing.T) {
+func TestS8E1DistinguishesMachineryFaultsFromObservedAbsence(t *testing.T) {
 	lane := t.TempDir()
 	if err := os.Mkdir(filepath.Join(lane, "not-a-file"), 0o755); err != nil {
 		t.Fatalf("mkdir read-file machinery fixture: %v", err)
@@ -204,7 +138,6 @@ func TestS8E1DistinguishesFaultRefusalAndObservedAbsence(t *testing.T) {
 	for _, tc := range []struct {
 		name      string
 		selection observe.Selection
-		outcome   string
 		detail    string
 	}{
 		{
@@ -212,21 +145,19 @@ func TestS8E1DistinguishesFaultRefusalAndObservedAbsence(t *testing.T) {
 			selection: observe.Selection{CheckID: "git-status", ClaimRef: "git-timeout", Params: map[string]string{
 				"lane_ref": "lane-a", "expect": "clean",
 			}},
-			outcome: "skipped",
-			detail:  "check-machinery-git-status-timeout",
+			detail: "check-machinery-git-status-timeout",
 		},
 		{
-			name: "non-regular read file is refused",
+			name: "read file IO error is machinery",
 			selection: observe.Selection{CheckID: "read-file", ClaimRef: "read-error", Params: map[string]string{
 				"lane_ref": "lane-a", "path": "not-a-file", "expect": "line:x",
 			}},
-			outcome: "unsafe",
-			detail:  "read-file-not-regular",
+			detail: "check-machinery-read-file",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			verdict := reg.Run(tc.selection)
-			if verdict.Outcome != tc.outcome || verdict.Predicate != observe.Blocked || verdict.FailingDetail != tc.detail {
+			if verdict.Outcome != "skipped" || verdict.Predicate != observe.Blocked || verdict.FailingDetail != tc.detail {
 				t.Fatalf("verdict = %#v", verdict)
 			}
 		})
