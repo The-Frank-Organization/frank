@@ -32,7 +32,8 @@ func writeFixtureConfigSources(t *testing.T) map[string]string {
 	root := t.TempDir()
 	enginePath := filepath.Join(root, "engine.json")
 	registryPath := filepath.Join(root, "registry.json")
-	if err := os.WriteFile(enginePath, []byte(`{"gc_enabled":false,"segment_rotate_bytes":4194304}`), 0o644); err != nil {
+	catalogPath := filepath.Join(root, "catalog.json")
+	if err := os.WriteFile(enginePath, []byte(`{"version":1,"gc_enabled":false,"segment_rotate_bytes":4194304,"present_layers":{"observe":false}}`), 0o644); err != nil {
 		t.Fatalf("write engine config: %v", err)
 	}
 	registryBytes, err := os.ReadFile(filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
@@ -42,5 +43,12 @@ func writeFixtureConfigSources(t *testing.T) map[string]string {
 	if err := os.WriteFile(registryPath, registryBytes, 0o644); err != nil {
 		t.Fatalf("write registry config: %v", err)
 	}
-	return map[string]string{"engine": enginePath, "fieldspec": registryPath}
+	catalogBytes, err := os.ReadFile(filepath.Join("..", "invariants", "catalog.v1.json"))
+	if err != nil {
+		t.Fatalf("read catalog fixture: %v", err)
+	}
+	if err := os.WriteFile(catalogPath, catalogBytes, 0o644); err != nil {
+		t.Fatalf("write catalog config: %v", err)
+	}
+	return map[string]string{"engine": enginePath, "fieldspec": registryPath, "catalog": catalogPath}
 }

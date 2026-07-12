@@ -104,6 +104,9 @@ func run(ctx context.Context, cfg config) error {
 	if err != nil {
 		return err
 	}
+	if err := store.RequireAdoptedConfig(cfg.Root); err != nil {
+		return err
+	}
 	pinned, err := frankconfig.Load(store.StoreRootConfigPaths(cfg.Root))
 	if err != nil {
 		return err

@@ -405,7 +405,11 @@ func liveCanonicalPathFamilies(t *testing.T) []canonicalPathFamily {
 		gotConfigPaths = append(gotConfigPaths, relative)
 	}
 	sort.Strings(gotConfigPaths)
-	wantConfigPaths := []string{filepath.Join("config", "engine.json"), filepath.Join("config", "fieldspec", "registry.json")}
+	wantConfigPaths := []string{
+		filepath.Join("config", "catalog", "catalog.json"),
+		filepath.Join("config", "engine.json"),
+		filepath.Join("config", "fieldspec", "registry.json"),
+	}
 	if !reflect.DeepEqual(gotConfigPaths, wantConfigPaths) {
 		t.Fatalf("canonical config paths = %q, want literal census %q", gotConfigPaths, wantConfigPaths)
 	}
@@ -421,8 +425,9 @@ func liveCanonicalPathFamilies(t *testing.T) []canonicalPathFamily {
 		{ID: "binding", Relative: "binding", Forbidden: separator + "binding" + separator, Directory: true},
 		{ID: "quarantine", Relative: "quarantine", Forbidden: separator + "quarantine" + separator, Directory: true},
 		{ID: "conductor-lock", Relative: "conductor.lock", Forbidden: "conductor.lock"},
-		{ID: "engine-config", Relative: wantConfigPaths[0], Forbidden: wantConfigPaths[0]},
-		{ID: "fieldspec-registry", Relative: wantConfigPaths[1], Forbidden: wantConfigPaths[1]},
+		{ID: "catalog-config", Relative: wantConfigPaths[0], Forbidden: wantConfigPaths[0]},
+		{ID: "engine-config", Relative: wantConfigPaths[1], Forbidden: wantConfigPaths[1]},
+		{ID: "fieldspec-registry", Relative: wantConfigPaths[2], Forbidden: wantConfigPaths[2]},
 	}
 }
 

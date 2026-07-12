@@ -15,8 +15,9 @@ import (
 )
 
 var (
-	ErrGenesisExists  = errors.New("genesis already exists")
-	ErrGenesisMissing = errors.New("genesis missing")
+	ErrGenesisExists   = errors.New("genesis already exists")
+	ErrGenesisMissing  = errors.New("genesis missing")
+	ErrStoreNotAdopted = errors.New("store-not-adopted: run frank -bless")
 )
 
 type ErrDigestMismatch struct {
@@ -84,15 +85,32 @@ func Init(root string, sources map[string]string) error {
 }
 
 func StoreRootConfigPaths(root string) map[string]string {
-	paths := map[string]string{
-		"engine":    filepath.Join(root, "config", "engine.json"),
-		"fieldspec": filepath.Join(root, "config", "fieldspec", "registry.json"),
-	}
+	paths := LegacyStoreRootConfigPaths(root)
 	catalog := filepath.Join(root, "config", "catalog", "catalog.json")
 	if _, err := os.Stat(catalog); err == nil {
 		paths["catalog"] = catalog
 	}
 	return paths
+}
+
+// LegacyStoreRootConfigPaths is the explicit pre-adoption two-member
+// expectation used only by bless and its migration fixtures.
+func LegacyStoreRootConfigPaths(root string) map[string]string {
+	return map[string]string{
+		"engine":    filepath.Join(root, "config", "engine.json"),
+		"fieldspec": filepath.Join(root, "config", "fieldspec", "registry.json"),
+	}
+
+}
+
+// RequireAdoptedConfig prevents the normal serve path from silently using the
+// legacy two-member expectation. Only offline bless may load that state.
+func RequireAdoptedConfig(root string) error {
+	_, err := os.Stat(filepath.Join(root, "config", "catalog", "catalog.json"))
+	if errors.Is(err, os.ErrNotExist) {
+		return ErrStoreNotAdopted
+	}
+	return err
 }
 
 func (s *Store) Genesis() (record.Record, error) {

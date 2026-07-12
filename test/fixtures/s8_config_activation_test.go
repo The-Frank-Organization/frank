@@ -1,6 +1,7 @@
 package fixtures_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -114,6 +115,40 @@ func TestS8ProductionInitPinsCatalog(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(root, "config", "catalog", "catalog.json")); err != nil {
 		t.Fatalf("catalog not pinned by production init: %v", err)
+	}
+}
+
+func TestS8ServeRejectsLegacyStoreWithBlessInstruction(t *testing.T) {
+	root := t.TempDir()
+	sources := s8ConfigSources(t, false)
+	delete(sources, "catalog")
+	if err := os.WriteFile(sources["engine"], []byte(`{"gc_enabled":false,"segment_rotate_bytes":4194304}`), 0o644); err != nil {
+		t.Fatalf("write legacy engine: %v", err)
+	}
+	if err := store.Init(root, sources); err != nil {
+		t.Fatalf("legacy Init: %v", err)
+	}
+
+	legacyPaths := store.LegacyStoreRootConfigPaths(root)
+	if len(legacyPaths) != 2 || legacyPaths["catalog"] != "" {
+		t.Fatalf("legacy paths = %#v, want explicit two-member expectation", legacyPaths)
+	}
+	if _, err := config.Load(legacyPaths); err != nil {
+		t.Fatalf("explicit legacy load: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, buildFrank(t, ctx), "-root", root)
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("legacy store unexpectedly served")
+	}
+	if ctx.Err() != nil {
+		t.Fatalf("legacy store served until timeout; output=%s", out)
+	}
+	if !bytes.Contains(out, []byte("store-not-adopted: run frank -bless")) {
+		t.Fatalf("legacy serve output = %q, want typed bless instruction", out)
 	}
 }
 

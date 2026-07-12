@@ -253,10 +253,11 @@ func initPinnedStore(t *testing.T, root string) *config.Pinned {
 	t.Helper()
 	sourceDir := t.TempDir()
 	enginePath := filepath.Join(sourceDir, "engine.json")
-	if err := os.WriteFile(enginePath, []byte(`{"gc_enabled":false,"segment_rotate_bytes":4194304}`), 0o644); err != nil {
+	if err := os.WriteFile(enginePath, []byte(`{"version":1,"gc_enabled":false,"segment_rotate_bytes":4194304,"present_layers":{"observe":false}}`), 0o644); err != nil {
 		t.Fatalf("write engine config: %v", err)
 	}
 	if err := store.Init(root, map[string]string{
+		"catalog":   filepath.Join(repoRoot(t), "test", "invariants", "catalog.v1.json"),
 		"engine":    enginePath,
 		"fieldspec": filepath.Join(repoRoot(t), "internal", "fieldspec", "registry.json"),
 	}); err != nil {
