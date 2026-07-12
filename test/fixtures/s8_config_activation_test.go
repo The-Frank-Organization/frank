@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,6 +20,7 @@ import (
 )
 
 const s8FieldspecV5SHA256 = "1ef6abab4d496b11017f57ca400e8296d63824994ffce8311e4533f70cc92485"
+const s8CatalogSHA256 = "943f07bb51da3414cf45a16d4bfa00bcee28cc538533fcb7fcd3e8a64b5e209d"
 
 func TestS8FXCFG7GenesisComposesThreePinnedMembers(t *testing.T) {
 	root := t.TempDir()
@@ -37,9 +39,10 @@ func TestS8FXCFG7GenesisComposesThreePinnedMembers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if pinned.Engine.Version != 1 {
-		t.Fatalf("engine.version = %d, want 1", pinned.Engine.Version)
+	if pinned.Engine.Version != 2 {
+		t.Fatalf("engine.version = %d, want 2", pinned.Engine.Version)
 	}
+	t.Logf("fresh_v2_genesis_config_digest=%s", pinned.Digest)
 	if config.PresentLayers(pinned)["observe"] {
 		t.Fatalf("observe active at genesis")
 	}
@@ -152,18 +155,117 @@ func TestS8ServeRejectsLegacyStoreWithBlessInstruction(t *testing.T) {
 	}
 }
 
+func TestS8FXCFG3CatalogLoadShapeIsClosed(t *testing.T) {
+	sources := s8ConfigSources(t, false)
+	data, err := os.ReadFile(sources["catalog"])
+	if err != nil {
+		t.Fatalf("read catalog: %v", err)
+	}
+	sum := sha256.Sum256(data)
+	if got := hex.EncodeToString(sum[:]); got != s8CatalogSHA256 {
+		t.Fatalf("catalog hash = %s, want amended owner bytes %s", got, s8CatalogSHA256)
+	}
+	if _, err := config.Load(sources); err != nil {
+		t.Fatalf("load valid s8 catalog: %v", err)
+	}
+	var valid map[string]any
+	if err := json.Unmarshal(data, &valid); err != nil {
+		t.Fatalf("decode valid catalog: %v", err)
+	}
+	claim := valid["change_convention"].(map[string]any)["section_7_claim"]
+	if claim != "pinned-at-s8: load enforces digest and member/provenance shape; owner review remains a relay/design-review gate" {
+		t.Fatalf("load-claim boundary = %q", claim)
+	}
+
+	for _, tc := range []struct {
+		name   string
+		mutate func(map[string]any)
+	}{
+		{name: "duplicate law id", mutate: func(doc map[string]any) {
+			laws := doc["laws"].([]any)
+			laws[1].(map[string]any)["id"] = laws[0].(map[string]any)["id"]
+		}},
+		{name: "empty owners", mutate: func(doc map[string]any) {
+			doc["laws"].([]any)[0].(map[string]any)["owners"] = []any{}
+		}},
+		{name: "broken census section", mutate: func(doc map[string]any) {
+			delete(doc["discovery"].(map[string]any), "sink_patterns")
+		}},
+		{name: "unknown top level", mutate: func(doc map[string]any) {
+			doc["unexpected"] = true
+		}},
+		{name: "missing canonical directory", mutate: func(doc map[string]any) {
+			rows := doc["discovery"].(map[string]any)["canonical_path_families"].(map[string]any)["rows"].([]any)
+			delete(rows[0].(map[string]any), "directory")
+		}},
+		{name: "missing fidelity review", mutate: func(doc map[string]any) {
+			delete(doc["laws"].([]any)[0].(map[string]any), "fidelity_review")
+		}},
+		{name: "missing channel ident calls", mutate: func(doc map[string]any) {
+			recognizers := doc["discovery"].(map[string]any)["recognizers"].(map[string]any)
+			delete(recognizers["channel_context"].(map[string]any), "ident_calls")
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var doc map[string]any
+			if err := json.Unmarshal(data, &doc); err != nil {
+				t.Fatalf("decode catalog: %v", err)
+			}
+			tc.mutate(doc)
+			candidate, err := json.Marshal(doc)
+			if err != nil {
+				t.Fatalf("marshal catalog mutation: %v", err)
+			}
+			path := filepath.Join(t.TempDir(), "catalog.json")
+			if err := os.WriteFile(path, candidate, 0o644); err != nil {
+				t.Fatalf("write catalog mutation: %v", err)
+			}
+			mutated := map[string]string{"engine": sources["engine"], "fieldspec": sources["fieldspec"], "catalog": path}
+			if _, err := config.Load(mutated); !errors.Is(err, config.ErrConfigLoad) {
+				t.Fatalf("malformed catalog error = %v, want config-load", err)
+			}
+		})
+	}
+}
+
+func TestS8FXCFG5GenesisCatalogMatchesSourceByteExact(t *testing.T) {
+	sources := s8ConfigSources(t, false)
+	root := t.TempDir()
+	if err := store.Init(root, sources); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	source, err := os.ReadFile(sources["catalog"])
+	if err != nil {
+		t.Fatalf("read source catalog: %v", err)
+	}
+	runtime, err := os.ReadFile(filepath.Join(root, "config", "catalog", "catalog.json"))
+	if err != nil {
+		t.Fatalf("read runtime catalog: %v", err)
+	}
+	if !bytes.Equal(runtime, source) {
+		t.Fatal("genesis catalog differs from source artifact bytes")
+	}
+	st, err := store.Open(root)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	pinned, err := config.Load(store.StoreRootConfigPaths(root))
+	if err != nil {
+		t.Fatalf("Load runtime config: %v", err)
+	}
+	want, err := st.ExpectedConfigDigest()
+	if err != nil {
+		t.Fatalf("ExpectedConfigDigest: %v", err)
+	}
+	if pinned.Digest != want {
+		t.Fatalf("runtime digest = %s, history expects %s", pinned.Digest, want)
+	}
+}
+
 func s8ConfigSources(t *testing.T, observe bool) map[string]string {
 	t.Helper()
 	root := t.TempDir()
-	engine, err := json.Marshal(map[string]any{
-		"version":              1,
-		"gc_enabled":           false,
-		"segment_rotate_bytes": 4194304,
-		"present_layers":       map[string]bool{"observe": observe},
-	})
-	if err != nil {
-		t.Fatalf("marshal engine: %v", err)
-	}
+	engine := fixtureEngineConfig(t, observe)
 	enginePath := filepath.Join(root, "engine.json")
 	if err := os.WriteFile(enginePath, engine, 0o644); err != nil {
 		t.Fatalf("write engine: %v", err)

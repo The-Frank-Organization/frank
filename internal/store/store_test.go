@@ -328,7 +328,7 @@ func assertFile(t *testing.T, path, want string) {
 
 const defaultEngineConfig = `{"gc_enabled":false,"segment_rotate_bytes":4194304}`
 
-const testRegistryConfig = `{"phase":["SITREP"],"authority":[],"ceremony_tier":[],"evidence_target":[],"gate_category":{},"grant":[]}`
+const testRegistryConfig = `{"version":"s7a-fieldspec-v5","phase":["SITREP"],"authority":[],"ceremony_tier":[],"evidence_target":[],"gate_category":{},"grant":[]}`
 
 func writeConfigSources(t *testing.T) map[string]string {
 	t.Helper()

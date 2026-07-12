@@ -18,7 +18,7 @@ import (
 
 // These config_change tests drive the current lawful fieldspec transition:
 // store.Init materializes the lock-pinned v5 predecessor, then the accepted
-// config_change advances to the shipped v6 successor bytes.
+// config_change advances to the governed v6 predecessor bytes.
 
 func TestS5ConfigChangeOperatorAcceptsLandedRegistryShape(t *testing.T) {
 	st, reg := s5ConfigChangeDeps(t)
@@ -232,12 +232,7 @@ func s5SubmitConfigChange(t *testing.T, st *store.Store, reg *fieldspec.Registry
 // to v5; these bytes reach the store only through the accepted transition.
 func s5ALandedRegistryBytes(t *testing.T) []byte {
 	t.Helper()
-	path := filepath.Clean(filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read landed registry %s: %v", path, err)
-	}
-	return data
+	return s8FieldspecV6Bytes(t)
 }
 
 func s5ALandedRegistry(t *testing.T) *fieldspec.Registry {

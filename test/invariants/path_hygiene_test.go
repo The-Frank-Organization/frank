@@ -63,19 +63,25 @@ func TestLawPathHygiene(t *testing.T) {
 		"seat-mint-accept-reply",
 	}
 	var gotFamilies []string
-	for _, family := range cat.PathHygiene.Families {
+	for _, family := range cat.Discovery.OutputFamilies {
 		gotFamilies = append(gotFamilies, family.ID)
 	}
 	if !reflect.DeepEqual(gotFamilies, wantFamilies) {
 		t.Fatalf("path-hygiene families = %v, want literal %v", gotFamilies, wantFamilies)
 	}
-	if len(cat.PathHygiene.Families[5].CarveOuts) != 2 {
-		t.Fatalf("seat_mint carve-outs = %v, want exactly credential and endpoint", cat.PathHygiene.Families[5].CarveOuts)
+	if len(cat.Discovery.OutputFamilies[5].CarveOuts) != 2 {
+		t.Fatalf("seat_mint carve-outs = %v, want exactly credential and endpoint", cat.Discovery.OutputFamilies[5].CarveOuts)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	canonicalFamilies := liveCanonicalPathFamilies(t)
+	canonicalFamilies := append([]canonicalPathFamily(nil), cat.Discovery.CanonicalPathFamilies.Rows...)
+	liveCanonical := liveCanonicalPathFamilies(t)
+	sort.Slice(canonicalFamilies, func(i, j int) bool { return canonicalFamilies[i].ID < canonicalFamilies[j].ID })
+	sort.Slice(liveCanonical, func(i, j int) bool { return liveCanonical[i].ID < liveCanonical[j].ID })
+	if !reflect.DeepEqual(canonicalFamilies, liveCanonical) {
+		t.Fatalf("catalog canonical paths = %#v, live = %#v", canonicalFamilies, liveCanonical)
+	}
 	mintRoot := t.TempDir()
 	mintReply, mintRead, mintCredential, mintEndpoint := liveSeatMintCapture(t, ctx, mintRoot)
 	bounceRoot, bounceDetail := rejectedSubmitDetailCapture(t)
@@ -181,26 +187,8 @@ func TestLawPathHygiene(t *testing.T) {
 	if err := validateSinkSites(cat, sites); err != nil {
 		t.Fatalf("AST sink census: %v", err)
 	}
-	wantBoundary := []string{
-		"cmd/frank-mcp/mcp.go:MCPServer.Serve->Encode",
-		"cmd/frank-mcp/mcp.go:MCPServer.handle=>initialize",
-		"cmd/frank-mcp/mcp.go:MCPServer.handle=>notifications/initialized",
-		"cmd/frank-mcp/mcp.go:MCPServer.handle=>ping",
-		"cmd/frank-mcp/mcp.go:MCPServer.handle=>tools/call",
-		"cmd/frank-mcp/mcp.go:MCPServer.handle=>tools/list",
-		"internal/channel/server.go:Server.PushTo->writePushes",
-		"internal/channel/server.go:serverConn.handle->write",
-		"internal/channel/server.go:serverConn.handle=>tools/call",
-		"internal/channel/server.go:serverConn.handle=>tools/descriptions",
-		"internal/channel/server.go:serverConn.handle=>tools/list",
-		"internal/channel/server.go:serverConn.run->write",
-		"internal/channel/server.go:serverConn.run->write",
-		"internal/channel/server.go:serverConn.write->writeLocked",
-		"internal/channel/server.go:serverConn.writeLocked->Write",
-		"internal/channel/server.go:serverConn.writePush->writeLocked",
-		"internal/channel/server.go:writePushes->writePush",
-	}
-	gotBoundary, outsideBoundary := discoverSeatEgressBoundary(t)
+	wantBoundary := cat.Discovery.SiteCensus
+	gotBoundary, outsideBoundary := discoverSeatEgressBoundary(t, cat)
 	if len(outsideBoundary) > 0 {
 		t.Fatalf("seat-egress capability outside registered boundary files = %q", outsideBoundary)
 	}
@@ -221,26 +209,32 @@ func TestLawPathHygiene(t *testing.T) {
 	})
 }
 
-func discoverSeatEgressBoundary(t *testing.T) ([]string, []string) {
+func discoverSeatEgressBoundary(t *testing.T, cat catalog) ([]string, []string) {
 	t.Helper()
-	registered := map[string]bool{
-		"internal/channel/server.go": true,
-		"cmd/frank-mcp/mcp.go":       true,
+	registered := map[string]bool{}
+	for _, path := range cat.Discovery.BoundaryFiles {
+		registered[path] = true
 	}
 
 	var sites, outside []string
 	fset := token.NewFileSet()
-	err := filepath.WalkDir(repoRoot(t), func(path string, entry fs.DirEntry, walkErr error) error {
+	scanRoot := filepath.Join(repoRoot(t), cat.Discovery.Scan.Root)
+	channelSelectors := stringSet(cat.Discovery.Recognizers.ChannelContext.CallSelectors)
+	channelIdents := stringSet(cat.Discovery.Recognizers.ChannelContext.IdentCalls)
+	connectionCalls := stringSet(cat.Discovery.Recognizers.ChannelContext.ConnReceiverCalls)
+	mcpSelectors := stringSet(cat.Discovery.Recognizers.MCPContext.CallSelectors)
+	wideIdioms := stringSet(cat.Discovery.Recognizers.TreeWideIdioms)
+	err := filepath.WalkDir(scanRoot, func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
 		if entry.IsDir() {
-			if path != repoRoot(t) && strings.HasPrefix(entry.Name(), ".") {
+			if path != scanRoot && hasAnyPrefix(entry.Name(), cat.Discovery.Scan.ExcludeDirPrefixes) {
 				return filepath.SkipDir
 			}
 			return nil
 		}
-		if filepath.Ext(path) != ".go" || strings.HasSuffix(path, "_test.go") {
+		if !hasAnySuffix(path, cat.Discovery.Scan.IncludeOnlySuffixes) || hasAnySuffix(path, cat.Discovery.Scan.ExcludeFileSuffixes) {
 			return nil
 		}
 		relative, err := filepath.Rel(repoRoot(t), path)
@@ -248,8 +242,8 @@ func discoverSeatEgressBoundary(t *testing.T) ([]string, []string) {
 			return fmt.Errorf("relativize production source %s: %w", path, err)
 		}
 		relative = filepath.ToSlash(relative)
-		channelTransport := strings.HasPrefix(relative, "internal/channel/")
-		mcpTransport := strings.HasPrefix(relative, "cmd/frank-mcp/")
+		channelTransport := strings.HasPrefix(relative, cat.Discovery.Recognizers.ChannelContext.PathPrefix)
+		mcpTransport := strings.HasPrefix(relative, cat.Discovery.Recognizers.MCPContext.PathPrefix)
 
 		file, err := parser.ParseFile(fset, path, nil, 0)
 		if err != nil {
@@ -267,18 +261,18 @@ func discoverSeatEgressBoundary(t *testing.T) ([]string, []string) {
 				case *ast.CallExpr:
 					if target, ok := value.Fun.(*ast.SelectorExpr); ok {
 						switch {
-						case target.Sel.Name == "Write" && isConnectionReceiver(target.X):
+						case wideIdioms["conn_receiver_write"] && connectionCalls[target.Sel.Name] && isConnectionReceiver(target.X):
 							capability = target.Sel.Name
-						case channelTransport && (target.Sel.Name == "writePushes" || target.Sel.Name == "writePush" || target.Sel.Name == "write" || target.Sel.Name == "writeLocked"):
+						case channelTransport && channelSelectors[target.Sel.Name]:
 							capability = target.Sel.Name
-						case mcpTransport && target.Sel.Name == "Encode":
+						case mcpTransport && mcpSelectors[target.Sel.Name]:
 							capability = target.Sel.Name
 						}
-					} else if target, ok := value.Fun.(*ast.Ident); ok && channelTransport && target.Name == "writePushes" {
+					} else if target, ok := value.Fun.(*ast.Ident); ok && channelTransport && channelIdents[target.Name] {
 						capability = target.Name
 					}
 				case *ast.SwitchStmt:
-					if !isProtocolMethodSwitch(value.Tag) {
+					if !wideIdioms["method_switch"] || !isProtocolMethodSwitch(value.Tag, cat.Discovery.Recognizers.ProtocolSwitchTagSelector) {
 						return true
 					}
 					for _, statement := range value.Body.List {
@@ -315,6 +309,32 @@ func discoverSeatEgressBoundary(t *testing.T) ([]string, []string) {
 	return sites, outside
 }
 
+func stringSet(values []string) map[string]bool {
+	out := make(map[string]bool, len(values))
+	for _, value := range values {
+		out[value] = true
+	}
+	return out
+}
+
+func hasAnyPrefix(value string, prefixes []string) bool {
+	for _, prefix := range prefixes {
+		if strings.HasPrefix(value, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func hasAnySuffix(value string, suffixes []string) bool {
+	for _, suffix := range suffixes {
+		if strings.HasSuffix(value, suffix) {
+			return true
+		}
+	}
+	return false
+}
+
 func appendBoundarySite(path, site string, registered map[string]bool, sites, outside *[]string) {
 	if registered[path] {
 		*sites = append(*sites, site)
@@ -328,9 +348,9 @@ func isConnectionReceiver(expression ast.Expr) bool {
 	return ok && selector.Sel.Name == "conn"
 }
 
-func isProtocolMethodSwitch(expression ast.Expr) bool {
+func isProtocolMethodSwitch(expression ast.Expr, selectorName string) bool {
 	selector, ok := expression.(*ast.SelectorExpr)
-	return ok && selector.Sel.Name == "Method"
+	return ok && selector.Sel.Name == selectorName
 }
 
 func functionOwner(function *ast.FuncDecl) string {
@@ -486,7 +506,7 @@ func rejectedSubmitDetailCapture(t *testing.T) (string, []byte) {
 
 func scanSurfaceCorpus(cat catalog, captures []surfaceCapture, forbidden []string) error {
 	known := map[string]outputFamily{}
-	for _, family := range cat.PathHygiene.Families {
+	for _, family := range cat.Discovery.OutputFamilies {
 		known[family.ID] = family
 	}
 	counts := map[string]int{}
@@ -548,7 +568,7 @@ func discoverSinkSites(t *testing.T, cat catalog) []sinkSite {
 		token   string
 	}
 	var owners []tokenOwner
-	for _, pattern := range cat.PathHygiene.SinkPatterns {
+	for _, pattern := range cat.Discovery.SinkPatterns {
 		for _, symbol := range strings.Split(pattern.Symbol, "|") {
 			owners = append(owners, tokenOwner{pattern: pattern, token: symbol})
 		}
@@ -623,10 +643,10 @@ func discoverSinkSites(t *testing.T, cat catalog) []sinkSite {
 func validateSinkSites(cat catalog, sites []sinkSite) error {
 	patterns := map[string]sinkPattern{}
 	families := map[string]bool{}
-	for _, family := range cat.PathHygiene.Families {
+	for _, family := range cat.Discovery.OutputFamilies {
 		families[family.ID] = true
 	}
-	for _, pattern := range cat.PathHygiene.SinkPatterns {
+	for _, pattern := range cat.Discovery.SinkPatterns {
 		if !families[pattern.Family] {
 			return fmt.Errorf("sink pattern %s maps to unknown family %s", pattern.ID, pattern.Family)
 		}
@@ -647,7 +667,7 @@ func validateSinkSites(cat catalog, sites []sinkSite) error {
 		counts[site.PatternID]++
 	}
 	var countMismatches []string
-	for _, pattern := range cat.PathHygiene.SinkPatterns {
+	for _, pattern := range cat.Discovery.SinkPatterns {
 		if counts[pattern.ID] != pattern.ExpectedSites {
 			countMismatches = append(countMismatches, fmt.Sprintf(
 				"%s site count = %d, catalog pins %d",

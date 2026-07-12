@@ -24,10 +24,11 @@ import (
 const AmbientResidual = "same-uid ambient filesystem, network, and process access remains possible without an OS sandbox"
 
 type Suite struct {
-	SourceDir string
-	Command   string
-	Args      []string
-	Timeout   time.Duration
+	SourceDir    string
+	Command      string
+	Args         []string
+	TimeoutClass string
+	Timeout      time.Duration
 }
 
 type Config struct {
@@ -61,7 +62,7 @@ func New(config Config) *Host {
 		config.OutputLimit = 64 << 10
 	}
 	if config.TempRoot == "" {
-		config.TempRoot = os.TempDir()
+		config.TempRoot = "/tmp"
 	}
 	if resolved, err := filepath.EvalSymlinks(config.TempRoot); err == nil {
 		config.TempRoot = resolved
@@ -83,6 +84,12 @@ func (h *Host) Spawn(entry observe.CheckEntry, selection observe.Selection) obse
 	suite, ok := h.config.Suites[selection.Params["target"]]
 	if !ok {
 		return fault(selection, "executor-target-refused")
+	}
+	if suite.TimeoutClass != entry.TimeoutClass || suite.TimeoutClass != "suite_bounded" {
+		return fault(selection, "executor-timeout-class-mismatch")
+	}
+	if suite.Timeout <= 0 || suite.Timeout > 120*time.Second {
+		return fault(selection, "executor-timeout-policy-refused")
 	}
 	key, err := manifestKey(entry, selection, suite)
 	if err != nil {
@@ -121,7 +128,7 @@ func (h *Host) execute(selection observe.Selection, suite Suite) observe.CheckVe
 	if err := stageTree(suite.SourceDir, workdir); err != nil {
 		return fault(selection, "executor-stage-fault")
 	}
-	for _, dir := range []string{"tmp", "cache/go-build", "cache/go-mod", "cache/gopath"} {
+	for _, dir := range []string{".tmp", ".cache/go-build", ".cache/go-mod", ".cache/gopath"} {
 		if err := os.MkdirAll(filepath.Join(workdir, dir), 0o700); err != nil {
 			return fault(selection, "executor-workdir-fault")
 		}
@@ -132,13 +139,14 @@ func (h *Host) execute(selection observe.Selection, suite Suite) observe.CheckVe
 	command := filepath.Join(workdir, filepath.Clean(suite.Command))
 	cmd := exec.Command(command, append([]string(nil), suite.Args...)...)
 	cmd.Dir = workdir
+	cmd.WaitDelay = 2 * time.Second
 	cmd.Env = []string{
 		"PATH=" + os.Getenv("PATH"),
 		"HOME=" + workdir,
-		"TMPDIR=" + filepath.Join(workdir, "tmp"),
-		"GOCACHE=" + filepath.Join(workdir, "cache/go-build"),
-		"GOMODCACHE=" + filepath.Join(workdir, "cache/go-mod"),
-		"GOPATH=" + filepath.Join(workdir, "cache/gopath"),
+		"TMPDIR=" + filepath.Join(workdir, ".tmp"),
+		"GOCACHE=" + filepath.Join(workdir, ".cache/go-build"),
+		"GOMODCACHE=" + filepath.Join(workdir, ".cache/go-mod"),
+		"GOPATH=" + filepath.Join(workdir, ".cache/gopath"),
 	}
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	capture := &cappedCapture{limit: h.config.OutputLimit}
@@ -150,11 +158,7 @@ func (h *Host) execute(selection observe.Selection, suite Suite) observe.CheckVe
 	pgid := cmd.Process.Pid
 	waited := make(chan error, 1)
 	go func() { waited <- cmd.Wait() }()
-	timeout := suite.Timeout
-	if timeout <= 0 {
-		timeout = 120 * time.Second
-	}
-	timer := time.NewTimer(timeout)
+	timer := time.NewTimer(suite.Timeout)
 	defer timer.Stop()
 	var waitErr error
 	timedOut := false
@@ -177,7 +181,7 @@ func (h *Host) execute(selection observe.Selection, suite Suite) observe.CheckVe
 		return faultWithTiming(selection, "executor-timeout", "timeout")
 	}
 
-	exitGreen := waitErr == nil
+	exitGreen := waitErr == nil || errors.Is(waitErr, exec.ErrWaitDelay)
 	expectGreen := selection.Params["expect_green"] == "true"
 	verdict := observe.CheckVerdict{
 		CheckID: selection.CheckID, ClaimRef: selection.ClaimRef,
@@ -271,7 +275,7 @@ func stageTree(source, target string) error {
 		}
 		destination := filepath.Join(target, rel)
 		if info.Mode()&os.ModeSymlink != 0 {
-			return errors.New("symlink refused")
+			return nil
 		}
 		if info.IsDir() {
 			return os.MkdirAll(destination, info.Mode().Perm())
@@ -321,6 +325,9 @@ func manifestKey(entry observe.CheckEntry, selection observe.Selection, suite Su
 			if info.Name() == ".git" && path != suite.SourceDir {
 				return filepath.SkipDir
 			}
+			return nil
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
 			return nil
 		}
 		if !info.Mode().IsRegular() {

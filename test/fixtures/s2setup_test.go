@@ -1,6 +1,7 @@
 package fixtures_test
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -33,7 +34,7 @@ func writeFixtureConfigSources(t *testing.T) map[string]string {
 	enginePath := filepath.Join(root, "engine.json")
 	registryPath := filepath.Join(root, "registry.json")
 	catalogPath := filepath.Join(root, "catalog.json")
-	if err := os.WriteFile(enginePath, []byte(`{"version":1,"gc_enabled":false,"segment_rotate_bytes":4194304,"present_layers":{"observe":false}}`), 0o644); err != nil {
+	if err := os.WriteFile(enginePath, fixtureEngineConfig(t, false), 0o644); err != nil {
 		t.Fatalf("write engine config: %v", err)
 	}
 	registryBytes, err := os.ReadFile(filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
@@ -51,4 +52,37 @@ func writeFixtureConfigSources(t *testing.T) map[string]string {
 		t.Fatalf("write catalog config: %v", err)
 	}
 	return map[string]string{"engine": enginePath, "fieldspec": registryPath, "catalog": catalogPath}
+}
+
+func fixtureEngineConfig(t *testing.T, observe bool) []byte {
+	t.Helper()
+	raw, err := json.Marshal(map[string]any{
+		"version": 2, "gc_enabled": false, "segment_rotate_bytes": 4194304,
+		"present_layers": map[string]bool{"observe": observe},
+		"supply": map[string]any{
+			"lane_roots":  map[string]string{"repo": fixtureRepoRoot(t)},
+			"schema_refs": map[string]string{},
+			"suites": map[string]any{"dogfood-battery": map[string]any{
+				"lane": "repo", "command": "scripts/dogfood-suite.sh", "args": []string{},
+				"timeout_class": "suite_bounded", "timeout_seconds": 120,
+			}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("marshal fixture engine config: %v", err)
+	}
+	return raw
+}
+
+func fixtureRepoRoot(t *testing.T) string {
+	t.Helper()
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatalf("fixture repo root: %v", err)
+	}
+	root, err = filepath.EvalSymlinks(root)
+	if err != nil {
+		t.Fatalf("canonical fixture repo root: %v", err)
+	}
+	return root
 }

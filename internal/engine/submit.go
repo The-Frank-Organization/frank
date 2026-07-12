@@ -27,6 +27,20 @@ func SubmitHandlerWithRender(st *store.Store, reg *fieldspec.Registry, meta seat
 }
 
 func SubmitHandlerWithObservation(st *store.Store, reg *fieldspec.Registry, meta seat.SeatMeta, env fieldspec.RenderEnv, observeEnv observe.Env, existing ...*tables.T) Handler {
+	return submitHandlerWithObservation(st, reg, meta, env, observeEnv, nil, existing...)
+}
+
+func SubmitHandlerWithClaimRegistry(st *store.Store, reg *fieldspec.Registry, meta seat.SeatMeta, env fieldspec.RenderEnv, checks *observe.Registry, existing ...*tables.T) Handler {
+	observeEnv := observe.Env{PresentLayers: env.PresentLayers}
+	if checks != nil {
+		observeEnv.Evaluate = func(candidate observe.Candidate) observe.PredicateResult {
+			return checks.EvaluateClaims(candidate.Record.Headers["executable_claims"], candidate)
+		}
+	}
+	return submitHandlerWithObservation(st, reg, meta, env, observeEnv, checks, existing...)
+}
+
+func submitHandlerWithObservation(st *store.Store, reg *fieldspec.Registry, meta seat.SeatMeta, env fieldspec.RenderEnv, observeEnv observe.Env, checks *observe.Registry, existing ...*tables.T) Handler {
 	return func(ctx context.Context, cmd intake.Cmd) (record.Record, []store.Intent, error) {
 		cand, formDigest, err := fieldspec.DecodeSubmitPayload(cmd.Payload)
 		if err != nil {
@@ -63,6 +77,11 @@ func SubmitHandlerWithObservation(st *store.Store, reg *fieldspec.Registry, meta
 			}
 		}
 		violations := reg.Validate(cand, fieldspec.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator}, formDigest, env, lineage.RealGrantState(tab))
+		if len(violations) == 0 && observeEnv.PresentLayers["observe"] && checks != nil && cand.Headers["executable_claims"] != "" {
+			if _, issue := checks.ValidateClaims(cand.Headers["executable_claims"]); issue != nil {
+				violations = append(violations, fieldspec.Violation{Field: issue.ClaimRef, Class: issue.Class})
+			}
+		}
 		if len(violations) > 0 {
 			cand = clearGateRaiseHeaders(cand)
 			cand.Envelope.DeliveryState = record.Rejected

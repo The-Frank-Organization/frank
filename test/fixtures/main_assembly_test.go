@@ -534,7 +534,22 @@ func TestFrankBinaryServesReadOnlyDiagnosticsOnDigestMismatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Mint: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(root, "config", "engine.json"), []byte(`{"gc_enabled":true,"segment_rotate_bytes":96}`), 0o644); err != nil {
+	enginePath := filepath.Join(root, "config", "engine.json")
+	engineBytes, err := os.ReadFile(enginePath)
+	if err != nil {
+		t.Fatalf("read engine config: %v", err)
+	}
+	var engineDoc map[string]any
+	if err := json.Unmarshal(engineBytes, &engineDoc); err != nil {
+		t.Fatalf("decode engine config: %v", err)
+	}
+	engineDoc["gc_enabled"] = true
+	engineDoc["segment_rotate_bytes"] = float64(96)
+	engineBytes, err = json.Marshal(engineDoc)
+	if err != nil {
+		t.Fatalf("marshal mutated engine config: %v", err)
+	}
+	if err := os.WriteFile(enginePath, engineBytes, 0o644); err != nil {
 		t.Fatalf("mutate engine config: %v", err)
 	}
 

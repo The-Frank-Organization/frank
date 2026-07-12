@@ -19,10 +19,10 @@ func TestS8FXEXE1ExecutorProvidesOnlyRunScopedHandles(t *testing.T) {
 	s8WriteExecutable(t, source, "probe.sh", `#!/bin/sh
 set -eu
 [ "$HOME" = "$PWD" ]
-[ "$TMPDIR" = "$PWD/tmp" ]
-[ "$GOCACHE" = "$PWD/cache/go-build" ]
-[ "$GOMODCACHE" = "$PWD/cache/go-mod" ]
-[ "$GOPATH" = "$PWD/cache/gopath" ]
+[ "$TMPDIR" = "$PWD/.tmp" ]
+[ "$GOCACHE" = "$PWD/.cache/go-build" ]
+[ "$GOMODCACHE" = "$PWD/.cache/go-mod" ]
+[ "$GOPATH" = "$PWD/.cache/gopath" ]
 for key in FRANK_ROOT FRANK_SOCKET FRANK_CREDENTIAL SIGNING_KEY CONFIG_PATH OUTBOX_PATH; do
   eval "value=\${$key-}"
   [ -z "$value" ]
@@ -31,10 +31,10 @@ done
 	host := executor.New(executor.Config{
 		TempRoot: t.TempDir(),
 		Suites: map[string]executor.Suite{
-			"isolation": {SourceDir: source, Command: "probe.sh", Timeout: 2 * time.Second},
+			"isolation": {SourceDir: source, Command: "probe.sh", TimeoutClass: "suite_bounded", Timeout: 2 * time.Second},
 		},
 	})
-	verdict := host.Spawn(observe.CheckEntry{ID: "run-suite", Class: "suite", ExecutorRequired: true}, observe.Selection{
+	verdict := host.Spawn(observe.CheckEntry{ID: "run-suite", Class: "suite", ExecutorRequired: true, TimeoutClass: "suite_bounded"}, observe.Selection{
 		CheckID: "run-suite", ClaimRef: "isolation", Params: map[string]string{"target": "isolation", "expect_green": "true"},
 	})
 	if verdict.Outcome != "pass" || verdict.Predicate != observe.Pass || verdict.RungReached != "E2" {
@@ -52,11 +52,11 @@ func TestS8FXEXE2TimeoutReapsGroupBeforeCleanup(t *testing.T) {
 	host := executor.New(executor.Config{
 		TempRoot: tempRoot,
 		Suites: map[string]executor.Suite{
-			"slow": {SourceDir: source, Command: "slow.sh", Timeout: 80 * time.Millisecond},
+			"slow": {SourceDir: source, Command: "slow.sh", TimeoutClass: "suite_bounded", Timeout: 80 * time.Millisecond},
 		},
 	})
 	started := time.Now()
-	verdict := host.Spawn(observe.CheckEntry{ID: "run-suite", Class: "suite", ExecutorRequired: true}, observe.Selection{
+	verdict := host.Spawn(observe.CheckEntry{ID: "run-suite", Class: "suite", ExecutorRequired: true, TimeoutClass: "suite_bounded"}, observe.Selection{
 		CheckID: "run-suite", ClaimRef: "timeout", Params: map[string]string{"target": "slow", "expect_green": "true"},
 	})
 	if verdict.Outcome != "unsafe" || verdict.Predicate != observe.Blocked || verdict.FailingDetail != "executor-timeout" {
@@ -81,10 +81,10 @@ func TestS8FXEXE2TimeoutReapsGroupBeforeCleanup(t *testing.T) {
 			TempRoot: tempRoot, GroupVerifyBound: 30 * time.Millisecond,
 			GroupGone: func(int) bool { return false },
 			Suites: map[string]executor.Suite{
-				"quick": {SourceDir: source, Command: "quick.sh", Timeout: time.Second},
+				"quick": {SourceDir: source, Command: "quick.sh", TimeoutClass: "suite_bounded", Timeout: time.Second},
 			},
 		})
-		verdict := host.Spawn(observe.CheckEntry{ID: "run-suite", Class: "suite", ExecutorRequired: true}, observe.Selection{
+		verdict := host.Spawn(observe.CheckEntry{ID: "run-suite", Class: "suite", ExecutorRequired: true, TimeoutClass: "suite_bounded"}, observe.Selection{
 			CheckID: "run-suite", ClaimRef: "survivor", Params: map[string]string{"target": "quick", "expect_green": "true"},
 		})
 		if verdict.Outcome != "unsafe" || verdict.FailingDetail != "executor-survivor" {
@@ -107,10 +107,10 @@ func TestS8FXEXE3CoalescesAndReplaysOneManifestExecution(t *testing.T) {
 	host := executor.New(executor.Config{
 		TempRoot: t.TempDir(),
 		Suites: map[string]executor.Suite{
-			"count": {SourceDir: source, Command: "count.sh", Timeout: 2 * time.Second},
+			"count": {SourceDir: source, Command: "count.sh", TimeoutClass: "suite_bounded", Timeout: 2 * time.Second},
 		},
 	})
-	entry := observe.CheckEntry{ID: "run-suite", Class: "suite", ExecutorRequired: true}
+	entry := observe.CheckEntry{ID: "run-suite", Class: "suite", ExecutorRequired: true, TimeoutClass: "suite_bounded"}
 	selection := observe.Selection{CheckID: "run-suite", ClaimRef: "coalesce", Params: map[string]string{"target": "count", "expect_green": "true"}}
 	var wg sync.WaitGroup
 	for range 8 {
@@ -152,11 +152,11 @@ func TestS8FXEXE4And6TruncationClosedVerdictAndSideEffectRefusal(t *testing.T) {
 	host := executor.New(executor.Config{
 		TempRoot: t.TempDir(), OutputLimit: 64,
 		Suites: map[string]executor.Suite{
-			"loud": {SourceDir: source, Command: "loud.sh", Timeout: 2 * time.Second},
+			"loud": {SourceDir: source, Command: "loud.sh", TimeoutClass: "suite_bounded", Timeout: 2 * time.Second},
 		},
 	})
 	selection := observe.Selection{CheckID: "run-suite", ClaimRef: "loud", Params: map[string]string{"target": "loud", "expect_green": "true"}}
-	verdict := host.Spawn(observe.CheckEntry{ID: "run-suite", Class: "suite", ExecutorRequired: true}, selection)
+	verdict := host.Spawn(observe.CheckEntry{ID: "run-suite", Class: "suite", ExecutorRequired: true, TimeoutClass: "suite_bounded"}, selection)
 	if verdict.Outcome != "pass" || verdict.FailingDetail != "output-truncated" {
 		t.Fatalf("truncation verdict = %#v", verdict)
 	}
@@ -189,7 +189,7 @@ func TestS8FXEXE5RegistryRoutesNoVerdictFaultToOuterGate(t *testing.T) {
 	host := executor.New(executor.Config{
 		TempRoot: t.TempDir(),
 		Suites: map[string]executor.Suite{
-			"fail": {SourceDir: source, Command: "fail.sh", Timeout: 2 * time.Second},
+			"fail": {SourceDir: source, Command: "fail.sh", TimeoutClass: "suite_bounded", Timeout: 2 * time.Second},
 		},
 	})
 	reg := observe.NewRegistry(observe.RegistryEnv{

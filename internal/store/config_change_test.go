@@ -25,7 +25,7 @@ func TestConfigChangeCommitMaterializesMember(t *testing.T) {
 		t.Fatalf("ReadDir before records: %v", err)
 	}
 
-	body := `{"phase":["SITREP","PLAN"],"authority":[],"ceremony_tier":[],"evidence_target":[],"gate_category":{},"grant":[]}`
+	body := `{"version":"s7a-fieldspec-v5","phase":["SITREP","PLAN"],"authority":[],"ceremony_tier":[],"evidence_target":[],"gate_category":{},"grant":[]}`
 	rec := record.Record{
 		Envelope: record.Envelope{RelayID: "config-change-1", From: "operator", Role: "operator", DeliveryState: record.Accepted, SchemaVersion: 1},
 		Headers: map[string]string{
@@ -70,13 +70,13 @@ func TestChainWalkLatestWins(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	first := `{"phase":["SITREP","PLAN"],"authority":[],"ceremony_tier":[],"evidence_target":[],"gate_category":{},"grant":[]}`
+	first := `{"version":"s7a-fieldspec-v5","phase":["SITREP","PLAN"],"authority":[],"ceremony_tier":[],"evidence_target":[],"gate_category":{},"grant":[]}`
 	firstDigest := digestWithMember(t, root, "fieldspec", []byte(first))
 	firstRec := configChangeRecord("config-change-first", first, firstDigest)
 	if _, err := st.Commit(firstRec, store.ConfigChangeIntents(firstRec)); err != nil {
 		t.Fatalf("commit first config_change: %v", err)
 	}
-	second := `{"phase":["SITREP","PLAN","IMPL"],"authority":[],"ceremony_tier":[],"evidence_target":[],"gate_category":{},"grant":[]}`
+	second := `{"version":"s7a-fieldspec-v5","phase":["SITREP","PLAN","IMPL"],"authority":[],"ceremony_tier":[],"evidence_target":[],"gate_category":{},"grant":[]}`
 	secondDigest := digestWithMember(t, root, "fieldspec", []byte(second))
 	secondRec := configChangeRecord("config-change-second", second, secondDigest)
 	if _, err := st.Commit(secondRec, store.ConfigChangeIntents(secondRec)); err != nil {

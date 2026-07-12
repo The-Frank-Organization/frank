@@ -12,12 +12,13 @@ import (
 	"github.com/jackli/frank/internal/config"
 	"github.com/jackli/frank/internal/fieldspec"
 	"github.com/jackli/frank/internal/record"
+	"github.com/jackli/frank/internal/store"
 )
 
-func TestS8RegistryChangesetIsExactV6OptionB(t *testing.T) {
+func TestS8RegistryChangesetIsExactV7OptionB(t *testing.T) {
 	reg := loadS5Registry(t)
-	if reg.Version != "s8-fieldspec-v6" {
-		t.Fatalf("version = %q, want s8-fieldspec-v6", reg.Version)
+	if reg.Version != "s8-fieldspec-v7" {
+		t.Fatalf("version = %q, want s8-fieldspec-v7", reg.Version)
 	}
 	wantMembers := []string{"fieldspec", "engine", "catalog", "adoption"}
 	if got := reg.NamedEnums["config_member"]; !reflect.DeepEqual(got, wantMembers) {
@@ -90,17 +91,30 @@ func TestS8FXCFG10MemberTransitionRelation(t *testing.T) {
 		})
 	}
 
-	v5, err := os.ReadFile(filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
-	if err != nil {
-		t.Fatalf("read registry: %v", err)
+	root := t.TempDir()
+	if err := store.Init(root, s8ConfigSources(t, false)); err != nil {
+		t.Fatalf("Init v5 store: %v", err)
 	}
-	v5 = bytes.Replace(v5, []byte(`"version": "s8-fieldspec-v6"`), []byte(`"version": "s7a-fieldspec-v5"`), 1)
-	v6, err := os.ReadFile(filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
+	v5, err := os.ReadFile(filepath.Join(root, "config", "fieldspec", "registry.json"))
 	if err != nil {
-		t.Fatalf("read v6 registry: %v", err)
+		t.Fatalf("read v5 registry: %v", err)
+	}
+	v6 := s8FieldspecV6Bytes(t)
+	v7, err := os.ReadFile(filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
+	if err != nil {
+		t.Fatalf("read v7 registry: %v", err)
 	}
 	if err := config.ValidateMemberTransition("fieldspec", v5, v6); err != nil {
 		t.Fatalf("lawful v5-to-v6 transition: %v", err)
+	}
+	if err := config.ValidateMemberTransition("fieldspec", v6, v7); err != nil {
+		t.Fatalf("lawful v6-to-v7 transition: %v", err)
+	}
+	if err := config.ValidateMemberTransition("fieldspec", v5, v7); err == nil {
+		t.Fatal("v5-to-v7 skip accepted")
+	}
+	if err := config.ValidateMemberTransition("fieldspec", v7, v6); err == nil {
+		t.Fatal("v7-to-v6 rollback accepted")
 	}
 }
 
@@ -113,10 +127,7 @@ func TestS8V5ToV6TransitionMakesCatalogAndAdoptionTokensLive(t *testing.T) {
 	h.start(t)
 	operator := h.dial(t, credential)
 
-	v6, err := os.ReadFile(filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
-	if err != nil {
-		t.Fatalf("read v6 registry: %v", err)
-	}
+	v6 := s8FieldspecV6Bytes(t)
 	h.submit(t, operator, s8ConfigChangeRecord(t, h.root, "fieldspec", v6))
 	_ = operator.Close()
 	h.stop(t)
@@ -171,4 +182,22 @@ func s8ConfigChangeRecord(t *testing.T, root, member string, body []byte) record
 		"EVIDENCE_TARGET": "E1", "SUBJECT": "s8 config transition", "record_kind": "config_change",
 		"member": member, "new_digest": digest,
 	}, Body: string(body)}
+}
+
+func s8FieldspecV6Bytes(t *testing.T) []byte {
+	t.Helper()
+	v7, err := os.ReadFile(filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
+	if err != nil {
+		t.Fatalf("read v7 registry: %v", err)
+	}
+	v6 := bytes.Replace(v7, []byte(`"version": "s8-fieldspec-v7"`), []byte(`"version": "s8-fieldspec-v6"`), 1)
+	lines := bytes.Split(v6, []byte{'\n'})
+	for i, line := range lines {
+		if bytes.Contains(line, []byte(`"id": "executable_claims"`)) {
+			lines = append(lines[:i], lines[i+1:]...)
+			return bytes.Join(lines, []byte{'\n'})
+		}
+	}
+	t.Fatal("v7 executable_claims row missing")
+	return nil
 }

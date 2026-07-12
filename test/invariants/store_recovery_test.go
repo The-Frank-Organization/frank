@@ -2,6 +2,7 @@ package invariants_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -253,7 +254,21 @@ func initPinnedStore(t *testing.T, root string) *config.Pinned {
 	t.Helper()
 	sourceDir := t.TempDir()
 	enginePath := filepath.Join(sourceDir, "engine.json")
-	if err := os.WriteFile(enginePath, []byte(`{"version":1,"gc_enabled":false,"segment_rotate_bytes":4194304,"present_layers":{"observe":false}}`), 0o644); err != nil {
+	engineBytes, err := json.Marshal(map[string]any{
+		"version": 2, "gc_enabled": false, "segment_rotate_bytes": 4194304,
+		"present_layers": map[string]bool{"observe": false},
+		"supply": map[string]any{
+			"lane_roots": map[string]string{"repo": repoRoot(t)}, "schema_refs": map[string]string{},
+			"suites": map[string]any{"dogfood-battery": map[string]any{
+				"lane": "repo", "command": "scripts/dogfood-suite.sh", "args": []string{},
+				"timeout_class": "suite_bounded", "timeout_seconds": 120,
+			}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("marshal engine config: %v", err)
+	}
+	if err := os.WriteFile(enginePath, engineBytes, 0o644); err != nil {
 		t.Fatalf("write engine config: %v", err)
 	}
 	if err := store.Init(root, map[string]string{

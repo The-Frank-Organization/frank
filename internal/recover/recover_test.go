@@ -164,7 +164,7 @@ func TestPhase0RematerializesFromChain(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open store: %v", err)
 	}
-	body := []byte(`{"phase":["SITREP","PLAN"],"authority":[],"ceremony_tier":[],"evidence_target":[],"gate_category":{},"grant":[]}`)
+	body := []byte(`{"version":"s7a-fieldspec-v5","phase":["SITREP","PLAN"],"authority":[],"ceremony_tier":[],"evidence_target":[],"gate_category":{},"grant":[]}`)
 	commitRecoverConfigChange(t, st, root, "recover-config-change", body)
 	pinnedAfter, err := config.Load(store.StoreRootConfigPaths(root))
 	if err != nil {
@@ -197,7 +197,7 @@ func TestPhase0RematerializesLatestConfigChangePerMember(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open store: %v", err)
 	}
-	registryBody := []byte(`{"phase":["SITREP","PLAN"],"authority":[],"ceremony_tier":[],"evidence_target":[],"gate_category":{},"grant":[]}`)
+	registryBody := []byte(`{"version":"s7a-fieldspec-v5","phase":["SITREP","PLAN"],"authority":[],"ceremony_tier":[],"evidence_target":[],"gate_category":{},"grant":[]}`)
 	commitRecoverConfigMemberChange(t, st, root, "recover-registry-change", "fieldspec", registryBody)
 	engineBody := []byte(`{"gc_enabled":true,"segment_rotate_bytes":4194304,"max_frame_bytes":4096}`)
 	commitRecoverConfigMemberChange(t, st, root, "recover-engine-change", "engine", engineBody)
@@ -206,7 +206,7 @@ func TestPhase0RematerializesLatestConfigChangePerMember(t *testing.T) {
 		t.Fatalf("load pinned after changes: %v", err)
 	}
 
-	if err := os.WriteFile(filepath.Join(root, "config", "fieldspec", "registry.json"), []byte(`{"phase":["SITREP"],"authority":[],"ceremony_tier":[],"evidence_target":[],"gate_category":{},"grant":[]}`), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "config", "fieldspec", "registry.json"), []byte(`{"version":"s7a-fieldspec-v5","phase":["SITREP"],"authority":[],"ceremony_tier":[],"evidence_target":[],"gate_category":{},"grant":[]}`), 0o644); err != nil {
 		t.Fatalf("stale registry: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(root, "config", "engine.json"), []byte(`{"gc_enabled":false,"segment_rotate_bytes":4194304}`), 0o644); err != nil {
@@ -253,7 +253,7 @@ func TestPhase0PersistentMismatchStillDiagnostics(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open store: %v", err)
 	}
-	body := []byte(`{"phase":["SITREP","PLAN"],"authority":[],"ceremony_tier":[],"evidence_target":[],"gate_category":{},"grant":[]}`)
+	body := []byte(`{"version":"s7a-fieldspec-v5","phase":["SITREP","PLAN"],"authority":[],"ceremony_tier":[],"evidence_target":[],"gate_category":{},"grant":[]}`)
 	commitRecoverConfigChange(t, st, root, "recover-config-change-blocked", body)
 	pinnedAfter, err := config.Load(store.StoreRootConfigPaths(root))
 	if err != nil {
@@ -291,7 +291,7 @@ func pinnedForRecoverTest(t *testing.T) *config.Pinned {
 	if err := os.WriteFile(enginePath, []byte(`{"gc_enabled":false,"segment_rotate_bytes":4194304}`), 0o644); err != nil {
 		t.Fatalf("write engine config: %v", err)
 	}
-	if err := os.WriteFile(registryPath, []byte(`{"phase":["SITREP"],"authority":[],"ceremony_tier":[],"evidence_target":[],"gate_category":{},"grant":[]}`), 0o644); err != nil {
+	if err := os.WriteFile(registryPath, []byte(`{"version":"s7a-fieldspec-v5","phase":["SITREP"],"authority":[],"ceremony_tier":[],"evidence_target":[],"gate_category":{},"grant":[]}`), 0o644); err != nil {
 		t.Fatalf("write registry config: %v", err)
 	}
 	pinned, err := config.Load(map[string]string{"engine": enginePath, "fieldspec": registryPath})
@@ -382,7 +382,7 @@ func writeRecoverConfigSources(t *testing.T, engineJSON string) map[string]strin
 	if err := os.WriteFile(enginePath, []byte(engineJSON), 0o644); err != nil {
 		t.Fatalf("write engine config: %v", err)
 	}
-	if err := os.WriteFile(registryPath, []byte(`{"phase":["SITREP"],"authority":[],"ceremony_tier":[],"evidence_target":[],"gate_category":{},"grant":[]}`), 0o644); err != nil {
+	if err := os.WriteFile(registryPath, []byte(`{"version":"s7a-fieldspec-v5","phase":["SITREP"],"authority":[],"ceremony_tier":[],"evidence_target":[],"gate_category":{},"grant":[]}`), 0o644); err != nil {
 		t.Fatalf("write registry config: %v", err)
 	}
 	return map[string]string{"engine": enginePath, "fieldspec": registryPath}

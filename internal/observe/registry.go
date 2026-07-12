@@ -1,6 +1,7 @@
 package observe
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -24,6 +25,11 @@ type Selection struct {
 	ClaimRef        string
 	CandidateDigest string
 	Params          map[string]string
+}
+
+type ClaimIssue struct {
+	ClaimRef string
+	Class    string
 }
 
 type CheckVerdict struct {
@@ -104,6 +110,11 @@ func (r *Registry) Entry(id string) (CheckEntry, bool) {
 
 func (r *Registry) Run(selection Selection) CheckVerdict {
 	entry, ok := r.entries[selection.CheckID]
+	if ok && entry.ID == "read-file" && strings.HasPrefix(selection.Params["expect"], "schema_ref:") {
+		if r.env.SchemaRefs[strings.TrimPrefix(selection.Params["expect"], "schema_ref:")] == "" {
+			return refusedVerdictWithDetail(selection, "schema-ref-unknown")
+		}
+	}
 	if !ok || !r.validParams(entry, selection.Params) {
 		return refusedVerdict(selection)
 	}
@@ -142,6 +153,100 @@ func (r *Registry) Evaluator(selection Selection) func(Candidate) PredicateResul
 			Verdicts: []CheckVerdict{verdict},
 		}
 	}
+}
+
+func (r *Registry) ValidateClaims(raw string) ([]Selection, *ClaimIssue) {
+	if raw == "" {
+		return nil, nil
+	}
+	var rows []map[string]string
+	if err := json.Unmarshal([]byte(raw), &rows); err != nil {
+		return nil, &ClaimIssue{ClaimRef: "executable_claims", Class: "check-params-invalid"}
+	}
+	seen := map[string]bool{}
+	selections := make([]Selection, 0, len(rows))
+	for _, row := range rows {
+		claimRef := row["claim_ref"]
+		if len(row) != 3 || !validClaimRef(claimRef) {
+			return nil, &ClaimIssue{ClaimRef: symbolicClaimRef(claimRef), Class: "check-params-invalid"}
+		}
+		if seen[claimRef] {
+			return nil, &ClaimIssue{ClaimRef: claimRef, Class: "duplicate-claim-ref"}
+		}
+		seen[claimRef] = true
+		entry, ok := r.entries[row["check_id"]]
+		if !ok {
+			return nil, &ClaimIssue{ClaimRef: claimRef, Class: "unknown-check"}
+		}
+		var params map[string]string
+		if err := json.Unmarshal([]byte(row["params"]), &params); err != nil {
+			return nil, &ClaimIssue{ClaimRef: claimRef, Class: "check-params-invalid"}
+		}
+		if entry.ID == "read-file" && strings.HasPrefix(params["expect"], "schema_ref:") && r.env.SchemaRefs[strings.TrimPrefix(params["expect"], "schema_ref:")] == "" {
+			return nil, &ClaimIssue{ClaimRef: claimRef, Class: "schema-ref-unknown"}
+		}
+		canonical, err := json.Marshal(params)
+		if err != nil || !bytes.Equal(canonical, []byte(row["params"])) || !r.validParams(entry, params) {
+			return nil, &ClaimIssue{ClaimRef: claimRef, Class: "check-params-invalid"}
+		}
+		selections = append(selections, Selection{CheckID: row["check_id"], ClaimRef: claimRef, Params: params})
+	}
+	return selections, nil
+}
+
+func (r *Registry) EvaluateClaims(raw string, candidate Candidate) PredicateResult {
+	selections, issue := r.ValidateClaims(raw)
+	if issue != nil {
+		return PredicateResult{ID: issue.ClaimRef, Predicate: Fail, FailureClass: issue.Class}
+	}
+	if len(selections) == 0 {
+		return PredicateResult{ID: "observe-unavailable", Predicate: Blocked}
+	}
+	result := PredicateResult{ID: "executable-claims", Predicate: Pass}
+	var firstFail, firstMachinery, firstNoVantage string
+	for _, selection := range selections {
+		row := r.Evaluator(selection)(candidate)
+		result.Verdicts = append(result.Verdicts, row.Verdicts...)
+		switch {
+		case row.Predicate == Fail && firstFail == "":
+			firstFail = row.ID
+		case row.MachineryFault && firstMachinery == "":
+			firstMachinery = row.ID
+		case row.Predicate == Blocked || row.Predicate == Degraded:
+			if firstNoVantage == "" {
+				firstNoVantage = row.ID
+			}
+		}
+	}
+	switch {
+	case firstFail != "":
+		result.ID, result.Predicate = firstFail, Fail
+	case firstMachinery != "":
+		result.ID, result.Predicate, result.MachineryFault = firstMachinery, Blocked, true
+	case firstNoVantage != "":
+		result.ID, result.Predicate = firstNoVantage, Blocked
+	}
+	return result
+}
+
+func validClaimRef(value string) bool {
+	if value == "" || len(value) > 128 {
+		return false
+	}
+	for _, char := range value {
+		if char >= 'a' && char <= 'z' || char >= 'A' && char <= 'Z' || char >= '0' && char <= '9' || strings.ContainsRune("._:-", char) {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func symbolicClaimRef(value string) string {
+	if validClaimRef(value) {
+		return value
+	}
+	return "executable_claims"
 }
 
 func machineryFaultDetail(detail string) bool {
@@ -188,9 +293,13 @@ func validRelativePath(path string) bool {
 }
 
 func refusedVerdict(selection Selection) CheckVerdict {
+	return refusedVerdictWithDetail(selection, "check-params-refused")
+}
+
+func refusedVerdictWithDetail(selection Selection, detail string) CheckVerdict {
 	return CheckVerdict{
 		CheckID: selection.CheckID, ClaimRef: selection.ClaimRef,
-		Outcome: "unsafe", Predicate: Blocked, FailingDetail: "check-params-refused",
+		Outcome: "unsafe", Predicate: Blocked, FailingDetail: detail,
 	}
 }
 

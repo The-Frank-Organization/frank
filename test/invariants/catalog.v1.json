@@ -1,34 +1,59 @@
 {
-  "version": "s7-v1",
-  "status": "convention-only",
+  "version": "s8-v1",
+  "status": "section7-pinned",
   "change_convention": {
     "single_writer": "one implementation writer per change",
     "owner_fidelity": "every listed owner reviews a changed law before integration",
-    "section_7_claim": "not-claimed-in-s7",
-    "section_7_carry": "s8-section-7-digest-pinning"
+    "section_7_claim": "pinned-at-s8: load enforces digest and member/provenance shape; owner review remains a relay/design-review gate",
+    "section_7_carry": "discharged-at-s8"
   },
-  "path_hygiene": {
-    "families": [
-      {
-        "id": "bounce-reason",
-        "carve_outs": []
+  "discovery": {
+    "scan": {
+      "root": ".",
+      "exclude_dir_prefixes": ["."],
+      "exclude_file_suffixes": ["_test.go"],
+      "include_only_suffixes": [".go"]
+    },
+    "boundary_files": ["cmd/frank-mcp/mcp.go", "internal/channel/server.go"],
+    "recognizers": {
+      "channel_context": {
+        "path_prefix": "internal/channel/",
+        "call_selectors": ["write", "writeLocked", "writePush", "writePushes"],
+        "ident_calls": ["writePushes"],
+        "conn_receiver_calls": ["Write"]
       },
-      {
-        "id": "process-tool-errors",
-        "carve_outs": []
+      "mcp_context": {
+        "path_prefix": "cmd/frank-mcp/",
+        "call_selectors": ["Encode"]
       },
-      {
-        "id": "tool-descriptions-results",
-        "carve_outs": []
-      },
-      {
-        "id": "rendered-projections",
-        "carve_outs": []
-      },
-      {
-        "id": "delivery-payloads",
-        "carve_outs": []
-      },
+      "protocol_switch_tag_selector": "Method",
+      "tree_wide_idioms": ["conn_receiver_write", "method_switch"]
+    },
+    "site_census": [
+      "cmd/frank-mcp/mcp.go:MCPServer.Serve->Encode",
+      "cmd/frank-mcp/mcp.go:MCPServer.handle=>initialize",
+      "cmd/frank-mcp/mcp.go:MCPServer.handle=>notifications/initialized",
+      "cmd/frank-mcp/mcp.go:MCPServer.handle=>ping",
+      "cmd/frank-mcp/mcp.go:MCPServer.handle=>tools/call",
+      "cmd/frank-mcp/mcp.go:MCPServer.handle=>tools/list",
+      "internal/channel/server.go:Server.PushTo->writePushes",
+      "internal/channel/server.go:serverConn.handle->write",
+      "internal/channel/server.go:serverConn.handle=>tools/call",
+      "internal/channel/server.go:serverConn.handle=>tools/descriptions",
+      "internal/channel/server.go:serverConn.handle=>tools/list",
+      "internal/channel/server.go:serverConn.run->write",
+      "internal/channel/server.go:serverConn.run->write",
+      "internal/channel/server.go:serverConn.write->writeLocked",
+      "internal/channel/server.go:serverConn.writeLocked->Write",
+      "internal/channel/server.go:serverConn.writePush->writeLocked",
+      "internal/channel/server.go:writePushes->writePush"
+    ],
+    "output_families": [
+      { "id": "bounce-reason", "carve_outs": [] },
+      { "id": "process-tool-errors", "carve_outs": [] },
+      { "id": "tool-descriptions-results", "carve_outs": [] },
+      { "id": "rendered-projections", "carve_outs": [] },
+      { "id": "delivery-payloads", "carve_outs": [] },
       {
         "id": "seat-mint-accept-reply",
         "carve_outs": [
@@ -38,114 +63,40 @@
       }
     ],
     "sink_patterns": [
-      {
-        "id": "bounce-format",
-        "family": "bounce-reason",
-        "symbol": "bounce.Format",
-        "expected_sites": 19
-      },
-      {
-        "id": "safe-error-valves",
-        "family": "process-tool-errors",
-        "symbol": "safeError|scrubError|frameTooLargeError",
-        "expected_sites": 9
-      },
-      {
-        "id": "tool-description-and-call",
-        "family": "tool-descriptions-results",
-        "symbol": "toolDescriptions|mcpTools|ToolDescriptions|DescribeTools|Call",
-        "expected_sites": 13
-      },
-      {
-        "id": "projection-render",
-        "family": "rendered-projections",
-        "symbol": "DefaultProjectionIntentsStrict|RebuildProjections",
-        "expected_sites": 8
-      },
-      {
-        "id": "delivery-intent-and-push",
-        "family": "delivery-payloads",
-        "symbol": "IntentMailbox|IntentOutbox|PushTo",
-        "expected_sites": 10
-      },
-      {
-        "id": "seat-mint-outcome-extras",
-        "family": "seat-mint-accept-reply",
-        "symbol": "OutcomeExtras",
-        "expected_sites": 11
-      }
-    ]
+      { "id": "bounce-format", "family": "bounce-reason", "symbol": "bounce.Format", "expected_sites": 19 },
+      { "id": "safe-error-valves", "family": "process-tool-errors", "symbol": "safeError|scrubError|frameTooLargeError", "expected_sites": 9 },
+      { "id": "tool-description-and-call", "family": "tool-descriptions-results", "symbol": "toolDescriptions|mcpTools|ToolDescriptions|DescribeTools|Call", "expected_sites": 13 },
+      { "id": "projection-render", "family": "rendered-projections", "symbol": "DefaultProjectionIntentsStrict|RebuildProjections", "expected_sites": 8 },
+      { "id": "delivery-intent-and-push", "family": "delivery-payloads", "symbol": "IntentMailbox|IntentOutbox|PushTo", "expected_sites": 10 },
+      { "id": "seat-mint-outcome-extras", "family": "seat-mint-accept-reply", "symbol": "OutcomeExtras", "expected_sites": 11 }
+    ],
+    "canonical_path_families": {
+      "rows": [
+        { "id": "binding", "relative": "binding", "forbidden": "/binding/", "directory": true },
+        { "id": "catalog-config", "relative": "config/catalog/catalog.json", "forbidden": "config/catalog/catalog.json", "directory": false },
+        { "id": "conductor-lock", "relative": "conductor.lock", "forbidden": "conductor.lock", "directory": false },
+        { "id": "engine-config", "relative": "config/engine.json", "forbidden": "config/engine.json", "directory": false },
+        { "id": "fieldspec-registry", "relative": "config/fieldspec/registry.json", "forbidden": "config/fieldspec/registry.json", "directory": false },
+        { "id": "journal", "relative": "journal", "forbidden": "/journal/", "directory": true },
+        { "id": "mailboxes", "relative": "mailboxes", "forbidden": "/mailboxes/", "directory": true },
+        { "id": "outbox", "relative": "outbox", "forbidden": "/outbox/", "directory": true },
+        { "id": "projections", "relative": "projections", "forbidden": "/projections/", "directory": true },
+        { "id": "quarantine", "relative": "quarantine", "forbidden": "/quarantine/", "directory": true },
+        { "id": "records", "relative": "records", "forbidden": "/records/", "directory": true },
+        { "id": "staging", "relative": "staging", "forbidden": "/staging/", "directory": true }
+      ]
+    }
   },
   "laws": [
-    {
-      "id": "terminal-enum-byte-exact",
-      "test": "TestLawTerminalEnumByteExact",
-      "owners": ["m-2"],
-      "fidelity_review": ["m-2"],
-      "claim": "terminal delivery state is byte-exact: accepted, rejected, held"
-    },
-    {
-      "id": "three-verb-seat-surface",
-      "test": "TestLawThreeVerbSurface",
-      "owners": ["m-1", "m-7"],
-      "fidelity_review": ["m-1"],
-      "claim": "seat-visible verbs are byte-exact: submit, project, read"
-    },
-    {
-      "id": "r2-no-model-predicate",
-      "test": "TestLawR2NoModelPredicate",
-      "owners": ["m-2", "m-4"],
-      "fidelity_review": ["m-2", "m-4"],
-      "claim": "model identity is not gate-referenceable and cannot drive required, visible, or gate predicates"
-    },
-    {
-      "id": "derived-only-activation",
-      "test": "TestLawDerivedOnlyActivation",
-      "owners": ["m-1", "m-7"],
-      "fidelity_review": ["m-1"],
-      "claim": "seat lifecycle only: minted and active derive from committed records in commit order; bound_now is runtime-only; no activation or bound marker persists"
-    },
-    {
-      "id": "sole-governed-writer",
-      "test": "TestLawSoleGovernedWriter",
-      "owners": ["m-1", "m-7"],
-      "fidelity_review": ["m-1"],
-      "claim": "the serialized loop is the sole governed write path; D5 same-uid direct-store access remains the stated residual"
-    },
-    {
-      "id": "path-hygiene",
-      "test": "TestLawPathHygiene",
-      "owners": ["m-1", "m-2", "m-7"],
-      "fidelity_review": ["m-1", "m-2"],
-      "claim": "every current seat-delivered family is censused and path-free except the two operator-only seat_mint reply carve-outs"
-    },
-    {
-      "id": "canonical-wins",
-      "test": "TestLawCanonicalWins",
-      "owners": ["m-7"],
-      "fidelity_review": [],
-      "claim": "canonical committed records win over rebuildable projections"
-    },
-    {
-      "id": "one-pivot-per-mutation",
-      "test": "TestLawOnePivotPerMutation",
-      "owners": ["m-7"],
-      "fidelity_review": [],
-      "claim": "each governance mutation has one canonical rename pivot; crash-before is absent and crash-after is present"
-    },
-    {
-      "id": "intake-outcome-at-most-one",
-      "test": "TestLawIntakeOutcomeOneToOne",
-      "owners": ["m-7"],
-      "fidelity_review": [],
-      "claim": "at most one outcome per intake at all times; settled means exactly one; pending-zero is valid; recovery and duplicate retries do not double-emit"
-    },
-    {
-      "id": "rebuild-before-open",
-      "test": "TestLawRebuildBeforeOpen",
-      "owners": ["m-7"],
-      "fidelity_review": [],
-      "claim": "submit remains unavailable until recovery and rebuild complete and Ready opens"
-    }
+    { "id": "terminal-enum-byte-exact", "test": "TestLawTerminalEnumByteExact", "owners": ["m-2"], "fidelity_review": ["m-2"], "claim": "terminal delivery state is byte-exact: accepted, rejected, held" },
+    { "id": "three-verb-seat-surface", "test": "TestLawThreeVerbSurface", "owners": ["m-1", "m-7"], "fidelity_review": ["m-1"], "claim": "seat-visible verbs are byte-exact: submit, project, read" },
+    { "id": "r2-no-model-predicate", "test": "TestLawR2NoModelPredicate", "owners": ["m-2", "m-4"], "fidelity_review": ["m-2", "m-4"], "claim": "model identity is not gate-referenceable and cannot drive required, visible, or gate predicates" },
+    { "id": "derived-only-activation", "test": "TestLawDerivedOnlyActivation", "owners": ["m-1", "m-7"], "fidelity_review": ["m-1"], "claim": "seat lifecycle only: minted and active derive from committed records in commit order; bound_now is runtime-only; no activation or bound marker persists" },
+    { "id": "sole-governed-writer", "test": "TestLawSoleGovernedWriter", "owners": ["m-1", "m-7"], "fidelity_review": ["m-1"], "claim": "the serialized loop is the sole governed write path; D5 same-uid direct-store access remains the stated residual" },
+    { "id": "path-hygiene", "test": "TestLawPathHygiene", "owners": ["m-1", "m-2", "m-7"], "fidelity_review": ["m-1", "m-2"], "claim": "every current seat-delivered family is censused and path-free except the two operator-only seat_mint reply carve-outs" },
+    { "id": "canonical-wins", "test": "TestLawCanonicalWins", "owners": ["m-7"], "fidelity_review": [], "claim": "canonical committed records win over rebuildable projections" },
+    { "id": "one-pivot-per-mutation", "test": "TestLawOnePivotPerMutation", "owners": ["m-7"], "fidelity_review": [], "claim": "each governance mutation has one canonical rename pivot; crash-before is absent and crash-after is present" },
+    { "id": "intake-outcome-at-most-one", "test": "TestLawIntakeOutcomeOneToOne", "owners": ["m-7"], "fidelity_review": [], "claim": "at most one outcome per intake at all times; settled means exactly one; pending-zero is valid; recovery and duplicate retries do not double-emit" },
+    { "id": "rebuild-before-open", "test": "TestLawRebuildBeforeOpen", "owners": ["m-7"], "fidelity_review": [], "claim": "submit remains unavailable until recovery and rebuild complete and Ready opens" }
   ]
 }

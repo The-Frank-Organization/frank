@@ -93,10 +93,21 @@ func Init(root string, sources map[string]string) error {
 }
 
 func genesisMemberBytes(name string, source []byte) ([]byte, error) {
-	if name != "fieldspec" || !bytes.Contains(source, []byte(`"version": "s8-fieldspec-v6"`)) {
+	if name != "fieldspec" {
 		return source, nil
 	}
 	predecessor := append([]byte(nil), source...)
+	if bytes.Contains(predecessor, []byte(`"version": "s8-fieldspec-v7"`)) {
+		claimRow := []byte("    " + executableClaimsV7Row + ",\n")
+		if bytes.Count(predecessor, claimRow) != 1 {
+			return nil, fmt.Errorf("fieldspec v7 claim row mismatch")
+		}
+		predecessor = bytes.Replace(predecessor, []byte(`"version": "s8-fieldspec-v7"`), []byte(`"version": "s8-fieldspec-v6"`), 1)
+		predecessor = bytes.Replace(predecessor, claimRow, nil, 1)
+	}
+	if !bytes.Contains(predecessor, []byte(`"version": "s8-fieldspec-v6"`)) {
+		return source, nil
+	}
 	replacements := [][2]string{
 		{`"version": "s8-fieldspec-v6"`, `"version": "s7a-fieldspec-v5"`},
 		{`"config_member": ["fieldspec", "engine", "catalog", "adoption"]`, `"config_member": ["fieldspec", "engine"]`},
@@ -116,6 +127,8 @@ func genesisMemberBytes(name string, source []byte) ([]byte, error) {
 	}
 	return predecessor, nil
 }
+
+const executableClaimsV7Row = `{"id": "executable_claims", "layer": "header", "owner": "agent_enum_pick", "type": "row_array", "gate_referenceable": false, "fill_constraints": "free_text", "lineage_role": "none", "visible_when": {"all_of": [{"layer_present": "observe"}]}, "annotation": "seat-declared executable-claim DECLARATION input (counterpart to system-owned executable_claim_results). Columns: claim_ref (non-empty/bounded/symbolic/UNIQUE - duplicate = typed reject), check_id, params. Nested check_id/params validation is registry-schema-aware at the m-3 fill-time + authoritative observe-time seam (typed rejects: unknown-check / check-params-invalid) - NOT a top-level enum_set (row_array columns carry no FieldSpec enum). R2: non-gate-referenceable (selection = lane intent; disposition rides system-owned executable_claim_results). Rail A (s8-claim-input v7, ratified absence-open/present-closed): ABSENCE = honest Evaluate:nil no-vantage degrade; a PRESENT declaration = CLOSED/fail-closed via the governed v6->v7 transition + m-7 marker-first v7 capability ceiling (a non-v7 reader refuses at phase-0, never silently ignores). suppliability guard = the s5-b (h) typed-REJECT validator rule (channel-keyed, envelope-asymmetry preserved); until it lands, dormancy is render-absence, not submit-rejection - no non-lane-writability claim."}`
 
 func StoreRootConfigPaths(root string) map[string]string {
 	paths := LegacyStoreRootConfigPaths(root)

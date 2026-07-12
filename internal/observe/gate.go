@@ -29,6 +29,7 @@ type PredicateResult struct {
 	ID             string
 	Predicate      string
 	MachineryFault bool
+	FailureClass   string
 	ObservedFields map[string]string
 	Verdicts       []CheckVerdict
 }
@@ -131,7 +132,10 @@ func Gate(cand record.Record, seat, phase, authority string, env Env) (ObserveRe
 	case Fail:
 		result.Veto = "block_delivery"
 		result.FailingPredicate = verdict.ID
-		result.FailureClass = "observed-false"
+		result.FailureClass = verdict.FailureClass
+		if result.FailureClass == "" {
+			result.FailureClass = "observed-false"
+		}
 		return result, record.Rejected
 	case Blocked, Degraded:
 		return noVantageDisposition(cand, verdict, result)

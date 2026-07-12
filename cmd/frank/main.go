@@ -18,12 +18,14 @@ import (
 	"github.com/jackli/frank/internal/channel"
 	frankconfig "github.com/jackli/frank/internal/config"
 	"github.com/jackli/frank/internal/engine"
+	"github.com/jackli/frank/internal/executor"
 	"github.com/jackli/frank/internal/fieldspec"
 	frankgc "github.com/jackli/frank/internal/gc"
 	"github.com/jackli/frank/internal/intake"
 	"github.com/jackli/frank/internal/lineage"
 	"github.com/jackli/frank/internal/migrate"
 	"github.com/jackli/frank/internal/obligation"
+	"github.com/jackli/frank/internal/observe"
 	"github.com/jackli/frank/internal/record"
 	frankrecover "github.com/jackli/frank/internal/recover"
 	"github.com/jackli/frank/internal/seat"
@@ -113,6 +115,22 @@ func run(ctx context.Context, cfg config) error {
 	}
 	reg := pinned.Registry
 	presentLayers := frankconfig.PresentLayers(pinned)
+	if pinned.Supply == nil {
+		return fmt.Errorf("%w: supply", frankconfig.ErrConfigLoad)
+	}
+	suites := make(map[string]executor.Suite, len(pinned.Supply.Suites))
+	namedSuites := make(map[string]bool, len(pinned.Supply.Suites))
+	for target, descriptor := range pinned.Supply.Suites {
+		suites[target] = executor.Suite{
+			SourceDir: descriptor.SourceDir, Command: descriptor.Command, Args: append([]string(nil), descriptor.Args...),
+			TimeoutClass: descriptor.TimeoutClass, Timeout: descriptor.Timeout,
+		}
+		namedSuites[target] = true
+	}
+	executorHost := executor.New(executor.Config{Suites: suites})
+	checkRegistry := observe.NewRegistry(observe.RegistryEnv{
+		Lanes: pinned.Supply.LaneRoots, SchemaRefs: pinned.Supply.SchemaRefs, NamedSuites: namedSuites, Executor: executorHost,
+	})
 	detectorConfig, err := engine.DetectorConfigFromPinned(pinned)
 	if err != nil {
 		return err
@@ -153,7 +171,7 @@ func run(ctx context.Context, cfg config) error {
 			Turn:          turnContextForSeat(st, tab, meta.Name),
 			PreActive:     !tables.SeatActive(tab, meta),
 		}
-		return engine.SubmitHandlerWithRender(st, reg, meta, env, tab)(ctx, cmd)
+		return engine.SubmitHandlerWithClaimRegistry(st, reg, meta, env, checkRegistry, tab)(ctx, cmd)
 	}
 	completeTurn := func(st *store.Store) error {
 		tab := liveTables.Snapshot()

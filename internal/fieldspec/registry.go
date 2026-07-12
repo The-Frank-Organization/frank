@@ -67,6 +67,12 @@ func Load(path string) (*Registry, error) {
 	if err != nil {
 		return nil, err
 	}
+	return Parse(data)
+}
+
+// Parse validates registry bytes without introducing a filesystem authority
+// input. Config transition admission uses it after the marker preflight.
+func Parse(data []byte) (*Registry, error) {
 	var reg Registry
 	if err := json.Unmarshal(data, &reg); err != nil {
 		return nil, err

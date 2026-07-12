@@ -14,7 +14,7 @@ type catalog struct {
 	Version          string           `json:"version"`
 	Status           string           `json:"status"`
 	ChangeConvention changeConvention `json:"change_convention"`
-	PathHygiene      pathHygiene      `json:"path_hygiene"`
+	Discovery        discovery        `json:"discovery"`
 	Laws             []catalogLaw     `json:"laws"`
 }
 
@@ -25,9 +25,39 @@ type changeConvention struct {
 	Section7Carry string `json:"section_7_carry"`
 }
 
-type pathHygiene struct {
-	Families     []outputFamily `json:"families"`
-	SinkPatterns []sinkPattern  `json:"sink_patterns"`
+type discovery struct {
+	Scan                  discoveryScan         `json:"scan"`
+	BoundaryFiles         []string              `json:"boundary_files"`
+	Recognizers           discoveryRecognizers  `json:"recognizers"`
+	SiteCensus            []string              `json:"site_census"`
+	OutputFamilies        []outputFamily        `json:"output_families"`
+	SinkPatterns          []sinkPattern         `json:"sink_patterns"`
+	CanonicalPathFamilies canonicalPathFamilies `json:"canonical_path_families"`
+}
+
+type discoveryScan struct {
+	Root                string   `json:"root"`
+	ExcludeDirPrefixes  []string `json:"exclude_dir_prefixes"`
+	ExcludeFileSuffixes []string `json:"exclude_file_suffixes"`
+	IncludeOnlySuffixes []string `json:"include_only_suffixes"`
+}
+
+type discoveryContext struct {
+	PathPrefix        string   `json:"path_prefix"`
+	CallSelectors     []string `json:"call_selectors"`
+	IdentCalls        []string `json:"ident_calls,omitempty"`
+	ConnReceiverCalls []string `json:"conn_receiver_calls,omitempty"`
+}
+
+type discoveryRecognizers struct {
+	ChannelContext            discoveryContext `json:"channel_context"`
+	MCPContext                discoveryContext `json:"mcp_context"`
+	ProtocolSwitchTagSelector string           `json:"protocol_switch_tag_selector"`
+	TreeWideIdioms            []string         `json:"tree_wide_idioms"`
+}
+
+type canonicalPathFamilies struct {
+	Rows []canonicalPathFamily `json:"rows"`
 }
 
 type outputFamily struct {
@@ -78,15 +108,21 @@ func loadCatalog(t *testing.T) catalog {
 
 func validateCatalog(t *testing.T, cat catalog) {
 	t.Helper()
-	if cat.Version != "s7-v1" || cat.Status != "convention-only" {
-		t.Fatalf("catalog version/status = %q/%q, want s7-v1/convention-only", cat.Version, cat.Status)
+	if cat.Version != "s8-v1" || cat.Status != "section7-pinned" {
+		t.Fatalf("catalog version/status = %q/%q, want s8-v1/section7-pinned", cat.Version, cat.Status)
 	}
 	if cat.ChangeConvention.SingleWriter == "" || cat.ChangeConvention.OwnerFidelity == "" {
 		t.Fatalf("catalog change convention incomplete: %+v", cat.ChangeConvention)
 	}
-	if cat.ChangeConvention.Section7Claim != "not-claimed-in-s7" ||
-		cat.ChangeConvention.Section7Carry != "s8-section-7-digest-pinning" {
+	if cat.ChangeConvention.Section7Claim != "pinned-at-s8: load enforces digest and member/provenance shape; owner review remains a relay/design-review gate" ||
+		cat.ChangeConvention.Section7Carry != "discharged-at-s8" {
 		t.Fatalf("catalog section-7 staging = %+v", cat.ChangeConvention)
+	}
+	if len(cat.Discovery.SiteCensus) != 17 || len(cat.Discovery.OutputFamilies) != 6 || len(cat.Discovery.SinkPatterns) != 6 || len(cat.Discovery.CanonicalPathFamilies.Rows) != 12 {
+		t.Fatalf("catalog discovery cardinalities = sites:%d families:%d sinks:%d paths:%d", len(cat.Discovery.SiteCensus), len(cat.Discovery.OutputFamilies), len(cat.Discovery.SinkPatterns), len(cat.Discovery.CanonicalPathFamilies.Rows))
+	}
+	if cat.Discovery.Scan.Root != "." || !reflect.DeepEqual(cat.Discovery.Scan.ExcludeDirPrefixes, []string{"."}) || !reflect.DeepEqual(cat.Discovery.Scan.ExcludeFileSuffixes, []string{"_test.go"}) || !reflect.DeepEqual(cat.Discovery.Scan.IncludeOnlySuffixes, []string{".go"}) {
+		t.Fatalf("catalog scan descriptor = %+v", cat.Discovery.Scan)
 	}
 	wantTests := []string{
 		"TestLawCanonicalWins",
