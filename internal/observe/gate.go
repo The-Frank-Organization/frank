@@ -5,7 +5,9 @@ package observe
 
 import (
 	"encoding/json"
+	"sort"
 
+	"github.com/jackli/frank/internal/fieldspec"
 	"github.com/jackli/frank/internal/record"
 )
 
@@ -58,6 +60,29 @@ var writableFields = map[string]bool{
 	"attestation_source":       true,
 	"deviated_observed":        true,
 	"bucket_binding_observed":  true,
+}
+
+// LaneSuppliedSystemField applies the header-layer face of the DEF-2 guard.
+// Its caller is the authenticated lane submit path; conductor-produced fields
+// are added only after this admission check.
+func LaneSuppliedSystemField(reg *fieldspec.Registry, cand record.Record) string {
+	fields := make([]string, 0, len(cand.Headers))
+	for field, value := range cand.Headers {
+		if value != "" {
+			fields = append(fields, field)
+		}
+	}
+	sort.Strings(fields)
+	for _, field := range fields {
+		spec, ok := reg.ByID(field)
+		if !ok || spec.Layer != "header" {
+			continue
+		}
+		if spec.Owner == "system" || spec.Owner == "computed" || spec.FillConstraints == "system_only" || spec.FillConstraints == "computed_result" {
+			return field
+		}
+	}
+	return ""
 }
 
 func Gate(cand record.Record, seat, phase, authority string, env Env) (ObserveResult, string) {

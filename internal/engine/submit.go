@@ -50,6 +50,13 @@ func SubmitHandlerWithObservation(st *store.Store, reg *fieldspec.Registry, meta
 				return cand, nil, nil
 			}
 		}
+		if observeEnv.PresentLayers["observe"] {
+			if field := observe.LaneSuppliedSystemField(reg, cand); field != "" {
+				cand.Envelope.DeliveryState = record.Rejected
+				cand.Body = bounce.Format(fieldspec.Violation{Field: field, Class: "lane-supplied-system-field"})
+				return cand, nil, nil
+			}
+		}
 		if env.PreActive {
 			if rec, intents, handled, err := classifyBootAdmission(reg, cand, meta, formDigest, env); handled {
 				return rec, intents, err

@@ -42,7 +42,7 @@
         "id": "bounce-format",
         "family": "bounce-reason",
         "symbol": "bounce.Format",
-        "expected_sites": 18
+        "expected_sites": 19
       },
       {
         "id": "safe-error-valves",
