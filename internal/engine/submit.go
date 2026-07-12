@@ -34,7 +34,7 @@ func SubmitHandlerWithClaimRegistry(st *store.Store, reg *fieldspec.Registry, me
 	observeEnv := observe.Env{PresentLayers: env.PresentLayers}
 	if checks != nil {
 		observeEnv.Evaluate = func(candidate observe.Candidate) observe.PredicateResult {
-			return checks.EvaluateClaims(candidate.Record.Headers["executable_claims"], candidate)
+			return checks.EvaluateCandidateClaims(candidate)
 		}
 	}
 	return submitHandlerWithObservation(st, reg, meta, env, observeEnv, checks, existing...)
@@ -77,8 +77,8 @@ func submitHandlerWithObservation(st *store.Store, reg *fieldspec.Registry, meta
 			}
 		}
 		violations := reg.Validate(cand, fieldspec.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator}, formDigest, env, lineage.RealGrantState(tab))
-		if len(violations) == 0 && observeEnv.PresentLayers["observe"] && checks != nil && cand.Headers["executable_claims"] != "" {
-			if _, issue := checks.ValidateClaims(cand.Headers["executable_claims"]); issue != nil {
+		if rawClaims, claimsPresent := cand.Headers["executable_claims"]; len(violations) == 0 && observeEnv.PresentLayers["observe"] && checks != nil && claimsPresent {
+			if _, issue := checks.ValidateClaims(rawClaims); issue != nil {
 				violations = append(violations, fieldspec.Violation{Field: issue.ClaimRef, Class: issue.Class})
 			}
 		}

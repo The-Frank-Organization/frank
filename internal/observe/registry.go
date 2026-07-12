@@ -173,7 +173,7 @@ func (r *Registry) Evaluator(selection Selection) func(Candidate) PredicateResul
 
 func (r *Registry) ValidateClaims(raw string) ([]Selection, *ClaimIssue) {
 	if raw == "" {
-		return nil, nil
+		return nil, &ClaimIssue{ClaimRef: "executable_claims", Class: "check-params-invalid"}
 	}
 	var rows []map[string]string
 	if err := json.Unmarshal([]byte(raw), &rows); err != nil {
@@ -211,9 +211,6 @@ func (r *Registry) ValidateClaims(raw string) ([]Selection, *ClaimIssue) {
 }
 
 func (r *Registry) EvaluateClaims(raw string, candidate Candidate) PredicateResult {
-	if raw == "" {
-		return r.evaluateAbsenceFloor(candidate)
-	}
 	selections, issue := r.ValidateClaims(raw)
 	if issue != nil {
 		return PredicateResult{ID: issue.ClaimRef, Predicate: Fail, FailureClass: issue.Class}
@@ -246,6 +243,17 @@ func (r *Registry) EvaluateClaims(raw string, candidate Candidate) PredicateResu
 		result.ID, result.Predicate = firstNoVantage, Blocked
 	}
 	return result
+}
+
+// EvaluateCandidateClaims preserves the binding distinction between an absent
+// declaration and a present value. Only key absence enters the claimless floor;
+// every present value follows closed declaration validation.
+func (r *Registry) EvaluateCandidateClaims(candidate Candidate) PredicateResult {
+	raw, present := candidate.Record.Headers["executable_claims"]
+	if !present {
+		return r.evaluateAbsenceFloor(candidate)
+	}
+	return r.EvaluateClaims(raw, candidate)
 }
 
 func validClaimRef(value string) bool {

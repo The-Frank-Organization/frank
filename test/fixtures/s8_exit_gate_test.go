@@ -430,6 +430,24 @@ func TestS8ExecutableClaimTypedRejects(t *testing.T) {
 		"ACTIONS_GIT_REF": "branch@candidate", "FINAL_GIT_STATUS_SHORT": "none - clean tree",
 	}
 	_, digest := pinned.Registry.Render(env, fieldspec.SeatMeta{Name: meta.Name, Role: meta.Role}, "SITREP", "medium", fieldspec.ClosedGrantState)
+	t.Run("present empty declaration fails closed", func(t *testing.T) {
+		headers := cloneStringMap(baseHeaders)
+		headers["executable_claims"] = ""
+		evaluated := reg.EvaluateCandidateClaims(observe.Candidate{Record: record.Record{Headers: headers}})
+		if evaluated.Predicate != observe.Fail || evaluated.ID != "executable_claims" || evaluated.FailureClass != "check-params-invalid" {
+			t.Fatalf("present-empty evaluator result = %#v", evaluated)
+		}
+		payload := mustJSONBytes(t, fieldspec.SubmitPayload{Record: record.Record{Headers: headers}, FormDigest: digest})
+		got, intents, err := engine.SubmitHandlerWithClaimRegistry(st, pinned.Registry, meta, env, reg)(context.Background(), intake.Cmd{
+			IntakeID: "typed-present-empty", Seat: meta.Name, Role: meta.Role, Payload: payload,
+		})
+		if err != nil {
+			t.Fatalf("present-empty claim submit: %v", err)
+		}
+		if got.Envelope.DeliveryState != record.Rejected || intents != nil || !bytes.Contains([]byte(got.Body), []byte("executable_claims:check-params-invalid")) {
+			t.Fatalf("present-empty claim bounce = state %s intents %#v body %q", got.Envelope.DeliveryState, intents, got.Body)
+		}
+	})
 	validParams := s8ClaimParams(t, map[string]string{"lane_ref": "repo", "path": "artifact.txt", "expect": "line:x"})
 	for _, tc := range []struct {
 		name  string
@@ -483,7 +501,9 @@ func TestS8ClaimlessAbsenceFloor(t *testing.T) {
 		}}
 		result, terminal := observe.Gate(cand, "lane-a", "SITREP", "report-only", observe.Env{
 			PresentLayers: map[string]bool{"observe": true},
-			Evaluate:      func(candidate observe.Candidate) observe.PredicateResult { return reg.EvaluateClaims("", candidate) },
+			Evaluate: func(candidate observe.Candidate) observe.PredicateResult {
+				return reg.EvaluateCandidateClaims(candidate)
+			},
 		})
 		if terminal != record.Accepted || result.PredicateResult != observe.Degraded || result.FailingPredicate != "" || result.ObservedFields["achieved_evidence"] != "E0" || result.ObservedFields["target_gap_result"] != "target_gt_achieved" || result.ObservedFields["record_integrity"] != "self_reported" {
 			t.Fatalf("claimless report floor = terminal %s, result %#v", terminal, result)
@@ -499,7 +519,9 @@ func TestS8ClaimlessAbsenceFloor(t *testing.T) {
 		}}
 		result, terminal := observe.Gate(cand, "planner", "PLAN", "plan-only", observe.Env{
 			PresentLayers: map[string]bool{"observe": true},
-			Evaluate:      func(candidate observe.Candidate) observe.PredicateResult { return reg.EvaluateClaims("", candidate) },
+			Evaluate: func(candidate observe.Candidate) observe.PredicateResult {
+				return reg.EvaluateCandidateClaims(candidate)
+			},
 		})
 		if terminal != record.Held || !result.Escalate || result.PredicateResult != observe.Degraded || result.ObservedFields["achieved_evidence"] != "E0" {
 			t.Fatalf("claimless authority floor = terminal %s, result %#v", terminal, result)
@@ -516,7 +538,9 @@ func TestS8ClaimlessAbsenceFloor(t *testing.T) {
 		cand := record.Record{Headers: map[string]string{"authority_class": "no", "FINAL_GIT_STATUS_SHORT": "none - clean tree"}}
 		result, terminal := observe.Gate(cand, "lane-a", "SITREP", "report-only", observe.Env{
 			PresentLayers: map[string]bool{"observe": true},
-			Evaluate:      func(candidate observe.Candidate) observe.PredicateResult { return reg.EvaluateClaims("", candidate) },
+			Evaluate: func(candidate observe.Candidate) observe.PredicateResult {
+				return reg.EvaluateCandidateClaims(candidate)
+			},
 		})
 		if terminal != record.Rejected || result.PredicateResult != observe.Fail || result.FailingPredicate != "FINAL_GIT_STATUS_SHORT" || result.FailureClass != "observed-false" {
 			t.Fatalf("clean declaration over dirt = terminal %s, result %#v", terminal, result)
@@ -527,7 +551,7 @@ func TestS8ClaimlessAbsenceFloor(t *testing.T) {
 		root := t.TempDir()
 		git := fakeGitStatus(t, "M malformed\n")
 		reg := observe.NewRegistry(observe.RegistryEnv{Lanes: map[string]string{"repo": root}, GitExecutable: git})
-		got := reg.EvaluateClaims("", observe.Candidate{Phase: "SITREP", Authority: "report-only", Record: record.Record{Headers: map[string]string{
+		got := reg.EvaluateCandidateClaims(observe.Candidate{Phase: "SITREP", Authority: "report-only", Record: record.Record{Headers: map[string]string{
 			"FINAL_GIT_STATUS_SHORT": "M malformed",
 		}}})
 		if got.Predicate != observe.Fail || got.ID != "FINAL_GIT_STATUS_SHORT" || got.FailureClass != "git-status-porcelain-invalid" {
@@ -539,7 +563,7 @@ func TestS8ClaimlessAbsenceFloor(t *testing.T) {
 		root := t.TempDir()
 		git := fakeGitStatus(t, " M worktree.txt\nR  old.txt -> new.txt\n")
 		reg := observe.NewRegistry(observe.RegistryEnv{Lanes: map[string]string{"repo": root}, GitExecutable: git})
-		got := reg.EvaluateClaims("", observe.Candidate{Phase: "SITREP", Authority: "report-only", Record: record.Record{Headers: map[string]string{
+		got := reg.EvaluateCandidateClaims(observe.Candidate{Phase: "SITREP", Authority: "report-only", Record: record.Record{Headers: map[string]string{
 			"FINAL_GIT_STATUS_SHORT": " M worktree.txt\nR  old.txt -> new.txt",
 		}}})
 		if got.Predicate != observe.Degraded || got.ID == "observe-unavailable" {
@@ -551,7 +575,7 @@ func TestS8ClaimlessAbsenceFloor(t *testing.T) {
 		root := t.TempDir()
 		gitInit(t, root)
 		reg := observe.NewRegistry(observe.RegistryEnv{Lanes: map[string]string{"repo": root}})
-		got := reg.EvaluateClaims("", observe.Candidate{Phase: "SITREP", Authority: "read-only", Record: record.Record{Headers: map[string]string{
+		got := reg.EvaluateCandidateClaims(observe.Candidate{Phase: "SITREP", Authority: "read-only", Record: record.Record{Headers: map[string]string{
 			"FINAL_GIT_STATUS_SHORT": "unavailable - candidate cwd",
 		}}})
 		if got.Predicate != observe.Fail || got.ID != "FINAL_GIT_STATUS_SHORT" {
@@ -569,7 +593,7 @@ func TestS8ClaimlessAbsenceFloor(t *testing.T) {
 	} {
 		t.Run(tc.name+" refuses typed", func(t *testing.T) {
 			reg := observe.NewRegistry(observe.RegistryEnv{Lanes: map[string]string{"repo": t.TempDir()}})
-			got := reg.EvaluateClaims("", observe.Candidate{Phase: tc.phase, Authority: tc.authority})
+			got := reg.EvaluateCandidateClaims(observe.Candidate{Phase: tc.phase, Authority: tc.authority})
 			if got.Predicate != observe.Fail || got.FailureClass != "phase-predicate-deferred" {
 				t.Fatalf("deferred row %s/%s = %#v", tc.authority, tc.phase, got)
 			}
