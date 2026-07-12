@@ -216,8 +216,9 @@ func minInt64(value int64, ceiling int) int {
 	return int(value)
 }
 
-// syscall.Openat is not exported on darwin, but its stable stdlib wrapper is
-// present on both supported project platforms (Linux and macOS).
+// syscall.Openat is not exported on darwin. This declaration matches the
+// private syscall.openat wrapper on the project's bounded Go 1.22+
+// Darwin/Linux compatibility surface; it is not covered by Go 1 compatibility.
 //
 //go:linkname syscallOpenat syscall.openat
 func syscallOpenat(dirfd int, path string, flags int, mode uint32) (int, error)

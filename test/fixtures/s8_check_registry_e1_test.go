@@ -227,6 +227,62 @@ func TestS8ReadFileConfinementUsesOpenedDescriptors(t *testing.T) {
 	}
 }
 
+func TestS8ReadFileRefusesInteriorDotDotBeforeWorkerLaunch(t *testing.T) {
+	lane := t.TempDir()
+	outside := t.TempDir()
+	component := filepath.Join(lane, "component")
+	if err := os.Mkdir(component, 0o700); err != nil {
+		t.Fatalf("mkdir component: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(lane, "artifact"), []byte("inside\n"), 0o600); err != nil {
+		t.Fatalf("write inside artifact: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(outside, "artifact"), []byte("outside\n"), 0o600); err != nil {
+		t.Fatalf("write outside artifact: %v", err)
+	}
+
+	openReached := make(chan struct{})
+	releaseOpen := make(chan struct{})
+	var opens atomic.Int32
+	reg := observe.NewRegistry(observe.RegistryEnv{
+		Lanes: map[string]string{"lane-a": lane},
+		ReadFileStageHook: func(stage observe.ReadFileStage) {
+			// Root and component are open before the third open stage attempts
+			// component/.. . The vulnerable walk can then follow the moved
+			// descriptor's new parent to the outside directory.
+			if stage == observe.ReadFileStageOpen && opens.Add(1) == 3 {
+				close(openReached)
+				<-releaseOpen
+			}
+		},
+	})
+	done := make(chan observe.CheckVerdict, 1)
+	go func() {
+		done <- reg.Run(s8ReadSelection("lane-a", "component/../artifact", "line:outside"))
+	}()
+
+	var verdict observe.CheckVerdict
+	select {
+	case verdict = <-done:
+		// Correct validation refuses before the worker/open seam is reached.
+	case <-openReached:
+		if err := os.Rename(component, filepath.Join(outside, "moved")); err != nil {
+			t.Fatalf("move opened component outside: %v", err)
+		}
+		close(releaseOpen)
+		verdict = <-done
+	case <-time.After(time.Second):
+		t.Fatal("interior-dotdot check neither refused nor reached the vulnerable walk")
+	}
+
+	if verdict.Outcome != "unsafe" || verdict.Predicate != observe.Blocked || verdict.FailingDetail != "check-params-refused" {
+		t.Fatalf("interior-dotdot verdict = %#v", verdict)
+	}
+	if got := opens.Load(); got != 0 {
+		t.Fatalf("interior-dotdot launched filesystem worker: open stages = %d", got)
+	}
+}
+
 func TestS8ReadFileDetachesEveryFilesystemBlockPoint(t *testing.T) {
 	for _, stage := range []observe.ReadFileStage{
 		observe.ReadFileStageBefore,

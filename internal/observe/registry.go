@@ -305,7 +305,7 @@ func validRelativePath(path string) bool {
 		return false
 	}
 	clean := filepath.Clean(path)
-	return clean != "." && clean != ".." && !strings.HasPrefix(clean, ".."+string(filepath.Separator))
+	return path == clean && clean != "." && clean != ".." && !strings.HasPrefix(clean, ".."+string(filepath.Separator))
 }
 
 func refusedVerdict(selection Selection) CheckVerdict {
