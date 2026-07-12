@@ -2,7 +2,6 @@ package fixtures_test
 
 import (
 	"encoding/json"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -34,9 +33,14 @@ func TestS8AdversarialSlotInImmutableAgainstRetagEscape(t *testing.T) {
 }
 
 func TestS8AdversarialExecutorIsolationAndVerdictIPHIntegrated(t *testing.T) {
-	source := t.TempDir()
-	tempRoot := t.TempDir()
-	s8WriteExecutable(t, source, "isolation.sh", `#!/bin/sh
+	sourceRootSentinel := t.TempDir()
+	tempRootSentinel := t.TempDir()
+	commandSentinel := "descriptor-command-sentinel.sh"
+	targetSentinel := "descriptor-target-sentinel"
+	argumentSentinel := "descriptor-argument-sentinel"
+	timeoutClassSentinel := "suite_bounded"
+	timeoutSentinel := 1731 * time.Millisecond
+	s8WriteExecutable(t, sourceRootSentinel, commandSentinel, `#!/bin/sh
 set -eu
 [ "$HOME" = "$PWD" ]
 [ "$TMPDIR" = "$PWD/.tmp" ]
@@ -46,17 +50,20 @@ for key in FRANK_ROOT FRANK_SOCKET FRANK_CREDENTIAL SIGNING_KEY CONFIG_PATH OUTB
 done
 `)
 	host := executor.New(executor.Config{
-		TempRoot: tempRoot,
+		TempRoot: tempRootSentinel,
 		Suites: map[string]executor.Suite{
-			"isolation": {SourceDir: source, Command: "isolation.sh", TimeoutClass: "suite_bounded", Timeout: 2 * time.Second},
+			targetSentinel: {
+				SourceDir: sourceRootSentinel, Command: commandSentinel, Args: []string{argumentSentinel},
+				TimeoutClass: timeoutClassSentinel, Timeout: timeoutSentinel,
+			},
 		},
 	})
 	registry := observe.NewRegistry(observe.RegistryEnv{
-		NamedSuites: map[string]bool{"isolation": true}, Executor: host,
+		NamedSuites: map[string]bool{targetSentinel: true}, Executor: host,
 	})
 	claims := s8Claims(t, map[string]string{
 		"claim_ref": "isolation-probe", "check_id": "run-suite",
-		"params": s8ClaimParams(t, map[string]string{"target": "isolation", "expect_green": "true"}),
+		"params": s8ClaimParams(t, map[string]string{"target": targetSentinel, "expect_green": "true"}),
 	})
 	cand := record.Record{Headers: map[string]string{"authority_class": "no", "EVIDENCE_TARGET": "E2"}}
 	result, terminal := observe.Gate(cand, "s8.implementer", "IMPL", "implementation", observe.Env{
@@ -68,12 +75,26 @@ done
 	if terminal != record.Accepted || result.ObservedFields["achieved_evidence"] != "E2" {
 		t.Fatalf("integrated isolation terminal = %q, result = %#v", terminal, result)
 	}
+	var rows []map[string]string
+	if err := json.Unmarshal([]byte(result.ObservedFields["executable_claim_results"]), &rows); err != nil {
+		t.Fatalf("decode conductor-produced result row: %v", err)
+	}
+	wantRow := map[string]string{"check_id": "run-suite", "claim_ref": "isolation-probe", "outcome": "pass"}
+	if len(rows) != 1 || len(rows[0]) != len(wantRow) {
+		t.Fatalf("conductor-produced result rows = %#v, want one exact three-column row", rows)
+	}
+	for key, want := range wantRow {
+		if got := rows[0][key]; got != want {
+			t.Fatalf("conductor-produced result row %s = %q, want %q; row=%#v", key, got, want, rows[0])
+		}
+	}
 	serialized, err := json.Marshal(result)
 	if err != nil {
 		t.Fatalf("marshal integrated verdict: %v", err)
 	}
 	for _, forbidden := range []string{
-		source, tempRoot, filepath.Clean(source), filepath.Clean(tempRoot),
+		sourceRootSentinel, tempRootSentinel, commandSentinel, targetSentinel, argumentSentinel,
+		timeoutClassSentinel, timeoutSentinel.String(),
 		"FRANK_ROOT", "FRANK_SOCKET", "FRANK_CREDENTIAL", "SIGNING_KEY", "CONFIG_PATH", "OUTBOX_PATH",
 	} {
 		if strings.Contains(string(serialized), forbidden) {
