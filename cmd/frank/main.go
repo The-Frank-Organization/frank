@@ -42,6 +42,7 @@ type config struct {
 	EngineConfig   string
 	Catalog        string
 	Init           bool
+	Bless          bool
 	MintSeat       string
 	MintRole       string
 	MintOperator   bool
@@ -50,6 +51,10 @@ type config struct {
 }
 
 func main() {
+	blessCommand := len(os.Args) > 1 && os.Args[1] == "bless-s8"
+	if blessCommand {
+		os.Args = append([]string{os.Args[0]}, os.Args[2:]...)
+	}
 	root := flag.String("root", "", "store root")
 	storeRoot := flag.String("store", ".frank-store", "store root")
 	socket := flag.String("socket", "", "unix socket path")
@@ -57,19 +62,23 @@ func main() {
 	engineConfig := flag.String("engine-config", "", "engine config path for -init")
 	catalog := flag.String("catalog", "", "catalog config path for -init")
 	initStore := flag.Bool("init", false, "initialize a store with pinned config")
+	blessStore := flag.Bool("bless", false, "offline adopt a legacy store into the s8 config set")
 	mintSeat := flag.String("mint", "", "mint a conductor-internal credential for a seat")
 	mintRole := flag.String("role", "implementer", "role for -mint")
 	mintOperator := flag.Bool("operator", false, "mint an operator credential")
 	operatorSubmit := flag.String("operator-submit", "", "submit a payload JSON file through an authenticated socket")
 	credential := flag.String("credential", "", "credential for operator-submit")
 	flag.Parse()
+	if blessCommand {
+		*blessStore = true
+	}
 	if *root == "" {
 		*root = *storeRoot
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	cfg := config{Root: *root, Socket: *socket, Registry: *registry, EngineConfig: *engineConfig, Catalog: *catalog, Init: *initStore, MintSeat: *mintSeat, MintRole: *mintRole, MintOperator: *mintOperator, OperatorSubmit: *operatorSubmit, Credential: *credential}
+	cfg := config{Root: *root, Socket: *socket, Registry: *registry, EngineConfig: *engineConfig, Catalog: *catalog, Init: *initStore, Bless: *blessStore, MintSeat: *mintSeat, MintRole: *mintRole, MintOperator: *mintOperator, OperatorSubmit: *operatorSubmit, Credential: *credential}
 	if err := run(ctx, cfg); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -87,6 +96,12 @@ func run(ctx context.Context, cfg config) error {
 		}
 		return store.Init(cfg.Root, sources)
 	}
+	if cfg.Bless {
+		if cfg.EngineConfig == "" || cfg.Catalog == "" {
+			return errors.New("engine-config and catalog required for bless")
+		}
+		return store.BlessS8(cfg.Root, map[string]string{"engine": cfg.EngineConfig, "catalog": cfg.Catalog})
+	}
 	if cfg.MintSeat != "" {
 		return mintSeat(ctx, cfg)
 	}
@@ -100,6 +115,9 @@ func run(ctx context.Context, cfg config) error {
 	defer func() { _ = rootLock.Release() }()
 	st, err := store.Open(cfg.Root)
 	if err != nil {
+		return err
+	}
+	if err := st.CompleteAdoptionConfig(); err != nil {
 		return err
 	}
 	mgr, err := seat.Open(cfg.Root)

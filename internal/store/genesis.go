@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -17,9 +19,10 @@ import (
 )
 
 var (
-	ErrGenesisExists   = errors.New("genesis already exists")
-	ErrGenesisMissing  = errors.New("genesis missing")
-	ErrStoreNotAdopted = errors.New("store-not-adopted: run frank -bless")
+	ErrGenesisExists       = errors.New("genesis already exists")
+	ErrGenesisMissing      = errors.New("genesis missing")
+	ErrStoreNotAdopted     = errors.New("store-not-adopted: run frank -bless")
+	ErrStoreAlreadyAdopted = errors.New("store already adopted")
 )
 
 const genesisFieldspecV5SHA256 = "1ef6abab4d496b11017f57ca400e8296d63824994ffce8311e4533f70cc92485"
@@ -217,6 +220,133 @@ func (s *Store) currentConfigDigest() (string, error) {
 	return pinned.Digest, nil
 }
 
+// BlessS8 performs the one offline two-member to three-member adoption. The
+// root lock is acquired here so callers cannot accidentally run it alongside
+// the serving process.
+func BlessS8(root string, candidateSources map[string]string) error {
+	rootLock, err := AcquireRoot(root)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = rootLock.Release() }()
+
+	st, err := Open(root)
+	if err != nil {
+		return err
+	}
+	if adopted, err := st.hasAdoptionRecord(); err != nil {
+		return err
+	} else if adopted {
+		if err := st.CompleteAdoptionConfig(); err != nil {
+			return err
+		}
+		pinned, err := config.Load(StoreRootConfigPaths(root))
+		if err != nil {
+			return err
+		}
+		if err := st.ValidateGenesis(pinned); err != nil {
+			return err
+		}
+		return ErrStoreAlreadyAdopted
+	}
+	if _, err := os.Stat(filepath.Join(root, "config", "catalog", "catalog.json")); err == nil {
+		return errors.New("catalog member exists without adoption record")
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+
+	legacy, err := config.Load(LegacyStoreRootConfigPaths(root))
+	if err != nil {
+		return err
+	}
+	if err := st.ValidateGenesis(legacy); err != nil {
+		return err
+	}
+	engineSource, catalogSource := candidateSources["engine"], candidateSources["catalog"]
+	if engineSource == "" || catalogSource == "" || len(candidateSources) != 2 {
+		return errors.New("bless requires exactly engine and catalog candidates")
+	}
+	candidatePaths := map[string]string{
+		"fieldspec": LegacyStoreRootConfigPaths(root)["fieldspec"],
+		"engine":    engineSource,
+		"catalog":   catalogSource,
+	}
+	candidate, err := config.Load(candidatePaths)
+	if err != nil {
+		return err
+	}
+	body := adoptionBody{Members: make([]adoptionMember, 0, 2)}
+	for _, name := range []string{"catalog", "engine"} {
+		data := candidate.Members[name]
+		body.Members = append(body.Members, adoptionMember{Name: name, BytesB64: base64.StdEncoding.EncodeToString(data)})
+	}
+	bodyBytes, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+	rec := record.Record{
+		Envelope: record.Envelope{
+			RelayID: "s8-adoption", DispatchID: "s8-adoption", From: "operator", Role: "operator",
+			DeliveryState: record.Accepted, SchemaVersion: 1,
+		},
+		Headers: map[string]string{
+			"PHASE": "IMPL", "SUBJECT": "offline s8 store adoption", "record_kind": "config_change",
+			"member": "adoption", "new_digest": candidate.Digest, "channel": "bless",
+		},
+		Body: string(bodyBytes),
+	}
+	intents, err := ConfigChangeIntentsStrict(rec)
+	if err != nil {
+		return err
+	}
+	_, err = st.Commit(rec, intents)
+	return err
+}
+
+// CompleteAdoptionConfig replays only the derived member files of a committed
+// adoption record. It is safe before the full phase-0 load and is idempotent.
+func (s *Store) CompleteAdoptionConfig() error {
+	chain, err := s.acceptedConfigChanges()
+	if err != nil {
+		return err
+	}
+	adoptionAt := -1
+	for i, rec := range chain {
+		if rec.Headers["member"] == "adoption" {
+			adoptionAt = i
+			break
+		}
+	}
+	if adoptionAt < 0 {
+		return nil
+	}
+	var configIntents []Intent
+	for _, rec := range chain[adoptionAt:] {
+		intents, err := ConfigChangeIntentsStrict(rec)
+		if err != nil {
+			return err
+		}
+		configIntents = append(configIntents, configOnlyIntents(intents)...)
+	}
+	if len(configIntents) == 0 {
+		return errors.New("adoption record has no config intents")
+	}
+	return s.applyIntents(configIntents)
+}
+
+func (s *Store) hasAdoptionRecord() (bool, error) {
+	chain, err := s.acceptedConfigChanges()
+	if err != nil {
+		return false, err
+	}
+	for _, rec := range chain {
+		if rec.Headers["member"] == "adoption" {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func (s *Store) rematerializeLatestConfigChange() error {
 	chain, err := s.acceptedConfigChanges()
 	if err != nil {
@@ -225,30 +355,28 @@ func (s *Store) rematerializeLatestConfigChange() error {
 	if len(chain) == 0 {
 		return errors.New("no config_change chain")
 	}
-	latest := map[string]record.Record{}
-	for _, rec := range chain {
-		member := rec.Headers["member"]
-		if _, err := configTarget(member); err != nil {
-			return err
-		}
-		latest[member] = rec
-	}
 	var intents []Intent
-	for _, member := range []string{"engine", "fieldspec"} {
-		rec, ok := latest[member]
-		if !ok {
-			continue
-		}
-		target, err := configTarget(member)
+	for _, rec := range chain {
+		recIntents, err := ConfigChangeIntentsStrict(rec)
 		if err != nil {
 			return err
 		}
-		intents = append(intents, Intent{Kind: IntentConfig, Path: target, Payload: []byte(rec.Body)})
+		intents = append(intents, configOnlyIntents(recIntents)...)
 	}
 	if len(intents) == 0 {
 		return errors.New("no config_change members")
 	}
 	return s.applyIntents(intents)
+}
+
+func configOnlyIntents(intents []Intent) []Intent {
+	out := make([]Intent, 0, len(intents))
+	for _, intent := range intents {
+		if intent.Kind == IntentConfig {
+			out = append(out, intent)
+		}
+	}
+	return out
 }
 
 func (s *Store) acceptedConfigChanges() ([]record.Record, error) {

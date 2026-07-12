@@ -1,7 +1,11 @@
 package store
 
 import (
+	"bytes"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"io"
 
 	"github.com/jackli/frank/internal/record"
 )
@@ -14,6 +18,9 @@ func ConfigChangeIntents(rec record.Record) []Intent {
 }
 
 func ConfigChangeIntentsStrict(rec record.Record) ([]Intent, error) {
+	if rec.Headers["member"] == "adoption" {
+		return adoptionConfigChangeIntents(rec)
+	}
 	target, err := configTarget(rec.Headers["member"])
 	if err != nil {
 		return nil, err
@@ -40,6 +47,49 @@ func ConfigChangeIntentsStrict(rec record.Record) ([]Intent, error) {
 		for _, recipient := range recipients {
 			intents = append(intents, Intent{Kind: IntentMailbox, Path: safeMailbox(recipient) + ".jsonl", Payload: []byte(relayID + "\n")})
 		}
+	}
+	return intents, nil
+}
+
+type adoptionBody struct {
+	Members []adoptionMember `json:"members"`
+}
+
+type adoptionMember struct {
+	Name     string `json:"name"`
+	BytesB64 string `json:"bytes_b64"`
+}
+
+func adoptionConfigChangeIntents(rec record.Record) ([]Intent, error) {
+	dec := json.NewDecoder(bytes.NewBufferString(rec.Body))
+	dec.DisallowUnknownFields()
+	var body adoptionBody
+	if err := dec.Decode(&body); err != nil {
+		return nil, fmt.Errorf("invalid adoption body: %w", err)
+	}
+	if err := dec.Decode(&struct{}{}); err != io.EOF {
+		return nil, fmt.Errorf("invalid adoption body: trailing JSON")
+	}
+	if len(body.Members) != 2 || body.Members[0].Name != "catalog" || body.Members[1].Name != "engine" {
+		return nil, fmt.Errorf("invalid adoption members: want catalog,engine")
+	}
+
+	intents := []Intent{{
+		Kind: IntentIndex,
+		Path: "INDEX.md",
+		Payload: []byte(fmt.Sprintf("| %s | %s | %s | %s | %s | %s |\n",
+			rec.Envelope.RelayID, rec.Headers["PHASE"], rec.Envelope.From, rec.Envelope.To, "", rec.Envelope.DeliveryState)),
+	}}
+	for _, member := range body.Members {
+		decoded, err := base64.StdEncoding.Strict().DecodeString(member.BytesB64)
+		if err != nil || base64.StdEncoding.EncodeToString(decoded) != member.BytesB64 {
+			return nil, fmt.Errorf("invalid adoption bytes for %s: canonical base64 required", member.Name)
+		}
+		target, err := configTarget(member.Name)
+		if err != nil {
+			return nil, err
+		}
+		intents = append(intents, Intent{Kind: IntentConfig, Path: target, Payload: decoded})
 	}
 	return intents, nil
 }
