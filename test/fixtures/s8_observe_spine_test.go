@@ -41,8 +41,14 @@ func TestS8ObserveGatePassesAndStampsInsideSubmit(t *testing.T) {
 	if predicateSaw.Envelope.From != meta.Name || predicateSaw.Envelope.RelayID == "" {
 		t.Fatalf("predicate did not see conductor-stamped candidate: %+v", predicateSaw.Envelope)
 	}
+	if predicateSaw.Headers["authority_class"] != "no" {
+		t.Fatalf("observe gate did not read step-3 authority_class: %#v", predicateSaw.Headers)
+	}
 	if rec.Headers["achieved_evidence"] != "E1" || rec.Headers["record_integrity"] != "observed" || rec.Headers["attestation_source"] != "conductor" {
 		t.Fatalf("observe stamps absent: %#v", rec.Headers)
+	}
+	if rec.Headers["surface_intent"] != "progress" {
+		t.Fatalf("step-4.5 surface_intent = %q, want progress", rec.Headers["surface_intent"])
 	}
 	if len(intents) == 0 {
 		t.Fatalf("accepted candidate has no delivery intents")

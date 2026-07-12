@@ -81,12 +81,22 @@ func SubmitHandlerWithObservation(st *store.Store, reg *fieldspec.Registry, meta
 			cand.Body = bounce.Format(*violation)
 			return cand, nil, nil
 		}
-		observeResult, terminal := observe.Gate(cand, meta.Name, cand.Headers["PHASE"], cand.Headers["AUTHORITY"], observeEnv)
-		if cand.Headers == nil {
-			cand.Headers = map[string]string{}
+		if observeEnv.PresentLayers["observe"] {
+			if cand.Headers == nil {
+				cand.Headers = map[string]string{}
+			}
+			cand.Headers["authority_class"] = AuthorityClass(reg, cand, meta)
 		}
-		for field, value := range observeResult.ObservedFields {
-			cand.Headers[field] = value
+		observeResult, terminal := observe.Gate(cand, meta.Name, cand.Headers["PHASE"], cand.Headers["AUTHORITY"], observeEnv)
+		if observeEnv.PresentLayers["observe"] {
+			var violation *fieldspec.Violation
+			cand, violation = CompleteObserved(cand, observeResult.ObservedFields)
+			if violation != nil {
+				cand = clearGateRaiseHeaders(cand)
+				cand.Envelope.DeliveryState = record.Rejected
+				cand.Body = bounce.Format(*violation)
+				return cand, nil, nil
+			}
 		}
 		if terminal != record.Accepted {
 			cand = clearGateRaiseHeaders(cand)
