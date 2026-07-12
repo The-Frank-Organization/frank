@@ -146,6 +146,48 @@ func TestS8FXEXE3CoalescesAndReplaysOneManifestExecution(t *testing.T) {
 	}
 }
 
+func TestS8ExecutorStagesOnceAndBindsManifestToExecutedBytes(t *testing.T) {
+	source := t.TempDir()
+	trace := filepath.Join(t.TempDir(), "generations")
+	writeGeneration := func(generation string) {
+		t.Helper()
+		s8WriteExecutable(t, source, "generation.sh", fmt.Sprintf("#!/bin/sh\nprintf '%s\\n' >> %q\n", generation, trace))
+	}
+	writeGeneration("A")
+
+	var mutateOnce sync.Once
+	host := executor.New(executor.Config{
+		TempRoot: t.TempDir(),
+		StageHook: func() {
+			mutateOnce.Do(func() { writeGeneration("B") })
+		},
+		Suites: map[string]executor.Suite{
+			"generation": {SourceDir: source, Command: "generation.sh", TimeoutClass: "suite_bounded", Timeout: 2 * time.Second},
+		},
+	})
+	entry := observe.CheckEntry{ID: "run-suite", Class: "suite", ExecutorRequired: true, TimeoutClass: "suite_bounded"}
+	selection := observe.Selection{CheckID: "run-suite", ClaimRef: "stage-once", Params: map[string]string{"target": "generation", "expect_green": "true"}}
+
+	if verdict := host.Spawn(entry, selection); verdict.Outcome != "pass" {
+		t.Fatalf("generation A verdict = %#v", verdict)
+	}
+	if verdict := host.Spawn(entry, selection); verdict.Outcome != "pass" {
+		t.Fatalf("generation B verdict = %#v", verdict)
+	}
+	writeGeneration("A")
+	if verdict := host.Spawn(entry, selection); verdict.Outcome != "pass" {
+		t.Fatalf("generation A replay verdict = %#v", verdict)
+	}
+
+	data, err := os.ReadFile(trace)
+	if err != nil {
+		t.Fatalf("read generation trace: %v", err)
+	}
+	if got := string(data); got != "A\nB\n" {
+		t.Fatalf("executed generations = %q, want staged A then staged B with A replayed", got)
+	}
+}
+
 func TestS8FXEXE4And6TruncationClosedVerdictAndSideEffectRefusal(t *testing.T) {
 	source := t.TempDir()
 	s8WriteExecutable(t, source, "loud.sh", "#!/bin/sh\ni=0; while [ $i -lt 200 ]; do printf 'abcdefghij'; i=$((i+1)); done\n")

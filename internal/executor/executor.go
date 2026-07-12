@@ -32,9 +32,12 @@ type Suite struct {
 }
 
 type Config struct {
-	TempRoot         string
-	OutputLimit      int
-	Suites           map[string]Suite
+	TempRoot    string
+	OutputLimit int
+	Suites      map[string]Suite
+	// StageHook is a deterministic test seam invoked after the run snapshot is
+	// staged and before its manifest is hashed.
+	StageHook        func()
 	GroupGone        func(int) bool
 	GroupVerifyBound time.Duration
 }
@@ -91,14 +94,27 @@ func (h *Host) Spawn(entry observe.CheckEntry, selection observe.Selection) obse
 	if suite.Timeout <= 0 || suite.Timeout > 120*time.Second {
 		return fault(selection, "executor-timeout-policy-refused")
 	}
-	key, err := manifestKey(entry, selection, suite)
+	workdir, err := os.MkdirTemp(h.config.TempRoot, "frank-executor-")
 	if err != nil {
+		return fault(selection, "executor-workdir-fault")
+	}
+	if err := stageTree(suite.SourceDir, workdir); err != nil {
+		_ = os.RemoveAll(workdir)
+		return fault(selection, "executor-stage-fault")
+	}
+	if h.config.StageHook != nil {
+		h.config.StageHook()
+	}
+	key, err := manifestKey(entry, selection, suite, workdir)
+	if err != nil {
+		_ = os.RemoveAll(workdir)
 		return fault(selection, "executor-manifest-fault")
 	}
 
 	h.mu.Lock()
 	if existing := h.runs[key]; existing != nil {
 		h.mu.Unlock()
+		_ = os.RemoveAll(workdir)
 		<-existing.done
 		return existing.verdict
 	}
@@ -106,7 +122,7 @@ func (h *Host) Spawn(entry observe.CheckEntry, selection observe.Selection) obse
 	h.runs[key] = current
 	h.mu.Unlock()
 
-	verdict := h.execute(selection, suite)
+	verdict := h.execute(selection, suite, workdir)
 	h.mu.Lock()
 	current.verdict = verdict
 	close(current.done)
@@ -114,20 +130,13 @@ func (h *Host) Spawn(entry observe.CheckEntry, selection observe.Selection) obse
 	return verdict
 }
 
-func (h *Host) execute(selection observe.Selection, suite Suite) observe.CheckVerdict {
-	workdir, err := os.MkdirTemp(h.config.TempRoot, "frank-executor-")
-	if err != nil {
-		return fault(selection, "executor-workdir-fault")
-	}
+func (h *Host) execute(selection observe.Selection, suite Suite, workdir string) observe.CheckVerdict {
 	cleanup := true
 	defer func() {
 		if cleanup {
 			_ = os.RemoveAll(workdir)
 		}
 	}()
-	if err := stageTree(suite.SourceDir, workdir); err != nil {
-		return fault(selection, "executor-stage-fault")
-	}
 	for _, dir := range []string{".tmp", ".cache/go-build", ".cache/go-mod", ".cache/gopath"} {
 		if err := os.MkdirAll(filepath.Join(workdir, dir), 0o700); err != nil {
 			return fault(selection, "executor-workdir-fault")
@@ -305,7 +314,7 @@ func stageTree(source, target string) error {
 	})
 }
 
-func manifestKey(entry observe.CheckEntry, selection observe.Selection, suite Suite) (string, error) {
+func manifestKey(entry observe.CheckEntry, selection observe.Selection, suite Suite, stagedDir string) (string, error) {
 	h := sha256.New()
 	_, _ = io.WriteString(h, entry.ID+"\x00"+selection.CheckID+"\x00"+selection.ClaimRef+"\x00"+selection.CandidateDigest+"\x00")
 	keys := make([]string, 0, len(selection.Params))
@@ -317,12 +326,12 @@ func manifestKey(entry observe.CheckEntry, selection observe.Selection, suite Su
 		_, _ = io.WriteString(h, key+"\x00"+selection.Params[key]+"\x00")
 	}
 	_, _ = io.WriteString(h, suite.Command+"\x00"+strings.Join(suite.Args, "\x00")+"\x00")
-	err := filepath.Walk(suite.SourceDir, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(stagedDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 		if info.IsDir() {
-			if info.Name() == ".git" && path != suite.SourceDir {
+			if info.Name() == ".git" && path != stagedDir {
 				return filepath.SkipDir
 			}
 			return nil
@@ -333,7 +342,7 @@ func manifestKey(entry observe.CheckEntry, selection observe.Selection, suite Su
 		if !info.Mode().IsRegular() {
 			return errors.New("manifest input refused")
 		}
-		rel, err := filepath.Rel(suite.SourceDir, path)
+		rel, err := filepath.Rel(stagedDir, path)
 		if err != nil {
 			return err
 		}
