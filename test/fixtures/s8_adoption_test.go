@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,6 +14,7 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/jackli/frank/internal/config"
 	"github.com/jackli/frank/internal/record"
@@ -54,6 +56,21 @@ func TestS8FXCFG12BlessAdoptsLegacyStoreAndRestartsFullReader(t *testing.T) {
 	}
 }
 
+func TestS8FXCFG12BlessRejectsNonCurrentEngineCandidate(t *testing.T) {
+	root, candidates := s8LegacyStoreAndCandidates(t)
+	v1 := filepath.Join(t.TempDir(), "engine-v1.json")
+	if err := os.WriteFile(v1, []byte(`{"version":1,"gc_enabled":false,"segment_rotate_bytes":4194304,"present_layers":{"observe":false}}`), 0o644); err != nil {
+		t.Fatalf("write v1 engine: %v", err)
+	}
+	candidates["engine"] = v1
+	if err := store.BlessS8(root, candidates); err == nil || !strings.Contains(err.Error(), "current engine v2 with governed supply required") {
+		t.Fatalf("BlessS8 v1/no-supply candidate = %v, want current-v2 governed-supply rejection", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "records", "s8-adoption.json")); !os.IsNotExist(err) {
+		t.Fatalf("adoption record exists after candidate rejection: %v", err)
+	}
+}
+
 func TestS8FXCFG12BlessCrashWindowsConvergeBeforeFullLoad(t *testing.T) {
 	if os.Getenv("FRANK_S8_BLESS_CHILD") == "1" {
 		err := store.BlessS8(os.Getenv("FRANK_S8_BLESS_ROOT"), map[string]string{
@@ -83,13 +100,43 @@ func TestS8FXCFG12BlessCrashWindowsConvergeBeforeFullLoad(t *testing.T) {
 				t.Fatalf("bless child status = %v, want SIGKILL", exitErr.Sys())
 			}
 
-			err = store.BlessS8(root, candidates)
 			if crash == "pre_rename" {
+				err = store.BlessS8(root, candidates)
 				if err != nil {
 					t.Fatalf("bless rerun after pre-pivot crash: %v", err)
 				}
-			} else if !errors.Is(err, store.ErrStoreAlreadyAdopted) {
-				t.Fatalf("bless rerun after post-pivot crash = %v, want already adopted", err)
+			} else {
+				ctx, cancel := context.WithCancel(context.Background())
+				socket := filepath.Join(os.TempDir(), fmt.Sprintf("frank-s8-%d-%d.sock", os.Getpid(), time.Now().UnixNano()))
+				t.Cleanup(func() { _ = os.Remove(socket) })
+				serve, stderr := startFrank(t, ctx, buildFrank(t, ctx), root, socket)
+				done := make(chan error, 1)
+				go func() { done <- serve.Wait() }()
+				deadline := time.Now().Add(5 * time.Second)
+				ready := false
+				for !ready && time.Now().Before(deadline) {
+					select {
+					case err := <-done:
+						cancel()
+						t.Fatalf("normal serve exited before readiness after %s: %v\n%s", crash, err, stderr.String())
+					default:
+						if _, err := os.Stat(socket); err == nil {
+							ready = true
+							break
+						}
+						time.Sleep(20 * time.Millisecond)
+					}
+				}
+				if !ready {
+					cancel()
+					<-done
+					t.Fatalf("normal serve did not reach readiness after %s: %s", crash, stderr.String())
+				}
+				cancel()
+				<-done
+				if data := stderr.String(); strings.Contains(data, "config-load") || strings.Contains(data, "store-not-adopted") || strings.Contains(data, "digest-mismatch") {
+					t.Fatalf("normal serve failed before readiness after %s: %s", crash, data)
+				}
 			}
 			pinned, err := config.Load(store.StoreRootConfigPaths(root))
 			if err != nil {
@@ -138,15 +185,18 @@ func TestS8FXCFG13And14AdoptionBodyContractAndSingularReplay(t *testing.T) {
 	}
 
 	badBodies := map[string]string{
-		"missing":             adoptionFixtureBody(t, []adoptionFixtureMember{{Name: "catalog", Bytes: []byte("x")}}),
-		"duplicate":           adoptionFixtureBody(t, []adoptionFixtureMember{{Name: "catalog", Bytes: []byte("x")}, {Name: "catalog", Bytes: []byte("y")}}),
-		"extra":               adoptionFixtureBody(t, []adoptionFixtureMember{{Name: "catalog", Bytes: []byte("x")}, {Name: "engine", Bytes: []byte("y")}, {Name: "extra", Bytes: []byte("z")}}),
-		"misordered":          adoptionFixtureBody(t, []adoptionFixtureMember{{Name: "engine", Bytes: []byte("y")}, {Name: "catalog", Bytes: []byte("x")}}),
-		"reserved-adoption":   `{"members":[{"name":"adoption","bytes_b64":"eA=="},{"name":"engine","bytes_b64":"eQ=="}]}`,
-		"reserved-fieldspec":  `{"members":[{"name":"catalog","bytes_b64":"eA=="},{"name":"fieldspec","bytes_b64":"eQ=="}]}`,
-		"malformed-base64":    `{"members":[{"name":"catalog","bytes_b64":"***"},{"name":"engine","bytes_b64":"eQ=="}]}`,
-		"noncanonical-base64": `{"members":[{"name":"catalog","bytes_b64":"eA"},{"name":"engine","bytes_b64":"eQ=="}]}`,
-		"unknown-field":       `{"members":[{"name":"catalog","bytes_b64":"eA==","extra":true},{"name":"engine","bytes_b64":"eQ=="}]}`,
+		"missing":               adoptionFixtureBody(t, []adoptionFixtureMember{{Name: "catalog", Bytes: []byte("x")}}),
+		"duplicate":             adoptionFixtureBody(t, []adoptionFixtureMember{{Name: "catalog", Bytes: []byte("x")}, {Name: "catalog", Bytes: []byte("y")}}),
+		"extra":                 adoptionFixtureBody(t, []adoptionFixtureMember{{Name: "catalog", Bytes: []byte("x")}, {Name: "engine", Bytes: []byte("y")}, {Name: "extra", Bytes: []byte("z")}}),
+		"misordered":            adoptionFixtureBody(t, []adoptionFixtureMember{{Name: "engine", Bytes: []byte("y")}, {Name: "catalog", Bytes: []byte("x")}}),
+		"reserved-adoption":     `{"members":[{"name":"adoption","bytes_b64":"eA=="},{"name":"engine","bytes_b64":"eQ=="}]}`,
+		"reserved-fieldspec":    `{"members":[{"name":"catalog","bytes_b64":"eA=="},{"name":"fieldspec","bytes_b64":"eQ=="}]}`,
+		"malformed-base64":      `{"members":[{"name":"catalog","bytes_b64":"***"},{"name":"engine","bytes_b64":"eQ=="}]}`,
+		"noncanonical-base64":   `{"members":[{"name":"catalog","bytes_b64":"eA"},{"name":"engine","bytes_b64":"eQ=="}]}`,
+		"unknown-field":         `{"members":[{"name":"catalog","bytes_b64":"eA==","extra":true},{"name":"engine","bytes_b64":"eQ=="}]}`,
+		"duplicate-members-key": `{"members":[{"name":"catalog","bytes_b64":"eA=="},{"name":"engine","bytes_b64":"eQ=="}],"members":[{"name":"catalog","bytes_b64":"eA=="},{"name":"engine","bytes_b64":"eQ=="}]}`,
+		"duplicate-name-key":    `{"members":[{"name":"catalog","name":"catalog","bytes_b64":"eA=="},{"name":"engine","bytes_b64":"eQ=="}]}`,
+		"duplicate-bytes-key":   `{"members":[{"name":"catalog","bytes_b64":"eA==","bytes_b64":"eA=="},{"name":"engine","bytes_b64":"eQ=="}]}`,
 	}
 	for name, body := range badBodies {
 		t.Run(name, func(t *testing.T) {
@@ -168,6 +218,20 @@ func TestS8FXCFG13And14AdoptionBodyContractAndSingularReplay(t *testing.T) {
 	}
 	if len(singularIntents) < 2 || singularIntents[1].Kind != store.IntentConfig || string(singularIntents[1].Payload) != singular.Body {
 		t.Fatalf("singular arm changed: %#v", singularIntents)
+	}
+
+	root, _ := s8LegacyStoreAndCandidates(t)
+	st, err := store.Open(root)
+	if err != nil {
+		t.Fatalf("Open legacy adoption submit store: %v", err)
+	}
+	operator := seat.SeatMeta{Name: "operator", Role: "operator", IsOperator: true}
+	adoption, _ := s5SubmitConfigChange(t, st, loadS5Registry(t), operator, record.Record{Headers: map[string]string{
+		"PHASE": "SITREP", "AUTHORITY": "report-only", "CEREMONY_TIER": "medium", "EVIDENCE_TARGET": "E1",
+		"SUBJECT": "live adoption must reject", "record_kind": "config_change", "member": "adoption", "new_digest": "offline-only",
+	}, Body: valid.Body})
+	if adoption.Envelope.DeliveryState != record.Rejected || !strings.Contains(adoption.Body, "offline-bless-only") {
+		t.Fatalf("pre-adoption member:adoption = %s %q, want typed offline-bless-only reject", adoption.Envelope.DeliveryState, adoption.Body)
 	}
 }
 

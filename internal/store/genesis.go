@@ -275,6 +275,9 @@ func BlessS8(root string, candidateSources map[string]string) error {
 	if err != nil {
 		return err
 	}
+	if candidate.Engine.Version != 2 || candidate.Supply == nil {
+		return errors.New("current engine v2 with governed supply required")
+	}
 	body := adoptionBody{Members: make([]adoptionMember, 0, 2)}
 	for _, name := range []string{"catalog", "engine"} {
 		data := candidate.Members[name]

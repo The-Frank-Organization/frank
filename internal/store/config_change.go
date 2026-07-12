@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 
@@ -61,6 +62,9 @@ type adoptionMember struct {
 }
 
 func adoptionConfigChangeIntents(rec record.Record) ([]Intent, error) {
+	if err := rejectDuplicateJSONKeys([]byte(rec.Body)); err != nil {
+		return nil, fmt.Errorf("invalid adoption body: %w", err)
+	}
 	dec := json.NewDecoder(bytes.NewBufferString(rec.Body))
 	dec.DisallowUnknownFields()
 	var body adoptionBody
@@ -92,4 +96,70 @@ func adoptionConfigChangeIntents(rec record.Record) ([]Intent, error) {
 		intents = append(intents, Intent{Kind: IntentConfig, Path: target, Payload: decoded})
 	}
 	return intents, nil
+}
+
+func rejectDuplicateJSONKeys(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	var walk func(json.Token) error
+	walk = func(token json.Token) error {
+		delim, ok := token.(json.Delim)
+		if !ok {
+			return nil
+		}
+		switch delim {
+		case '{':
+			seen := map[string]bool{}
+			for dec.More() {
+				keyToken, err := dec.Token()
+				if err != nil {
+					return err
+				}
+				key, ok := keyToken.(string)
+				if !ok {
+					return errors.New("object key must be a string")
+				}
+				if seen[key] {
+					return fmt.Errorf("duplicate JSON key %q", key)
+				}
+				seen[key] = true
+				value, err := dec.Token()
+				if err != nil {
+					return err
+				}
+				if err := walk(value); err != nil {
+					return err
+				}
+			}
+			_, err := dec.Token()
+			return err
+		case '[':
+			for dec.More() {
+				value, err := dec.Token()
+				if err != nil {
+					return err
+				}
+				if err := walk(value); err != nil {
+					return err
+				}
+			}
+			_, err := dec.Token()
+			return err
+		default:
+			return fmt.Errorf("unexpected JSON delimiter %q", delim)
+		}
+	}
+	first, err := dec.Token()
+	if err != nil {
+		return err
+	}
+	if err := walk(first); err != nil {
+		return err
+	}
+	if _, err := dec.Token(); err != io.EOF {
+		if err == nil {
+			return errors.New("trailing JSON")
+		}
+		return err
+	}
+	return nil
 }
