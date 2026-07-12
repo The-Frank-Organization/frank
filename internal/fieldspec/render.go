@@ -10,6 +10,7 @@ import (
 
 type RenderEnv struct {
 	ConfigDigest        string
+	PresentLayers       map[string]bool
 	KnownA              KnownADetector
 	ParentCandidates    ParentCandidates
 	RecipientCandidates RecipientCandidates
@@ -51,7 +52,7 @@ func (r *Registry) Render(env RenderEnv, seat SeatMeta, phase, tier string, gran
 		"PHASE":         phase,
 		"CEREMONY_TIER": tier,
 	}
-	ctx := EvalContext{Seat: seat, Phase: phase, Tier: tier, PresentLayers: DefaultLayers()}
+	ctx := EvalContext{Seat: seat, Phase: phase, Tier: tier, PresentLayers: renderLayers(env)}
 	form := Form{Fields: map[string]Field{}}
 	for i := range r.Fields {
 		spec := &r.Fields[i]
@@ -68,6 +69,13 @@ func (r *Registry) Render(env RenderEnv, seat SeatMeta, phase, tier string, gran
 		form = bootForm(form)
 	}
 	return form, r.digestRenderedForm(form, env, seat, phase, tier)
+}
+
+func renderLayers(env RenderEnv) map[string]bool {
+	if env.PresentLayers != nil {
+		return env.PresentLayers
+	}
+	return DefaultLayers()
 }
 
 func bootForm(form Form) Form {
@@ -225,7 +233,7 @@ func (r *Registry) digestRenderedForm(form Form, env RenderEnv, seat SeatMeta, p
 		Phase        string `json:"phase"`
 		Tier         string `json:"tier"`
 	}{
-		Form:         r.formForDigest(form, seat, phase),
+		Form:         r.formForDigest(form, env, seat, phase),
 		ConfigDigest: env.ConfigDigest,
 		SeatPattern:  seatDigestKey(seat),
 		Phase:        phase,
@@ -238,7 +246,7 @@ func (r *Registry) digestRenderedForm(form Form, env RenderEnv, seat SeatMeta, p
 	return hex.EncodeToString(sum[:])
 }
 
-func (r *Registry) formForDigest(form Form, seat SeatMeta, phase string) Form {
+func (r *Registry) formForDigest(form Form, env RenderEnv, seat SeatMeta, phase string) Form {
 	out := Form{Fields: map[string]Field{}}
 	for name, field := range form.Fields {
 		if field.DigestExempt || field.ConductorVolatile {
@@ -247,16 +255,16 @@ func (r *Registry) formForDigest(form Form, seat SeatMeta, phase string) Form {
 		}
 		out.Fields[name] = field
 	}
-	r.addGrantDigestShape(out.Fields, seat, phase)
+	r.addGrantDigestShape(out.Fields, env, seat, phase)
 	return out
 }
 
-func (r *Registry) addGrantDigestShape(fields map[string]Field, seat SeatMeta, phase string) {
+func (r *Registry) addGrantDigestShape(fields map[string]Field, env RenderEnv, seat SeatMeta, phase string) {
 	if _, ok := fields["grant"]; ok {
 		return
 	}
 	spec, ok := r.ByID("grant")
-	if !ok || !r.renderable(spec, map[string]string{"PHASE": phase}, EvalContext{Seat: seat, Phase: phase, PresentLayers: DefaultLayers()}, RenderEnv{}) {
+	if !ok || !r.renderable(spec, map[string]string{"PHASE": phase}, EvalContext{Seat: seat, Phase: phase, PresentLayers: renderLayers(env)}, env) {
 		return
 	}
 	options := r.scopeOptions(spec, seat)

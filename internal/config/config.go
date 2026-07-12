@@ -22,9 +22,11 @@ type Pinned struct {
 }
 
 type EngineConfig struct {
-	GCEnabled          bool  `json:"gc_enabled"`
-	SegmentRotateBytes int64 `json:"segment_rotate_bytes"`
-	MaxFrameBytes      int   `json:"max_frame_bytes,omitempty"`
+	Version            int             `json:"version,omitempty"`
+	GCEnabled          bool            `json:"gc_enabled"`
+	SegmentRotateBytes int64           `json:"segment_rotate_bytes"`
+	MaxFrameBytes      int             `json:"max_frame_bytes,omitempty"`
+	PresentLayers      map[string]bool `json:"present_layers,omitempty"`
 }
 
 func (c EngineConfig) FrameBytes() int {
@@ -32,6 +34,26 @@ func (c EngineConfig) FrameBytes() int {
 		return c.MaxFrameBytes
 	}
 	return 1 << 20
+}
+
+// PresentLayers returns the immutable-by-convention predicate context for one
+// pinned config generation. Core layers are always present; optional layers
+// are copied from the engine member so callers cannot mutate pinned config.
+func PresentLayers(pinned *Pinned) map[string]bool {
+	layers := map[string]bool{
+		"store":   true,
+		"form":    true,
+		"lineage": true,
+	}
+	if pinned == nil {
+		return layers
+	}
+	for name, present := range pinned.Engine.PresentLayers {
+		if present {
+			layers[name] = true
+		}
+	}
+	return layers
 }
 
 func Load(members map[string]string) (*Pinned, error) {

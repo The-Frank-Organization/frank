@@ -84,10 +84,15 @@ func Init(root string, sources map[string]string) error {
 }
 
 func StoreRootConfigPaths(root string) map[string]string {
-	return map[string]string{
+	paths := map[string]string{
 		"engine":    filepath.Join(root, "config", "engine.json"),
 		"fieldspec": filepath.Join(root, "config", "fieldspec", "registry.json"),
 	}
+	catalog := filepath.Join(root, "config", "catalog", "catalog.json")
+	if _, err := os.Stat(catalog); err == nil {
+		paths["catalog"] = catalog
+	}
+	return paths
 }
 
 func (s *Store) Genesis() (record.Record, error) {
@@ -210,6 +215,8 @@ func (s *Store) acceptedConfigChanges() ([]record.Record, error) {
 
 func configTarget(name string) (string, error) {
 	switch name {
+	case "catalog":
+		return filepath.Join("config", "catalog", "catalog.json"), nil
 	case "engine":
 		return filepath.Join("config", "engine.json"), nil
 	case "fieldspec":

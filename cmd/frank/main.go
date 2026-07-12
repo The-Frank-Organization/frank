@@ -38,6 +38,7 @@ type config struct {
 	Socket         string
 	Registry       string
 	EngineConfig   string
+	Catalog        string
 	Init           bool
 	MintSeat       string
 	MintRole       string
@@ -52,6 +53,7 @@ func main() {
 	socket := flag.String("socket", "", "unix socket path")
 	registry := flag.String("registry", filepath.Join("internal", "fieldspec", "registry.json"), "FieldSpec registry path")
 	engineConfig := flag.String("engine-config", "", "engine config path for -init")
+	catalog := flag.String("catalog", "", "catalog config path for -init")
 	initStore := flag.Bool("init", false, "initialize a store with pinned config")
 	mintSeat := flag.String("mint", "", "mint a conductor-internal credential for a seat")
 	mintRole := flag.String("role", "implementer", "role for -mint")
@@ -65,7 +67,7 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	cfg := config{Root: *root, Socket: *socket, Registry: *registry, EngineConfig: *engineConfig, Init: *initStore, MintSeat: *mintSeat, MintRole: *mintRole, MintOperator: *mintOperator, OperatorSubmit: *operatorSubmit, Credential: *credential}
+	cfg := config{Root: *root, Socket: *socket, Registry: *registry, EngineConfig: *engineConfig, Catalog: *catalog, Init: *initStore, MintSeat: *mintSeat, MintRole: *mintRole, MintOperator: *mintOperator, OperatorSubmit: *operatorSubmit, Credential: *credential}
 	if err := run(ctx, cfg); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -77,7 +79,11 @@ func run(ctx context.Context, cfg config) error {
 		if cfg.EngineConfig == "" {
 			return errors.New("engine-config required for init")
 		}
-		return store.Init(cfg.Root, map[string]string{"fieldspec": cfg.Registry, "engine": cfg.EngineConfig})
+		sources := map[string]string{"fieldspec": cfg.Registry, "engine": cfg.EngineConfig}
+		if cfg.Catalog != "" {
+			sources["catalog"] = cfg.Catalog
+		}
+		return store.Init(cfg.Root, sources)
 	}
 	if cfg.MintSeat != "" {
 		return mintSeat(ctx, cfg)
@@ -103,6 +109,7 @@ func run(ctx context.Context, cfg config) error {
 		return err
 	}
 	reg := pinned.Registry
+	presentLayers := frankconfig.PresentLayers(pinned)
 	detectorConfig, err := engine.DetectorConfigFromPinned(pinned)
 	if err != nil {
 		return err
@@ -137,10 +144,11 @@ func run(ctx context.Context, cfg config) error {
 		// Step-1 detection is exactly S1 + S2 + S3 plus other->A. S3 is
 		// input-atom-pending until operator config names a declared target field.
 		env := fieldspec.RenderEnv{
-			ConfigDigest: pinned.Digest,
-			KnownA:       engine.KnownADetector(reg, tab, detectorConfig),
-			Turn:         turnContextForSeat(st, tab, meta.Name),
-			PreActive:    !tables.SeatActive(tab, meta),
+			ConfigDigest:  pinned.Digest,
+			PresentLayers: presentLayers,
+			KnownA:        engine.KnownADetector(reg, tab, detectorConfig),
+			Turn:          turnContextForSeat(st, tab, meta.Name),
+			PreActive:     !tables.SeatActive(tab, meta),
 		}
 		return engine.SubmitHandlerWithRender(st, reg, meta, env, tab)(ctx, cmd)
 	}
@@ -241,7 +249,7 @@ func run(ctx context.Context, cfg config) error {
 	}
 	server, err = channel.ServeAuthenticated(socket, mgr, func(meta seat.SeatMeta) channel.ToolSet {
 		meta.AuthGeneration = currentAuthGeneration(meta.Name)
-		tools := channelTools(ctx, st, reg, pinned.Digest, liveTables, meta, mgr, func() map[string]bool {
+		tools := channelTools(ctx, st, reg, pinned.Digest, presentLayers, liveTables, meta, mgr, func() map[string]bool {
 			if server == nil {
 				return nil
 			}
@@ -305,7 +313,7 @@ func recoveryNudgeFrame() []byte {
 	return frame
 }
 
-func channelTools(ctx context.Context, st *store.Store, reg *fieldspec.Registry, configDigest string, liveTables *tables.Live, meta seat.SeatMeta, mgr *seat.Manager, activeSeats func() map[string]bool, writer *intake.Writer[engine.Outcome], loop *engine.Loop, nudge func(engine.Outcome)) channel.ToolSet {
+func channelTools(ctx context.Context, st *store.Store, reg *fieldspec.Registry, configDigest string, presentLayers map[string]bool, liveTables *tables.Live, meta seat.SeatMeta, mgr *seat.Manager, activeSeats func() map[string]bool, writer *intake.Writer[engine.Outcome], loop *engine.Loop, nudge func(engine.Outcome)) channel.ToolSet {
 	return channel.ToolSet{
 		Describe: func(_ context.Context, payload json.RawMessage) (json.RawMessage, error) {
 			var req channel.DescribeRequest
@@ -317,7 +325,7 @@ func channelTools(ctx context.Context, st *store.Store, reg *fieldspec.Registry,
 				req.Tier = "medium"
 			}
 			tab := liveTables.Snapshot()
-			env := fieldspec.RenderEnv{ConfigDigest: configDigest, Turn: turnContextForSeat(st, tab, meta.Name), PreActive: !tables.SeatActive(tab, meta)}
+			env := fieldspec.RenderEnv{ConfigDigest: configDigest, PresentLayers: presentLayers, Turn: turnContextForSeat(st, tab, meta.Name), PreActive: !tables.SeatActive(tab, meta)}
 			form, digest := reg.Render(
 				env,
 				fieldspec.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator},
