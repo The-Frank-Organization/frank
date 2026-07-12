@@ -103,23 +103,41 @@ func TestS8Decision2E1MachineryFaultsAndObservedAbsence(t *testing.T) {
 		ReadTimeout:   20 * time.Millisecond,
 	})
 	for _, tc := range []struct {
-		name      string
-		selection observe.Selection
+		name                 string
+		selection            observe.Selection
+		nonAuthorityTerminal string
+		authorityClass       string
+		nonAuthorityClass    string
+		degradation          string
+		refusalDetail        string
 	}{
 		{
-			name: "git status timeout",
+			name:                 "git status timeout",
+			nonAuthorityTerminal: record.Rejected,
+			authorityClass:       "observe-machinery-fault",
+			nonAuthorityClass:    "observe-machinery-fault",
+			degradation:          "observe-machinery-fault",
 			selection: observe.Selection{CheckID: "git-status", ClaimRef: "git-timeout", Params: map[string]string{
 				"lane_ref": "lane-a", "expect": "clean",
 			}},
 		},
 		{
-			name: "read file IO error",
+			name:                 "read file IO error",
+			nonAuthorityTerminal: record.Accepted,
+			authorityClass:       "observation-unavailable",
+			degradation:          "observation-unavailable",
+			refusalDetail:        "not-regular-file",
 			selection: observe.Selection{CheckID: "read-file", ClaimRef: "read-error", Params: map[string]string{
 				"lane_ref": "lane-a", "path": "not-a-file", "expect": "line:x",
 			}},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			if tc.refusalDetail != "" {
+				if verdict := reg.Run(tc.selection); verdict.FailingDetail != tc.refusalDetail {
+					t.Fatalf("refusal detail = %q, want %q: %#v", verdict.FailingDetail, tc.refusalDetail, verdict)
+				}
+			}
 			_, controlTerminal := observe.Gate(record.Record{Headers: map[string]string{"authority_class": "no"}}, "seat-a", "IMPL", "implementation", observe.Env{
 				PresentLayers: map[string]bool{"observe": true},
 				Evaluate: func(observe.Candidate) observe.PredicateResult {
@@ -135,13 +153,15 @@ func TestS8Decision2E1MachineryFaultsAndObservedAbsence(t *testing.T) {
 				result, terminal := observe.Gate(cand, "seat-a", "IMPL", "implementation", observe.Env{
 					PresentLayers: map[string]bool{"observe": true}, Evaluate: reg.Evaluator(tc.selection),
 				})
-				want := record.Rejected
+				want := tc.nonAuthorityTerminal
+				wantClass := tc.nonAuthorityClass
 				wantEscalate := false
 				if authority == "yes" {
 					want = record.Held
+					wantClass = tc.authorityClass
 					wantEscalate = true
 				}
-				if terminal != want || result.Escalate != wantEscalate || result.FailureClass != "observe-machinery-fault" || result.ObservedFields["degradation_notes"] != "observe-machinery-fault" {
+				if terminal != want || result.Escalate != wantEscalate || result.FailureClass != wantClass || result.ObservedFields["degradation_notes"] != tc.degradation {
 					t.Fatalf("authority %s terminal = %q, result = %#v", authority, terminal, result)
 				}
 			}
