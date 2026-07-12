@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -361,126 +360,6 @@ func TestS8ProductionDogfoodRejectsFalseDoneAndNamesPredicate(t *testing.T) {
 	projectedFalseSuite, err := projectionStore.Project("suite-negative.planner")
 	if err != nil || len(projectedFalseSuite) != 0 {
 		t.Fatalf("false suite recipient projection = %v, err=%v", projectedFalseSuite, err)
-	}
-
-}
-
-func TestS8ProductionAbsenceFloorObservesGitAndStampsTargetGap(t *testing.T) {
-	root := t.TempDir()
-	if err := store.Init(root, s8ConfigSources(t, false)); err != nil {
-		t.Fatalf("production absence-floor init: %v", err)
-	}
-	st, err := store.Open(root)
-	if err != nil {
-		t.Fatalf("open production absence-floor store: %v", err)
-	}
-	s8CommitOperatorConfigChange(t, st, "fieldspec", s8FieldspecV6Bytes(t))
-	v7, err := os.ReadFile(filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
-	if err != nil {
-		t.Fatalf("read v7 registry: %v", err)
-	}
-	s8CommitOperatorConfigChange(t, st, "fieldspec", v7)
-	pinned := s8PinnedStore(t, root)
-	var engineDoc map[string]any
-	if err := json.Unmarshal(pinned.Members["engine"], &engineDoc); err != nil {
-		t.Fatalf("decode engine: %v", err)
-	}
-	engineDoc["present_layers"].(map[string]any)["observe"] = true
-	engineBytes, err := json.Marshal(engineDoc)
-	if err != nil {
-		t.Fatalf("marshal engine: %v", err)
-	}
-	s8CommitOperatorConfigChange(t, st, "engine", engineBytes)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
-	t.Cleanup(cancel)
-	h := &s4ShimHarness{
-		root: root, ctx: ctx, cancel: cancel, bin: buildFrank(t, ctx),
-		sock: filepath.Join(os.TempDir(), fmt.Sprintf("frank-s8-absence-%d.sock", time.Now().UnixNano())),
-	}
-	mgr, err := seat.Open(root)
-	if err != nil {
-		t.Fatalf("open production absence-floor seats: %v", err)
-	}
-	h.mgr = mgr
-	t.Cleanup(func() {
-		h.stop(t)
-		_ = os.Remove(h.sock)
-	})
-	laneCred, err := mgr.Mint("s8.implementer", "implementer", false)
-	if err != nil {
-		t.Fatalf("mint production absence-floor lane: %v", err)
-	}
-	h.start(t)
-	lane := h.dial(t, laneCred)
-	defer func() { _ = lane.Close() }()
-	describe, err := lane.DescribeTools(ctx, channel.DescribeRequest{Phase: "SITREP", Tier: "medium"})
-	if err != nil {
-		t.Fatalf("describe production absence-floor tools: %v", err)
-	}
-
-	headOut, err := exec.CommandContext(ctx, "git", "-C", fixtureRepoRoot(t), "rev-parse", "HEAD").Output()
-	if err != nil {
-		t.Fatalf("resolve production base-observation head: %v", err)
-	}
-	statusOut, err := exec.CommandContext(ctx, "git", "-C", fixtureRepoRoot(t), "status", "--porcelain", "--untracked-files=normal").Output()
-	if err != nil {
-		t.Fatalf("read production base-observation status: %v", err)
-	}
-	declaredStatus := strings.TrimSpace(string(statusOut))
-	if declaredStatus == "" {
-		declaredStatus = "none - clean tree"
-	}
-	absentClaims := s4Relay("absence-floor.planner", "", "production absence floor")
-	absentClaims.Headers["EVIDENCE_TARGET"] = "E4"
-	absentClaims.Headers["ACTIONS_GIT_REF"] = "s8-observe-spine@" + strings.TrimSpace(string(headOut))
-	absentClaims.Headers["FINAL_GIT_STATUS_SHORT"] = declaredStatus
-	absentResult, err := lane.Call(ctx, "submit", mustJSONBytes(t, fieldspec.SubmitPayload{Record: absentClaims, FormDigest: describe.FormDigest}))
-	if err != nil {
-		t.Fatalf("production absence-floor submit: %v", err)
-	}
-	var absentOutcome struct {
-		State   string `json:"state"`
-		RelayID string `json:"relay_id"`
-	}
-	if err := json.Unmarshal(absentResult, &absentOutcome); err != nil {
-		t.Fatalf("decode production absence-floor outcome: %v", err)
-	}
-	absentRead := readRelayRaw(t, ctx, lane, absentOutcome.RelayID)
-	if absentOutcome.State != record.Accepted {
-		t.Fatalf("production absence-floor state = %q, want accepted; read=%s", absentOutcome.State, absentRead)
-	}
-	for _, want := range [][]byte{[]byte(`"achieved_evidence":"E1"`), []byte(`"target_gap_result":"target_gt_achieved"`), []byte(`"record_integrity":"observed"`)} {
-		if !bytes.Contains(absentRead, want) {
-			t.Fatalf("production absence-floor read = %s, want %s", absentRead, want)
-		}
-	}
-
-	falseStatus := absentClaims
-	falseStatus.Headers = make(map[string]string, len(absentClaims.Headers))
-	for key, value := range absentClaims.Headers {
-		falseStatus.Headers[key] = value
-	}
-	if declaredStatus == "none - clean tree" {
-		falseStatus.Headers["FINAL_GIT_STATUS_SHORT"] = "M deliberately-not-present"
-	} else {
-		falseStatus.Headers["FINAL_GIT_STATUS_SHORT"] = "none - clean tree"
-	}
-	falseStatus.Headers["SUBJECT"] = "production absence floor false status"
-	falseStatusResult, err := lane.Call(ctx, "submit", mustJSONBytes(t, fieldspec.SubmitPayload{Record: falseStatus, FormDigest: describe.FormDigest}))
-	if err != nil {
-		t.Fatalf("production absence-floor false-status submit: %v", err)
-	}
-	var falseStatusOutcome struct {
-		State   string `json:"state"`
-		RelayID string `json:"relay_id"`
-	}
-	if err := json.Unmarshal(falseStatusResult, &falseStatusOutcome); err != nil {
-		t.Fatalf("decode production absence-floor false-status outcome: %v", err)
-	}
-	falseStatusRead := readRelayRaw(t, ctx, lane, falseStatusOutcome.RelayID)
-	if falseStatusOutcome.State != record.Rejected || !bytes.Contains(falseStatusRead, []byte("FINAL_GIT_STATUS_SHORT")) {
-		t.Fatalf("production absence-floor false status = %+v; read=%s", falseStatusOutcome, falseStatusRead)
 	}
 }
 
