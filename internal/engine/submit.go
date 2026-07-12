@@ -11,6 +11,7 @@ import (
 	"github.com/jackli/frank/internal/intake"
 	"github.com/jackli/frank/internal/lineage"
 	"github.com/jackli/frank/internal/migrate"
+	"github.com/jackli/frank/internal/observe"
 	"github.com/jackli/frank/internal/record"
 	"github.com/jackli/frank/internal/seat"
 	"github.com/jackli/frank/internal/store"
@@ -22,6 +23,10 @@ func SubmitHandler(st *store.Store, reg *fieldspec.Registry, meta seat.SeatMeta,
 }
 
 func SubmitHandlerWithRender(st *store.Store, reg *fieldspec.Registry, meta seat.SeatMeta, env fieldspec.RenderEnv, existing ...*tables.T) Handler {
+	return SubmitHandlerWithObservation(st, reg, meta, env, observe.Env{PresentLayers: env.PresentLayers}, existing...)
+}
+
+func SubmitHandlerWithObservation(st *store.Store, reg *fieldspec.Registry, meta seat.SeatMeta, env fieldspec.RenderEnv, observeEnv observe.Env, existing ...*tables.T) Handler {
 	return func(ctx context.Context, cmd intake.Cmd) (record.Record, []store.Intent, error) {
 		cand, formDigest, err := fieldspec.DecodeSubmitPayload(cmd.Payload)
 		if err != nil {
@@ -74,6 +79,19 @@ func SubmitHandlerWithRender(st *store.Store, reg *fieldspec.Registry, meta seat
 			cand = clearGateRaiseHeaders(cand)
 			cand.Envelope.DeliveryState = record.Rejected
 			cand.Body = bounce.Format(*violation)
+			return cand, nil, nil
+		}
+		observeResult, terminal := observe.Gate(cand, meta.Name, cand.Headers["PHASE"], cand.Headers["AUTHORITY"], observeEnv)
+		if cand.Headers == nil {
+			cand.Headers = map[string]string{}
+		}
+		for field, value := range observeResult.ObservedFields {
+			cand.Headers[field] = value
+		}
+		if terminal != record.Accepted {
+			cand = clearGateRaiseHeaders(cand)
+			cand.Envelope.DeliveryState = terminal
+			cand.Body = bounce.Format(fieldspec.Violation{Field: observeResult.FailingPredicate, Class: "observed-false"})
 			return cand, nil, nil
 		}
 		if cand.Headers["record_kind"] == "config_change" {

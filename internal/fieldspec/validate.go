@@ -140,7 +140,10 @@ func (r *Registry) ignorePayloadField(spec *FieldSpec) bool {
 	if spec.ID == "record_kind" {
 		return false
 	}
-	return spec.Owner == "system" || spec.FillConstraints == "system_only"
+	return spec.Owner == "system" ||
+		spec.Owner == "computed" ||
+		spec.FillConstraints == "system_only" ||
+		spec.FillConstraints == "computed_result"
 }
 
 func (r *Registry) systemOwnedHeader(spec *FieldSpec) bool {
