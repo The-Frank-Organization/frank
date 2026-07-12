@@ -1,6 +1,9 @@
 package observe
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"path/filepath"
 	"strings"
 )
@@ -16,24 +19,31 @@ type CheckEntry struct {
 }
 
 type Selection struct {
-	CheckID  string
-	ClaimRef string
-	Params   map[string]string
+	CheckID         string
+	ClaimRef        string
+	CandidateDigest string
+	Params          map[string]string
 }
 
 type CheckVerdict struct {
-	CheckID       string
-	ClaimRef      string
-	Outcome       string
-	RungReached   string
-	Predicate     string
-	FailingDetail string
+	CheckID       string `json:"check_id"`
+	ClaimRef      string `json:"claim_ref"`
+	Outcome       string `json:"outcome"`
+	RungReached   string `json:"rung_reached"`
+	Predicate     string `json:"predicate"`
+	Timing        string `json:"timing"`
+	FailingDetail string `json:"failing_detail"`
+}
+
+type SuiteExecutor interface {
+	Spawn(CheckEntry, Selection) CheckVerdict
 }
 
 type RegistryEnv struct {
 	Lanes       map[string]string
 	SchemaRefs  map[string]string
 	NamedSuites map[string]bool
+	Executor    SuiteExecutor
 }
 
 type Registry struct {
@@ -47,6 +57,7 @@ func NewRegistry(env RegistryEnv) *Registry {
 			Lanes:       cloneMap(env.Lanes),
 			SchemaRefs:  cloneMap(env.SchemaRefs),
 			NamedSuites: cloneBoolMap(env.NamedSuites),
+			Executor:    env.Executor,
 		},
 		entries: map[string]CheckEntry{
 			"read-file": {
@@ -88,6 +99,11 @@ func (r *Registry) Run(selection Selection) CheckVerdict {
 		return r.runReadFile(selection)
 	case "git-status":
 		return r.runGitStatus(selection)
+	case "run-suite":
+		if r.env.Executor != nil {
+			return r.env.Executor.Spawn(entry, selection)
+		}
+		fallthrough
 	default:
 		return CheckVerdict{
 			CheckID: selection.CheckID, ClaimRef: selection.ClaimRef,
@@ -97,8 +113,13 @@ func (r *Registry) Run(selection Selection) CheckVerdict {
 }
 
 func (r *Registry) Evaluator(selection Selection) func(Candidate) PredicateResult {
-	return func(Candidate) PredicateResult {
-		verdict := r.Run(selection)
+	return func(candidate Candidate) PredicateResult {
+		bound := selection
+		if data, err := json.Marshal(candidate.Record); err == nil {
+			sum := sha256.Sum256(data)
+			bound.CandidateDigest = hex.EncodeToString(sum[:])
+		}
+		verdict := r.Run(bound)
 		id := verdict.ClaimRef
 		if id == "" {
 			id = verdict.CheckID
