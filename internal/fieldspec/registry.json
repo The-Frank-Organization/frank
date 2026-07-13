@@ -1,5 +1,5 @@
 {
-  "version": "s8-fieldspec-v7",
+  "version": "s10-fieldspec-v8",
   "provenance": {
     "owner": "m-2",
     "design_doc_id": "F-S7-R2-COLGRAIN",
@@ -81,7 +81,7 @@
     "surface_intent": ["progress", "review_checkpoint", "advisory", "result"],
     "DESIGN_RECORD_KIND": ["design-doc", "audit-record", "direct-override"],
     "DESIGN_REVIEW_VERDICT": ["approve", "must-revise", "reject-narrow", "human-decision-required"],
-    "record_kind": ["genesis", "owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint"],
+    "record_kind": ["genesis", "owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint", "odb", "resummon_command"],
     "config_member": ["fieldspec", "engine", "catalog", "adoption"],
     "dispatch_status": ["read", "awaiting"]
   },

@@ -16,7 +16,10 @@ import (
 )
 
 func TestS8RegistryChangesetIsExactV7OptionB(t *testing.T) {
-	reg := loadS5Registry(t)
+	reg, err := fieldspec.Parse(s8FieldspecV7Bytes(t))
+	if err != nil {
+		t.Fatalf("parse v7 registry: %v", err)
+	}
 	if reg.Version != "s8-fieldspec-v7" {
 		t.Fatalf("version = %q, want s8-fieldspec-v7", reg.Version)
 	}
@@ -100,10 +103,7 @@ func TestS8FXCFG10MemberTransitionRelation(t *testing.T) {
 		t.Fatalf("read v5 registry: %v", err)
 	}
 	v6 := s8FieldspecV6Bytes(t)
-	v7, err := os.ReadFile(filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
-	if err != nil {
-		t.Fatalf("read v7 registry: %v", err)
-	}
+	v7 := s8FieldspecV7Bytes(t)
 	if err := config.ValidateMemberTransition("fieldspec", v5, v6); err != nil {
 		t.Fatalf("lawful v5-to-v6 transition: %v", err)
 	}
@@ -186,10 +186,7 @@ func s8ConfigChangeRecord(t *testing.T, root, member string, body []byte) record
 
 func s8FieldspecV6Bytes(t *testing.T) []byte {
 	t.Helper()
-	v7, err := os.ReadFile(filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
-	if err != nil {
-		t.Fatalf("read v7 registry: %v", err)
-	}
+	v7 := s8FieldspecV7Bytes(t)
 	v6 := bytes.Replace(v7, []byte(`"version": "s8-fieldspec-v7"`), []byte(`"version": "s8-fieldspec-v6"`), 1)
 	lines := bytes.Split(v6, []byte{'\n'})
 	for i, line := range lines {
@@ -200,4 +197,20 @@ func s8FieldspecV6Bytes(t *testing.T) []byte {
 	}
 	t.Fatal("v7 executable_claims row missing")
 	return nil
+}
+
+func s8FieldspecV7Bytes(t *testing.T) []byte {
+	t.Helper()
+	v8, err := os.ReadFile(filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
+	if err != nil {
+		t.Fatalf("read v8 registry: %v", err)
+	}
+	v8Marker := []byte(`"version": "s10-fieldspec-v8"`)
+	v8Kinds := []byte(`"record_kind": ["genesis", "owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint", "odb", "resummon_command"]`)
+	v7Kinds := []byte(`"record_kind": ["genesis", "owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint"]`)
+	if bytes.Count(v8, v8Marker) != 1 || bytes.Count(v8, v8Kinds) != 1 {
+		t.Fatal("live v8 registry does not match the historical-v7 inverse fixture")
+	}
+	v7 := bytes.Replace(v8, v8Marker, []byte(`"version": "s8-fieldspec-v7"`), 1)
+	return bytes.Replace(v7, v8Kinds, v7Kinds, 1)
 }

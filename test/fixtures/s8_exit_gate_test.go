@@ -39,10 +39,7 @@ func TestS8ExitGateFreshGenesisActivationAndDogfoodLegs(t *testing.T) {
 
 	v6 := s8FieldspecV6Bytes(t)
 	s8CommitOperatorConfigChange(t, st, "fieldspec", v6)
-	v7, err := os.ReadFile(filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
-	if err != nil {
-		t.Fatalf("read v7 registry: %v", err)
-	}
+	v7 := s8FieldspecV7Bytes(t)
 	s8CommitOperatorConfigChange(t, st, "fieldspec", v7)
 	afterV7 := s8PinnedStore(t, root)
 	t.Logf("v7_transition_new_digest=%s", afterV7.Digest)
@@ -173,10 +170,7 @@ func TestS8ProductionDogfoodRejectsFalseDoneAndNamesPredicate(t *testing.T) {
 		t.Fatalf("DescribeTools v6: %v", err)
 	}
 	_ = v6Lane.Close()
-	v7, err := os.ReadFile(filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
-	if err != nil {
-		t.Fatalf("read v7 registry: %v", err)
-	}
+	v7 := s8FieldspecV7Bytes(t)
 	h.submit(t, operator, s8ConfigChangeRecord(t, root, "fieldspec", v7))
 	_ = operator.Close()
 	h.stop(t)
@@ -380,10 +374,7 @@ func TestS8ProductionDogfoodRejectsFalseDoneAndNamesPredicate(t *testing.T) {
 }
 
 func TestS8V6ReaderRefusesV7MarkerBeforeContent(t *testing.T) {
-	v7, err := os.ReadFile(filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
-	if err != nil {
-		t.Fatalf("read v7 registry: %v", err)
-	}
+	v7 := s8FieldspecV7Bytes(t)
 	var planted map[string]any
 	if err := json.Unmarshal(v7, &planted); err != nil {
 		t.Fatalf("decode v7 registry: %v", err)
@@ -416,10 +407,7 @@ func TestS8ExecutableClaimTypedRejects(t *testing.T) {
 		t.Fatalf("open typed-reject store: %v", err)
 	}
 	s8CommitOperatorConfigChange(t, st, "fieldspec", s8FieldspecV6Bytes(t))
-	v7, err := os.ReadFile(filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
-	if err != nil {
-		t.Fatalf("read typed-reject v7 registry: %v", err)
-	}
+	v7 := s8FieldspecV7Bytes(t)
 	s8CommitOperatorConfigChange(t, st, "fieldspec", v7)
 	pinned := s8PinnedStore(t, root)
 	meta := seat.SeatMeta{Name: "s8.implementer", Role: "implementer"}

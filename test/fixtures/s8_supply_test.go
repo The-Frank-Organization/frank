@@ -191,7 +191,7 @@ func TestS8FXSUP3MemberTransitionRefusesDuplicateMarkers(t *testing.T) {
 			case "engine":
 				candidate = bytes.Replace(current, []byte(`"version":2`), []byte(`"version":2,"version":2`), 1)
 			case "fieldspec":
-				candidate = bytes.Replace(current, []byte(`"version": "s8-fieldspec-v7"`), []byte(`"version": "s8-fieldspec-v7", "version": "s8-fieldspec-v7"`), 1)
+				candidate = bytes.Replace(current, []byte(`"version": "s10-fieldspec-v8"`), []byte(`"version": "s10-fieldspec-v8", "version": "s10-fieldspec-v8"`), 1)
 			case "catalog":
 				candidate = bytes.Replace(current, []byte(`"version": "s8-v1"`), []byte(`"version": "s8-v1", "version": "s8-v1"`), 1)
 			}

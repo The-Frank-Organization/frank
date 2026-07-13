@@ -100,6 +100,15 @@ func genesisMemberBytes(name string, source []byte) ([]byte, error) {
 		return source, nil
 	}
 	predecessor := append([]byte(nil), source...)
+	if bytes.Contains(predecessor, []byte(`"version": "s10-fieldspec-v8"`)) {
+		v8Kinds := []byte(`"record_kind": ["genesis", "owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint", "odb", "resummon_command"]`)
+		v7Kinds := []byte(`"record_kind": ["genesis", "owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint"]`)
+		if bytes.Count(predecessor, v8Kinds) != 1 {
+			return nil, fmt.Errorf("fieldspec v8 record_kind mismatch")
+		}
+		predecessor = bytes.Replace(predecessor, []byte(`"version": "s10-fieldspec-v8"`), []byte(`"version": "s8-fieldspec-v7"`), 1)
+		predecessor = bytes.Replace(predecessor, v8Kinds, v7Kinds, 1)
+	}
 	if bytes.Contains(predecessor, []byte(`"version": "s8-fieldspec-v7"`)) {
 		claimRow := []byte("    " + executableClaimsV7Row + ",\n")
 		if bytes.Count(predecessor, claimRow) != 1 {

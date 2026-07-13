@@ -1,0 +1,27 @@
+$ go test ./... -count=1
+--- FAIL: TestS5ConfigChangeStaleFormRerenderShowsRoutingEscalation (0.05s)
+    s5_config_change_test.go:147: stale state/body = accepted/"", want form_digest:re-render
+--- FAIL: TestS8FXCFG7GenesisComposesThreePinnedMembers (0.04s)
+    s8_config_activation_test.go:45: fresh_v2_genesis_config_digest=f8310109a3636cd5fdfadb2a6b43e251f0a050edd8a7fc16700c63ea7048d1e2
+    s8_config_activation_test.go:51: fieldspec hash = f9a15c53871613015f6af8e8f937b47be51271ee9764eb4218d3be459a267599, want 1ef6abab4d496b11017f57ca400e8296d63824994ffce8311e4533f70cc92485
+--- FAIL: TestS8ProductionDogfoodRejectsFalseDoneAndNamesPredicate (41.32s)
+    s8_exit_gate_test.go:315: production suite state = "rejected", want accepted; nested dogfood-battery returned fail
+--- FAIL: TestS8V6ReaderRefusesV7MarkerBeforeContent (0.00s)
+    s8_exit_gate_test.go:403: v7 marker preflight interpreted planted content: config-load: fieldspec-marker
+--- FAIL: TestS8RegistryChangesetIsExactV7OptionB (0.00s)
+    s8_registry_changeset_test.go:21: version = "s10-fieldspec-v8", want s8-fieldspec-v7
+--- FAIL: TestS8FXCFG10MemberTransitionRelation (0.03s)
+    s8_registry_changeset_test.go:114: v5-to-v7 skip accepted
+--- FAIL: TestS8FXSUP3MemberTransitionRefusesDuplicateMarkers (0.00s)
+    --- FAIL: TestS8FXSUP3MemberTransitionRefusesDuplicateMarkers/fieldspec (0.00s)
+        s8_supply_test.go:199: fieldspec marker mutation did not apply
+FAIL
+FAIL	github.com/jackli/frank/test/fixtures	61.538s
+ok  	github.com/jackli/frank/test/invariants	3.778s
+ok  	github.com/jackli/frank/test/replay	1.841s
+ok  	github.com/jackli/frank/test/replay/dogfood	1.966s
+ok  	github.com/jackli/frank/test/replay/zeroloss	2.317s
+FAIL
+
+$ go test ./test/fixtures -run '^(TestS5ConfigChangeStaleFormRerenderShowsRoutingEscalation|TestS8FXCFG7GenesisComposesThreePinnedMembers|TestS8V6ReaderRefusesV7MarkerBeforeContent|TestS8RegistryChangesetIsExactV7OptionB|TestS8FXCFG10MemberTransitionRelation|TestS8FXSUP3MemberTransitionRefusesDuplicateMarkers)$' -count=1
+The same six direct failures reproduced; the seventh full-suite failure is the governed dogfood suite recursively observing those failures.

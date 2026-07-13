@@ -1,0 +1,6 @@
+$ go test ./test/fixtures -run '^TestS10V7ReaderRefusesV8MarkerBeforeContent$' -count=1
+--- FAIL: TestS10V7ReaderRefusesV8MarkerBeforeContent (0.00s)
+    s10_fieldspec_test.go:24: registry version = "s8-fieldspec-v7", want s10-fieldspec-v8
+FAIL
+FAIL	github.com/jackli/frank/test/fixtures	0.745s
+FAIL
