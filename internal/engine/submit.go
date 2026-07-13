@@ -222,6 +222,55 @@ func firstSubmitTable(existing []*tables.T) *tables.T {
 	return existing[0]
 }
 
+// revalidateAtCommit closes the stale-snapshot window created when the
+// serialized loop services a nested command while an outer handler is
+// blocked. It reruns only uniqueness and pinned-config checks that can become
+// false after handler evaluation; observations and external execution are not
+// repeated.
+func revalidateAtCommit(st *store.Store, cand record.Record, intents []store.Intent) (record.Record, []store.Intent, error) {
+	if cand.Envelope.DeliveryState != record.Accepted {
+		return cand, intents, nil
+	}
+	kind := cand.Headers["record_kind"]
+	if cand.Headers["resolves_gate"] == "" && kind != "owed_disposition" && kind != "waiver_retraction" && kind != "config_change" && kind != "seat_mint" {
+		return cand, intents, nil
+	}
+	tab, err := tables.Build(st)
+	if err != nil {
+		return cand, nil, err
+	}
+	meta := seat.SeatMeta{
+		Name:       cand.Envelope.From,
+		Role:       cand.Envelope.Role,
+		IsOperator: cand.Envelope.From == "operator" || cand.Envelope.Role == "operator",
+	}
+	if cand.Headers["resolves_gate"] != "" {
+		for _, existing := range tab.Records {
+			if existing.Envelope.DeliveryState == record.Accepted && existing.Headers["resolves_gate"] == cand.Headers["resolves_gate"] {
+				cand = clearGateRaiseHeaders(cand)
+				cand.Envelope.DeliveryState = record.Rejected
+				cand.Body = formatVerdictViolation(fieldspec.Violation{Field: "resolves_gate", Class: "already-resolved"})
+				return cand, nil, nil
+			}
+		}
+	}
+	switch kind {
+	case "owed_disposition", "waiver_retraction", "seat_mint":
+		if violation := validateRecordKind(tab, cand, meta); violation != nil {
+			cand = clearGateRaiseHeaders(cand)
+			cand.Envelope.DeliveryState = record.Rejected
+			cand.Body = formatVerdictViolation(*violation)
+			return cand, nil, nil
+		}
+	case "config_change":
+		checked := classifyConfigChange(st, cand, meta)
+		if checked.Envelope.DeliveryState != record.Accepted {
+			return clearGateRaiseHeaders(checked), nil, nil
+		}
+	}
+	return cand, intents, nil
+}
+
 func clearGateRaiseHeaders(rec record.Record) record.Record {
 	if rec.Headers == nil {
 		return rec

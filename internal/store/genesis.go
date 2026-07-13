@@ -100,8 +100,16 @@ func genesisMemberBytes(name string, source []byte) ([]byte, error) {
 		return source, nil
 	}
 	predecessor := append([]byte(nil), source...)
-	if bytes.Contains(predecessor, []byte(`"version": "s10-fieldspec-v8"`)) {
-		return source, nil
+	isV8 := bytes.Contains(predecessor, []byte(`"version": "s10-fieldspec-v8"`))
+	if isV8 {
+		v8Marker := []byte(`"version": "s10-fieldspec-v8"`)
+		v8Kinds := []byte(`"record_kind": ["genesis", "owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint", "odb", "resummon_command"]`)
+		v7Kinds := []byte(`"record_kind": ["genesis", "owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint"]`)
+		if bytes.Count(predecessor, v8Marker) != 1 || bytes.Count(predecessor, v8Kinds) != 1 {
+			return nil, fmt.Errorf("fieldspec v8 predecessor delta mismatch")
+		}
+		predecessor = bytes.Replace(predecessor, v8Marker, []byte(`"version": "s8-fieldspec-v7"`), 1)
+		predecessor = bytes.Replace(predecessor, v8Kinds, v7Kinds, 1)
 	}
 	if bytes.Contains(predecessor, []byte(`"version": "s8-fieldspec-v7"`)) {
 		claimRow := []byte("    " + executableClaimsV7Row + ",\n")
@@ -130,6 +138,9 @@ func genesisMemberBytes(name string, source []byte) ([]byte, error) {
 	sum := sha256.Sum256(predecessor)
 	if hex.EncodeToString(sum[:]) != genesisFieldspecV5SHA256 {
 		return nil, fmt.Errorf("fieldspec genesis predecessor hash mismatch")
+	}
+	if isV8 {
+		return source, nil
 	}
 	return predecessor, nil
 }

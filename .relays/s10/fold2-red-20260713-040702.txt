@@ -1,0 +1,66 @@
+S10 SECOND-REVIEW FOLD — RED EVIDENCE
+BASE: f48104261841809eb21f2ec5f4b73631ae4ce341
+
+MF-2 command:
+go test ./test/fixtures -run 'TestS10FreshGenesis(RejectsV8WithCorruptedLockedPredecessorByte|IsBornAtV8WithoutPreV8Records)' -count=1
+RED:
+--- FAIL: TestS10FreshGenesisRejectsV8WithCorruptedLockedPredecessorByte
+    Init corrupt v8 err = <nil>, want predecessor hash mismatch
+
+MF-3 command:
+go test ./internal/engine -run TestLoopRevalidatesGateResolutionAfterNestedServiceCommit -count=1
+RED:
+--- FAIL: TestLoopRevalidatesGateResolutionAfterNestedServiceCommit
+    outer outcome = {State:accepted ... IntakeID:outer-resolution ...}, want commit-time rejected
+
+MF-4 + MF-5 command (detached f481042 proof worktree with only these regressions applied):
+go test ./test/fixtures -run 'TestS10(ReadCompletionWinsOverLateKillDispositionAndCeiling|SuiteCompletionWinsOverLateKillDisposition)' -count=1
+RED:
+--- FAIL: TestS10ReadCompletionWinsOverLateKillDispositionAndCeiling
+    --- FAIL: .../late_kill
+        completion verdict = {Outcome:"skipped" Predicate:"blocked" Timing:"timeout" FailingDetail:"check-machinery-read-file-timeout"}, want pass
+    --- FAIL: .../hard_ceiling
+        completion verdict = {Outcome:"skipped" Predicate:"blocked" Timing:"timeout" FailingDetail:"check-machinery-read-file-timeout"}, want pass
+--- FAIL: TestS10SuiteCompletionWinsOverLateKillDisposition
+    completion verdict = {Outcome:"unsafe" Predicate:"blocked" Timing:"timeout" FailingDetail:"executor-timeout"}, want actual pass
+
+MF-6 command:
+go test ./internal/engine -run TestS10ProductionSchedulerArmsParkedGateAndEmitsExactlyOneResummon -count=1
+RED:
+internal/engine/resummon_test.go:157:13: undefined: ResummonCadence
+internal/engine/resummon_test.go:158:22: scheduler.ArmParked undefined
+
+MF-7 command:
+go test ./internal/obligation -run TestCompleteAutoScopesCorruptRegistryAndCompletesUnambiguousGates -count=1
+RED:
+internal/obligation/obligation_test.go:76:32: undefined: obligation.ErrGateRegistry
+
+MF-8 commands:
+go test ./test/fixtures -run 'TestS10(ReadCompletionWinsOverLateKillDispositionAndCeiling|SuiteCompletionWinsOverLateKillDisposition|RootCancellationEndsPendingExpiryPrompts)' -count=1
+RED (executor root-context API absent):
+test/fixtures/s10_timeout_test.go:236:4: unknown field Context in struct literal of type executor.Config
+
+go test ./test/fixtures -run TestS10ReadRootCancellationEndsPendingExpiryPrompt -count=1
+RED (detached f481042 proof worktree):
+--- FAIL: TestS10ReadRootCancellationEndsPendingExpiryPrompt
+    read expiry prompt ignored root cancellation
+
+AO-2 expiry command:
+go test ./test/fixtures -run TestS10ExpiryPrompterSharesDuplicateGateWaiters -count=1
+RED:
+--- FAIL: TestS10ExpiryPrompterSharesDuplicateGateWaiters
+    duplicate waiter 0 decision = "kill", want extend
+
+AO-2 approval command:
+go test ./test/fixtures -run TestS10ApprovalPrompterSharesDuplicateGateWaiters -count=1
+RED:
+--- FAIL: TestS10ApprovalPrompterSharesDuplicateGateWaiters
+    duplicate waiter 0 decision = {Allowed:false Scope:"deny"}, want allow-once
+
+AO-3 command:
+go test ./internal/engine -run TestLoopNestedReplySendTimesOutWhenReceiverAbandons -count=1
+RED:
+--- FAIL: TestLoopNestedReplySendTimesOutWhenReceiverAbandons
+    abandoned nested ReplyCh deadlocked the serialized loop
+
+EXIT: non-zero at every RED above, as expected.

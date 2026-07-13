@@ -35,6 +35,7 @@ type Suite struct {
 }
 
 type Config struct {
+	Context      context.Context
 	TempRoot     string
 	OutputLimit  int
 	Suites       map[string]Suite
@@ -76,6 +77,9 @@ type cappedCapture struct {
 }
 
 func New(config Config) *Host {
+	if config.Context == nil {
+		config.Context = context.Background()
+	}
 	if config.OutputLimit <= 0 {
 		config.OutputLimit = 64 << 10
 	}
@@ -210,7 +214,7 @@ func (h *Host) execute(selection observe.Selection, suite Suite, workdir string)
 			hardCeiling = suite.Timeout
 		}
 		hardDeadline := startedAt.Add(hardCeiling)
-		expiryCtx, cancel := context.WithDeadline(context.Background(), hardDeadline)
+		expiryCtx, cancel := context.WithDeadline(h.config.Context, hardDeadline)
 		decision := make(chan ExpiryDecision, 1)
 		go func() {
 			decision <- h.config.OnSoftExpiry(expiryCtx, ExpiryRequest{
@@ -218,8 +222,24 @@ func (h *Host) execute(selection observe.Selection, suite Suite, workdir string)
 			})
 		}()
 		select {
+		case waitErr := <-waited:
+			cancel()
+			verdict, preserve := h.finalizeRun(selection, pgid, waitErr, false, false, capture)
+			if preserve {
+				cleanup = false
+			}
+			return verdict
 		case picked := <-decision:
 			cancel()
+			select {
+			case waitErr := <-waited:
+				verdict, preserve := h.finalizeRun(selection, pgid, waitErr, false, false, capture)
+				if preserve {
+					cleanup = false
+				}
+				return verdict
+			default:
+			}
 			extended := picked.Action == ExpiryExtend
 			timedOut := !extended
 			var waitErr error
@@ -252,6 +272,15 @@ func (h *Host) execute(selection observe.Selection, suite Suite, workdir string)
 			return verdict
 		case <-expiryCtx.Done():
 			cancel()
+			select {
+			case waitErr := <-waited:
+				verdict, preserve := h.finalizeRun(selection, pgid, waitErr, false, false, capture)
+				if preserve {
+					cleanup = false
+				}
+				return verdict
+			default:
+			}
 			_ = syscall.Kill(-pgid, syscall.SIGKILL)
 			waitErr := <-waited
 			verdict, preserve := h.finalizeRun(selection, pgid, waitErr, true, false, capture)

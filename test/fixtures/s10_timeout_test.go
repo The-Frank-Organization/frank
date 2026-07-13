@@ -102,6 +102,167 @@ func TestS10SuiteSoftExpiryPromptsBeforeAnyKillAndHardCeilingOnlyBlocks(t *testi
 	}
 }
 
+func TestS10ReadCompletionWinsOverLateKillDispositionAndCeiling(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		disposition func(context.Context, observe.ExpiryRequest) observe.ExpiryDecision
+		hardCeiling time.Duration
+	}{
+		{name: "late kill", hardCeiling: time.Second},
+		{name: "hard ceiling", hardCeiling: 80 * time.Millisecond},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			lane := t.TempDir()
+			if err := os.WriteFile(filepath.Join(lane, "done.txt"), []byte("done\n"), 0o600); err != nil {
+				t.Fatalf("WriteFile: %v", err)
+			}
+			workerRelease := make(chan struct{})
+			prompted := make(chan struct{})
+			decisionRelease := make(chan struct{})
+			var readOnce, promptOnce sync.Once
+			disposition := func(ctx context.Context, _ observe.ExpiryRequest) observe.ExpiryDecision {
+				promptOnce.Do(func() { close(prompted) })
+				if tc.name == "hard ceiling" {
+					<-ctx.Done()
+				} else {
+					<-decisionRelease
+				}
+				return observe.ExpiryDecision{Action: observe.ExpiryKill}
+			}
+			registry := observe.NewRegistry(observe.RegistryEnv{
+				Lanes: map[string]string{"repo": lane}, ReadTimeout: 10 * time.Millisecond, HardCeiling: tc.hardCeiling,
+				OnSoftExpiry: disposition,
+				ReadFileStageHook: func(stage observe.ReadFileStage) {
+					if stage == observe.ReadFileStageRead {
+						readOnce.Do(func() { <-workerRelease })
+					}
+				},
+			})
+			selection := observe.Selection{CheckID: "read-file", ClaimRef: "completed-during-prompt", Params: map[string]string{
+				"lane_ref": "repo", "path": "done.txt", "expect": "line:done",
+			}}
+			verdictCh := make(chan observe.CheckVerdict, 1)
+			go func() { verdictCh <- registry.Run(selection) }()
+			<-prompted
+			close(workerRelease)
+			time.Sleep(30 * time.Millisecond)
+			if tc.name != "hard ceiling" {
+				close(decisionRelease)
+			}
+			if verdict := <-verdictCh; verdict.Outcome != "pass" {
+				t.Fatalf("completion verdict = %#v, want pass", verdict)
+			}
+			if verdict := registry.Run(selection); verdict.Outcome != "pass" {
+				t.Fatalf("second read verdict = %#v, want closed breaker", verdict)
+			}
+		})
+	}
+}
+
+func TestS10SuiteCompletionWinsOverLateKillDisposition(t *testing.T) {
+	source := t.TempDir()
+	completedMarker := filepath.Join(t.TempDir(), "completed")
+	s8WriteExecutable(t, source, "quick.sh", "#!/bin/sh\nsleep 0.05\ntouch \"$1\"\n")
+	prompted := make(chan struct{})
+	host := executor.New(executor.Config{
+		TempRoot: t.TempDir(), HardCeiling: time.Second,
+		OnSoftExpiry: func(context.Context, executor.ExpiryRequest) executor.ExpiryDecision {
+			close(prompted)
+			for {
+				if _, err := os.Stat(completedMarker); err == nil {
+					break
+				}
+				time.Sleep(5 * time.Millisecond)
+			}
+			time.Sleep(50 * time.Millisecond)
+			return executor.ExpiryDecision{Action: executor.ExpiryKill}
+		},
+		Suites: map[string]executor.Suite{
+			"quick": {SourceDir: source, Command: "quick.sh", Args: []string{completedMarker}, TimeoutClass: "suite_bounded", Timeout: 10 * time.Millisecond},
+		},
+	})
+	entry := observe.CheckEntry{ID: "run-suite", Class: "suite", ExecutorRequired: true, TimeoutClass: "suite_bounded"}
+	selection := observe.Selection{CheckID: "run-suite", ClaimRef: "completed-during-prompt", Params: map[string]string{"target": "quick", "expect_green": "true"}}
+	verdictCh := make(chan observe.CheckVerdict, 1)
+	go func() { verdictCh <- host.Spawn(entry, selection) }()
+	<-prompted
+	if verdict := <-verdictCh; verdict.Outcome != "pass" || verdict.Timing != "under-timeout" {
+		t.Fatalf("completion verdict = %#v, want actual pass", verdict)
+	}
+}
+
+func TestS10RootCancellationEndsPendingExpiryPrompts(t *testing.T) {
+	t.Run("read file", func(t *testing.T) {
+		lane := t.TempDir()
+		if err := os.WriteFile(filepath.Join(lane, "blocked.txt"), []byte("done\n"), 0o600); err != nil {
+			t.Fatalf("WriteFile: %v", err)
+		}
+		rootCtx, cancel := context.WithCancel(context.Background())
+		blocked := make(chan struct{})
+		prompted := make(chan struct{})
+		var once sync.Once
+		registry := observe.NewRegistry(observe.RegistryEnv{
+			Context: rootCtx, Lanes: map[string]string{"repo": lane}, ReadTimeout: 10 * time.Millisecond, HardCeiling: time.Second,
+			OnSoftExpiry: func(ctx context.Context, _ observe.ExpiryRequest) observe.ExpiryDecision {
+				close(prompted)
+				<-ctx.Done()
+				return observe.ExpiryDecision{Action: observe.ExpiryKill}
+			},
+			ReadFileStageHook: func(stage observe.ReadFileStage) {
+				if stage == observe.ReadFileStageRead {
+					once.Do(func() { <-blocked })
+				}
+			},
+		})
+		selection := observe.Selection{CheckID: "read-file", ClaimRef: "cancel-prompt", Params: map[string]string{"lane_ref": "repo", "path": "blocked.txt", "expect": "line:done"}}
+		verdictCh := make(chan observe.CheckVerdict, 1)
+		go func() { verdictCh <- registry.Run(selection) }()
+		<-prompted
+		started := time.Now()
+		cancel()
+		select {
+		case verdict := <-verdictCh:
+			if verdict.Predicate != observe.Blocked || verdict.Timing != "timeout" || time.Since(started) > 300*time.Millisecond {
+				t.Fatalf("cancel verdict/latency = %#v/%s", verdict, time.Since(started))
+			}
+		case <-time.After(300 * time.Millisecond):
+			t.Fatal("read expiry prompt ignored root cancellation")
+		}
+		close(blocked)
+	})
+
+	t.Run("suite", func(t *testing.T) {
+		source := t.TempDir()
+		s8WriteExecutable(t, source, "slow.sh", "#!/bin/sh\nsleep 5\n")
+		rootCtx, cancel := context.WithCancel(context.Background())
+		prompted := make(chan struct{})
+		host := executor.New(executor.Config{
+			Context: rootCtx, TempRoot: t.TempDir(), HardCeiling: time.Second,
+			OnSoftExpiry: func(ctx context.Context, _ executor.ExpiryRequest) executor.ExpiryDecision {
+				close(prompted)
+				<-ctx.Done()
+				return executor.ExpiryDecision{Action: executor.ExpiryKill}
+			},
+			Suites: map[string]executor.Suite{"slow": {SourceDir: source, Command: "slow.sh", TimeoutClass: "suite_bounded", Timeout: 10 * time.Millisecond}},
+		})
+		entry := observe.CheckEntry{ID: "run-suite", Class: "suite", ExecutorRequired: true, TimeoutClass: "suite_bounded"}
+		selection := observe.Selection{CheckID: "run-suite", ClaimRef: "cancel-prompt", Params: map[string]string{"target": "slow", "expect_green": "true"}}
+		verdictCh := make(chan observe.CheckVerdict, 1)
+		go func() { verdictCh <- host.Spawn(entry, selection) }()
+		<-prompted
+		started := time.Now()
+		cancel()
+		select {
+		case verdict := <-verdictCh:
+			if verdict.Outcome != "unsafe" || verdict.FailingDetail != "executor-timeout" || time.Since(started) > 500*time.Millisecond {
+				t.Fatalf("cancel verdict/latency = %#v/%s", verdict, time.Since(started))
+			}
+		case <-time.After(500 * time.Millisecond):
+			t.Fatal("suite expiry prompt ignored root cancellation")
+		}
+	})
+}
+
 func TestS10LongRunningCheckParksAlertsAndAppliesOperatorExtend(t *testing.T) {
 	st, err := store.Open(t.TempDir())
 	if err != nil {
@@ -280,13 +441,55 @@ func TestS10ExpiryPrompterRejectsNonOperatorExtendAcrossReplayAndLivePaths(t *te
 	})
 }
 
+func TestS10ExpiryPrompterSharesDuplicateGateWaiters(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	gateReady := make(chan string, 1)
+	submitter := &s10ExpirySubmitter{store: st, gateReady: gateReady}
+	prompter, err := engine.NewExpiryPrompter(st, submitter)
+	if err != nil {
+		t.Fatalf("NewExpiryPrompter: %v", err)
+	}
+	request := observe.ExpiryRequest{
+		Selection:  observe.Selection{CheckID: "run-suite", ClaimRef: "same-gate", Seat: "seat-a", CandidateDigest: "same-candidate"},
+		SoftExpiry: 10 * time.Millisecond, HardCeiling: time.Second,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	decisions := make(chan observe.ExpiryDecision, 2)
+	go func() { decisions <- prompter.Prompt(ctx, request) }()
+	gateID := <-gateReady
+	go func() { decisions <- prompter.Prompt(ctx, request) }()
+	time.Sleep(30 * time.Millisecond)
+	resolution := record.Record{
+		Envelope: record.Envelope{From: "operator", Role: "operator", DeliveryState: record.Accepted, SchemaVersion: 1},
+		Headers:  map[string]string{"resolves_gate": gateID},
+		Body:     `{"choice":"extend"}`,
+	}
+	if err := prompter.Apply(resolution); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	for i := 0; i < 2; i++ {
+		if got := <-decisions; got.Action != observe.ExpiryExtend {
+			t.Fatalf("duplicate waiter %d decision = %q, want extend", i, got.Action)
+		}
+	}
+	if calls := submitter.calls.Load(); calls != 1 {
+		t.Fatalf("duplicate gate submit calls = %d, want one", calls)
+	}
+}
+
 type s10ExpirySubmitter struct {
 	store     *store.Store
 	afterGate func(string) error
 	gateReady chan<- string
+	calls     atomic.Int32
 }
 
 func (s *s10ExpirySubmitter) Submit(_ context.Context, cmd intake.Cmd) (<-chan engine.Outcome, string, error) {
+	s.calls.Add(1)
 	var input engine.ExpiryPromptInput
 	if err := json.Unmarshal(cmd.Payload, &input); err != nil {
 		return nil, "", err

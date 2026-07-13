@@ -95,7 +95,7 @@ func (r *Registry) executeReadFile(selection Selection, laneRef, relative string
 }
 
 func (r *Registry) resolveReadFileExpiry(selection Selection, laneRef string, done <-chan readFileResult, softExpiry, hardCeiling time.Duration, hardDeadline time.Time) readFileResult {
-	ctx, cancel := context.WithDeadline(context.Background(), hardDeadline)
+	ctx, cancel := context.WithDeadline(r.env.Context, hardDeadline)
 	defer cancel()
 	decision := make(chan ExpiryDecision, 1)
 	go func() {
@@ -111,13 +111,21 @@ func (r *Registry) resolveReadFileExpiry(selection Selection, laneRef string, do
 			completed = true
 			done = nil
 		case picked := <-decision:
-			if picked.Action != ExpiryExtend {
-				r.tripReadFileBreaker(laneRef)
-				return readFileResult{kind: readFileResultMachinery, detail: "check-machinery-read-file-timeout", timing: "timeout"}
+			if !completed {
+				select {
+				case completedResult = <-done:
+					completed = true
+					done = nil
+				default:
+				}
 			}
 			if completed {
 				r.finishReadFile(laneRef)
 				return completedResult
+			}
+			if picked.Action != ExpiryExtend {
+				r.tripReadFileBreaker(laneRef)
+				return readFileResult{kind: readFileResultMachinery, detail: "check-machinery-read-file-timeout", timing: "timeout"}
 			}
 			select {
 			case result := <-done:
@@ -128,6 +136,18 @@ func (r *Registry) resolveReadFileExpiry(selection Selection, laneRef string, do
 				return readFileResult{kind: readFileResultMachinery, detail: "check-machinery-read-file-timeout", timing: "timeout"}
 			}
 		case <-ctx.Done():
+			if !completed {
+				select {
+				case completedResult = <-done:
+					completed = true
+					done = nil
+				default:
+				}
+			}
+			if completed {
+				r.finishReadFile(laneRef)
+				return completedResult
+			}
 			r.tripReadFileBreaker(laneRef)
 			return readFileResult{kind: readFileResultMachinery, detail: "check-machinery-read-file-timeout", timing: "timeout"}
 		}

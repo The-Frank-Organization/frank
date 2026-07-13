@@ -3,6 +3,7 @@ package obligation
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -12,6 +13,8 @@ import (
 	"github.com/jackli/frank/internal/store"
 	"github.com/jackli/frank/internal/tables"
 )
+
+var ErrGateRegistry = errors.New("gate registry unavailable")
 
 type Fact struct {
 	Kind string
@@ -87,16 +90,13 @@ func CompleteAuto(st *store.Store, existing ...*tables.T) error {
 			return err
 		}
 	}
+	gateRegistry, useDefaultCategories, registryErr := loadGateRegistry(st)
 	records := append([]record.Record(nil), t.Records...)
 	for _, rec := range records {
 		sourceKind := ""
 		switch rec.Envelope.DeliveryState {
 		case record.Accepted:
-			isA, err := isAGateRecord(st, rec)
-			if err != nil {
-				return err
-			}
-			if !isA {
+			if !isAGateRecord(gateRegistry, useDefaultCategories, rec) {
 				continue
 			}
 			sourceKind = "gate"
@@ -114,7 +114,19 @@ func CompleteAuto(st *store.Store, existing ...*tables.T) error {
 			return err
 		}
 	}
-	return st.CompleteIncidents()
+	if err := st.CompleteIncidents(); err != nil {
+		return err
+	}
+	if registryErr != nil {
+		recorded, err := completeGateRegistryFault(st, t)
+		if err != nil {
+			return err
+		}
+		if recorded {
+			return registryErr
+		}
+	}
+	return nil
 }
 
 func firstTable(existing []*tables.T) *tables.T {
@@ -264,25 +276,57 @@ func completeOutbox(st *store.Store, t *tables.T, rec record.Record, sourceKind 
 	return err
 }
 
-func isAGateRecord(st *store.Store, rec record.Record) (bool, error) {
-	if rec.Headers["record_kind"] == "gate_resolution" {
+func loadGateRegistry(st *store.Store) (*fieldspec.Registry, bool, error) {
+	reg, err := fieldspec.Load(filepath.Join(st.Root, "config", "fieldspec", "registry.json"))
+	if err == nil {
+		return reg, false, nil
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, true, nil
+	}
+	return nil, false, fmt.Errorf("%w: %v", ErrGateRegistry, err)
+}
+
+func completeGateRegistryFault(st *store.Store, t *tables.T) (bool, error) {
+	const relayID = "held-gate-registry-unavailable"
+	if _, ok := t.ByRelay[relayID]; ok {
 		return false, nil
 	}
+	rec := record.Record{
+		Envelope: record.Envelope{
+			RelayID: relayID, From: "system", Role: "system",
+			DeliveryState: record.Held, SchemaVersion: 1,
+		},
+		Headers: map[string]string{
+			"PHASE": "SITREP", "SUBJECT": "gate registry unavailable", "failure_class": "gate-registry-unavailable",
+		},
+		Body: "gate_category:registry-unavailable",
+	}
+	if _, err := st.Commit(rec, nil); err != nil {
+		return false, err
+	}
+	t.OnCommit(rec)
+	return true, nil
+}
+
+func isAGateRecord(reg *fieldspec.Registry, useDefaultCategories bool, rec record.Record) bool {
+	if rec.Headers["record_kind"] == "gate_resolution" {
+		return false
+	}
 	if rec.Headers["HUMAN_GATE_REQUIRED"] == "yes" || rec.Headers["egress_scan_result"] == "blocked" {
-		return true, nil
+		return true
 	}
 	category := rec.Headers["gate_category"]
 	if category == "" {
-		return false, nil
+		return false
 	}
-	reg, err := fieldspec.Load(filepath.Join(st.Root, "config", "fieldspec", "registry.json"))
-	if err == nil {
-		return reg.GateCategoryAuthorityBearing(category), nil
+	if reg != nil {
+		return reg.GateCategoryAuthorityBearing(category)
 	}
-	if !errors.Is(err, os.ErrNotExist) {
-		return false, err
+	if useDefaultCategories {
+		return defaultAGateCategories[category]
 	}
-	return defaultAGateCategories[category], nil
+	return false
 }
 
 var defaultAGateCategories = map[string]bool{

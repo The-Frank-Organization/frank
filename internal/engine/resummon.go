@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/jackli/frank/internal/fieldspec"
@@ -36,6 +37,16 @@ type ResummonResult struct {
 	Deduped     bool
 }
 
+type ResummonCadence struct {
+	NoResponse      time.Duration
+	AnsweredStalled time.Duration
+}
+
+var DefaultResummonCadence = ResummonCadence{
+	NoResponse:      time.Hour,
+	AnsweredStalled: time.Hour,
+}
+
 type resummonSubmitter interface {
 	Submit(context.Context, intake.Cmd) (<-chan Outcome, string, error)
 }
@@ -44,6 +55,8 @@ type ResummonScheduler struct {
 	store     *store.Store
 	submitter resummonSubmitter
 	after     func(time.Duration) <-chan time.Time
+	mu        sync.Mutex
+	armed     map[string]bool
 }
 
 func NewResummonScheduler(st *store.Store, submitter resummonSubmitter) (*ResummonScheduler, error) {
@@ -53,19 +66,129 @@ func NewResummonScheduler(st *store.Store, submitter resummonSubmitter) (*Resumm
 	if submitter == nil {
 		return nil, fmt.Errorf("resummon submitter required")
 	}
-	return &ResummonScheduler{store: st, submitter: submitter, after: time.After}, nil
+	return &ResummonScheduler{store: st, submitter: submitter, armed: map[string]bool{}}, nil
 }
 
 func (s *ResummonScheduler) EmitAfter(ctx context.Context, delay time.Duration, input ResummonInput) (ResummonResult, error) {
 	if delay < 0 {
 		return ResummonResult{}, fmt.Errorf("resummon delay must not be negative")
 	}
+	if s.after != nil {
+		select {
+		case <-ctx.Done():
+			return ResummonResult{}, ctx.Err()
+		case <-s.after(delay):
+			return s.Emit(ctx, input)
+		}
+	}
+	timer := time.NewTimer(delay)
+	defer func() {
+		if !timer.Stop() {
+			select {
+			case <-timer.C:
+			default:
+			}
+		}
+	}()
 	select {
 	case <-ctx.Done():
 		return ResummonResult{}, ctx.Err()
-	case <-s.after(delay):
+	case <-timer.C:
 		return s.Emit(ctx, input)
 	}
+}
+
+// ArmParked installs the two G4 timer classes for every durably parked gate.
+// Each (gate, cadence-slot) is armed once per process; crash refires remain
+// safe because Emit also deduplicates from the durable content hash.
+func (s *ResummonScheduler) ArmParked(ctx context.Context, cadence ResummonCadence) error {
+	if cadence.NoResponse < 0 || cadence.AnsweredStalled < 0 {
+		return fmt.Errorf("resummon cadence must not be negative")
+	}
+	tab, err := tables.Build(s.store)
+	if err != nil {
+		return err
+	}
+	for gateID := range tab.ParkedLanes {
+		if GateState(tab, gateID) == GateResumed {
+			continue
+		}
+		gate, ok := tab.ByRelay[gateID]
+		if !ok {
+			continue
+		}
+		s.arm(ctx, cadence.NoResponse, ResummonInput{
+			Seat: gate.Envelope.From, DecisionID: gateID, CadenceSlot: "g4-no-response-1",
+			Reason: ResummonNoResponse, SummonChannel: SummonLocal,
+		})
+		s.arm(ctx, cadence.AnsweredStalled, ResummonInput{
+			Seat: gate.Envelope.From, DecisionID: gateID, CadenceSlot: "g4-answered-stalled-1",
+			Reason: ResummonAnsweredStalled, SummonChannel: SummonLouderLocal,
+		})
+	}
+	return nil
+}
+
+func (s *ResummonScheduler) arm(ctx context.Context, delay time.Duration, input ResummonInput) {
+	key := ResummonContentHash(input)
+	s.mu.Lock()
+	if s.armed[key] {
+		s.mu.Unlock()
+		return
+	}
+	s.armed[key] = true
+	s.mu.Unlock()
+	go func() {
+		if _, err := s.waitAndEmitIfDue(ctx, delay, input); err != nil {
+			return
+		}
+	}()
+}
+
+func (s *ResummonScheduler) waitAndEmitIfDue(ctx context.Context, delay time.Duration, input ResummonInput) (ResummonResult, error) {
+	if delay < 0 {
+		return ResummonResult{}, fmt.Errorf("resummon delay must not be negative")
+	}
+	timer := time.NewTimer(delay)
+	defer func() {
+		if !timer.Stop() {
+			select {
+			case <-timer.C:
+			default:
+			}
+		}
+	}()
+	select {
+	case <-ctx.Done():
+		return ResummonResult{}, ctx.Err()
+	case <-timer.C:
+	}
+	due, err := s.due(input)
+	if err != nil || !due {
+		return ResummonResult{}, err
+	}
+	return s.Emit(ctx, input)
+}
+
+func (s *ResummonScheduler) due(input ResummonInput) (bool, error) {
+	tab, err := tables.Build(s.store)
+	if err != nil {
+		return false, err
+	}
+	if GateState(tab, input.DecisionID) == GateResumed {
+		return false, nil
+	}
+	answered := false
+	for _, rec := range tab.Records {
+		if rec.Headers["resolves_gate"] == input.DecisionID {
+			answered = true
+			break
+		}
+	}
+	if input.Reason == ResummonAnsweredStalled {
+		return answered, nil
+	}
+	return !answered, nil
 }
 
 func (s *ResummonScheduler) Emit(ctx context.Context, input ResummonInput) (ResummonResult, error) {

@@ -117,3 +117,69 @@ func TestS10ResummonTimerCrashRefireDedupesBySeatDecisionAndCadenceSlot(t *testi
 		t.Fatalf("answered-but-stalled timer = %+v", answered)
 	}
 }
+
+func TestS10ProductionSchedulerArmsParkedGateAndEmitsExactlyOneResummon(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	for _, rec := range []record.Record{
+		{
+			Envelope: record.Envelope{RelayID: "live-timer-gate", From: "seat-a", Role: "implementer", DeliveryState: record.Accepted, SchemaVersion: 1},
+			Headers:  map[string]string{"PHASE": "SITREP", "SUBJECT": "live timer gate", "HUMAN_GATE_REQUIRED": "yes"},
+		},
+		{
+			Envelope: record.Envelope{RelayID: "park-live-timer-gate", From: "system", Role: "system", DeliveryState: record.Accepted, SchemaVersion: 1},
+			Headers:  map[string]string{"PHASE": "SITREP", "SUBJECT": GateParkedWaitingHuman, "parks_gate": "live-timer-gate"},
+		},
+	} {
+		if _, err := st.Commit(rec, nil); err != nil {
+			t.Fatalf("Commit %s: %v", rec.Envelope.RelayID, err)
+		}
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	loop := New(st, ResummonHandler(nil), TestReady())
+	journal, err := intake.Open(st.Root)
+	if err != nil {
+		t.Fatalf("Open journal: %v", err)
+	}
+	writer, err := intake.NewWriter[Outcome](journal, config.EngineConfig{}, TestReady())
+	if err != nil {
+		t.Fatalf("NewWriter: %v", err)
+	}
+	scheduler, err := NewResummonScheduler(st, writer)
+	if err != nil {
+		t.Fatalf("NewResummonScheduler: %v", err)
+	}
+	go loop.Run(ctx)
+	go writer.Run(ctx, loop.In)
+	cadence := ResummonCadence{NoResponse: 0, AnsweredStalled: time.Hour}
+	if err := scheduler.ArmParked(ctx, cadence); err != nil {
+		t.Fatalf("ArmParked: %v", err)
+	}
+	if err := scheduler.ArmParked(ctx, cadence); err != nil {
+		t.Fatalf("ArmParked repeat: %v", err)
+	}
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		records, err := st.Records()
+		if err != nil {
+			t.Fatalf("Records: %v", err)
+		}
+		count := 0
+		for _, rec := range records {
+			if rec.Headers["record_kind"] == "resummon_command" && rec.Headers["subject_ref"] == "live-timer-gate" {
+				count++
+			}
+		}
+		if count == 1 {
+			return
+		}
+		if count > 1 {
+			t.Fatalf("resummon command count = %d, want exactly one", count)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("production-composed scheduler did not emit a resummon command")
+}

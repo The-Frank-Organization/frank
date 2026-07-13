@@ -138,6 +138,72 @@ func TestS10LiveOperatorVerdictLiftsApprovalGateThroughODBWithoutExecution(t *te
 	}
 }
 
+func TestS10ApprovalPrompterSharesDuplicateGateWaiters(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	gateReady := make(chan string, 1)
+	submitter := &s10ApprovalSubmitter{store: st, gateReady: gateReady}
+	prompter, err := engine.NewApprovalPrompter(st, submitter)
+	if err != nil {
+		t.Fatalf("NewApprovalPrompter: %v", err)
+	}
+	request := observe.ApprovalRequest{Selection: observe.Selection{
+		CheckID: "run-suite-unbounded", ClaimRef: "same-gate", Seat: "seat-a", CandidateDigest: "same-candidate",
+	}}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	decisions := make(chan observe.ApprovalDecision, 2)
+	go func() { decisions <- prompter.Prompt(ctx, request) }()
+	gateID := <-gateReady
+	go func() { decisions <- prompter.Prompt(ctx, request) }()
+	time.Sleep(30 * time.Millisecond)
+	resolution := record.Record{
+		Envelope: record.Envelope{From: "operator", Role: "operator", DeliveryState: record.Accepted, SchemaVersion: 1},
+		Headers:  map[string]string{"resolves_gate": gateID},
+		Body:     `{"choice":"allow-once"}`,
+	}
+	if err := prompter.Apply(resolution); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	for i := 0; i < 2; i++ {
+		if got := <-decisions; !got.Allowed || got.Scope != observe.ApprovalOnce {
+			t.Fatalf("duplicate waiter %d decision = %#v, want allow-once", i, got)
+		}
+	}
+	if calls := submitter.calls.Load(); calls != 1 {
+		t.Fatalf("duplicate gate submit calls = %d, want one", calls)
+	}
+}
+
+type s10ApprovalSubmitter struct {
+	store     *store.Store
+	gateReady chan<- string
+	calls     atomic.Int32
+}
+
+func (s *s10ApprovalSubmitter) Submit(_ context.Context, cmd intake.Cmd) (<-chan engine.Outcome, string, error) {
+	s.calls.Add(1)
+	var input engine.ApprovalPromptInput
+	if err := json.Unmarshal(cmd.Payload, &input); err != nil {
+		return nil, "", err
+	}
+	gateID := engine.ApprovalGateID(input)
+	if _, err := s.store.Commit(record.Record{
+		Envelope: record.Envelope{RelayID: gateID, From: "system", Role: "system", DeliveryState: record.Accepted, SchemaVersion: 1},
+		Headers:  map[string]string{"approval_entry_id": input.EntryID},
+	}, []store.Intent{}); err != nil {
+		return nil, "", err
+	}
+	if s.gateReady != nil {
+		s.gateReady <- gateID
+	}
+	reply := make(chan engine.Outcome, 1)
+	reply <- engine.Outcome{State: record.Accepted, RelayID: gateID}
+	return reply, "approval-test-intake", nil
+}
+
 func s10AwaitApprovalGate(t *testing.T, st *store.Store) string {
 	t.Helper()
 	deadline := time.Now().Add(time.Second)

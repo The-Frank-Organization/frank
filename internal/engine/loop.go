@@ -153,6 +153,10 @@ func (l *Loop) process(ctx context.Context, cmd intake.Cmd) (out Outcome) {
 	if rec, ok := l.existingOutcomeForCommand(cmd); ok {
 		return outcomeFromRecord(rec)
 	}
+	rec, intents, err = revalidateAtCommit(l.Store, rec, intents)
+	if err != nil {
+		return Outcome{State: record.Rejected, IntakeID: rec.Envelope.IntakeID, Reason: safeReason("commit-validation-error")}
+	}
 	relayID, err := l.Store.Commit(rec, intents)
 	if err != nil {
 		return Outcome{State: record.Rejected, IntakeID: rec.Envelope.IntakeID, Reason: safeReason("commit-error")}
@@ -220,15 +224,36 @@ func (l *Loop) callHandler(ctx context.Context, cmd intake.Cmd) (record.Record, 
 			l.processQuarantine(relayID)
 		case nested := <-l.In:
 			out := l.process(ctx, nested.Cmd)
+			timer := time.NewTimer(l.replyTimeout())
 			select {
 			case nested.ReplyCh <- out:
+				if !timer.Stop() {
+					select {
+					case <-timer.C:
+					default:
+					}
+				}
 			case <-ctx.Done():
+				if !timer.Stop() {
+					select {
+					case <-timer.C:
+					default:
+					}
+				}
 				return record.Record{}, nil, ctx.Err()
+			case <-timer.C:
 			}
 		case <-ctx.Done():
 			return record.Record{}, nil, ctx.Err()
 		}
 	}
+}
+
+func (l *Loop) replyTimeout() time.Duration {
+	if l.Timeout > 0 {
+		return l.Timeout
+	}
+	return 5 * time.Second
 }
 
 func (l *Loop) supersededCredentialOutcome(cmd intake.Cmd) (Outcome, bool) {

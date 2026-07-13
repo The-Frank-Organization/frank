@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/jackli/frank/internal/config"
@@ -95,5 +96,28 @@ func TestS10FreshGenesisIsBornAtV8WithoutPreV8Records(t *testing.T) {
 	}
 	if genesis.Headers["config_digest"] != pinned.Digest {
 		t.Fatalf("genesis digest = %q, want current v8 digest %q", genesis.Headers["config_digest"], pinned.Digest)
+	}
+}
+
+func TestS10FreshGenesisRejectsV8WithCorruptedLockedPredecessorByte(t *testing.T) {
+	root := t.TempDir()
+	sources := s8ConfigSources(t, false)
+	v8, err := os.ReadFile(sources["fieldspec"])
+	if err != nil {
+		t.Fatalf("read v8 source: %v", err)
+	}
+	old := []byte("non-gate-bearing records only")
+	next := []byte("non-gate-bearing recordz only")
+	if bytes.Count(v8, old) != 1 {
+		t.Fatalf("locked predecessor byte fixture count = %d, want 1", bytes.Count(v8, old))
+	}
+	corrupt := bytes.Replace(v8, old, next, 1)
+	corruptPath := filepath.Join(t.TempDir(), "registry-corrupt-v8.json")
+	if err := os.WriteFile(corruptPath, corrupt, 0o644); err != nil {
+		t.Fatalf("write corrupt v8 source: %v", err)
+	}
+	sources["fieldspec"] = corruptPath
+	if err := store.Init(root, sources); err == nil || !strings.Contains(err.Error(), "fieldspec genesis predecessor") {
+		t.Fatalf("Init corrupt v8 err = %v, want predecessor integrity failure", err)
 	}
 }

@@ -1,0 +1,28 @@
+S10 SECOND-REVIEW FOLD — FULL-BATTERY INTEGRATION RED AND REPAIR
+
+COMMAND: go test ./... -count=1
+INITIAL EXIT: 1
+
+--- FAIL: TestS8ProductionDogfoodRejectsFalseDoneAndNamesPredicate
+    production suite state = "rejected", want accepted
+    executable_claim_results outcome = "fail"
+--- FAIL: TestLawPathHygiene
+    AST sink census: bounce-format site count = 21, catalog pins 19
+
+ROOT CAUSE:
+The MF-3 commit-time typed rejections introduced two new direct bounce.Format call sites. The fixed invariant catalog deliberately permits 19 sinks, so the path-hygiene test failed; the governed production dogfood suite correctly propagated that failed invariant as observed-false.
+
+REPAIR:
+Both new typed rejection paths now call the existing formatVerdictViolation helper. No invariant catalog or OUT-of-fence file changed.
+
+RECHECKS:
+go test ./test/invariants -run TestLawPathHygiene -count=1
+ok  github.com/jackli/frank/test/invariants  1.078s
+
+go test ./test/fixtures -run TestS8ProductionDogfoodRejectsFalseDoneAndNamesPredicate -count=1
+ok  github.com/jackli/frank/test/fixtures  99.886s
+
+git diff --check
+no output
+
+RECHECK EXIT: 0

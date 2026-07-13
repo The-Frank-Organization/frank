@@ -1,0 +1,35 @@
+S10 SECOND-REVIEW FOLD — REQUIRED FULL UNCACHED GREEN
+
+COMMAND: go test ./... -count=1
+
+?    github.com/jackli/frank/cmd/frank [no test files]
+ok   github.com/jackli/frank/cmd/frank-mcp 0.364s
+ok   github.com/jackli/frank/internal/bounce 0.404s
+ok   github.com/jackli/frank/internal/channel 0.936s
+ok   github.com/jackli/frank/internal/config 0.712s
+ok   github.com/jackli/frank/internal/crashpoint 0.838s
+ok   github.com/jackli/frank/internal/egress 1.080s
+ok   github.com/jackli/frank/internal/engine 6.265s
+?    github.com/jackli/frank/internal/executor [no test files]
+ok   github.com/jackli/frank/internal/fieldspec 1.343s
+ok   github.com/jackli/frank/internal/fsio 1.447s
+ok   github.com/jackli/frank/internal/gate 2.877s
+ok   github.com/jackli/frank/internal/gc 2.474s
+ok   github.com/jackli/frank/internal/intake 6.179s
+ok   github.com/jackli/frank/internal/lineage 1.841s
+ok   github.com/jackli/frank/internal/migrate 1.688s
+ok   github.com/jackli/frank/internal/obligation 2.962s
+?    github.com/jackli/frank/internal/observe [no test files]
+ok   github.com/jackli/frank/internal/record 1.601s
+ok   github.com/jackli/frank/internal/recover 4.604s
+ok   github.com/jackli/frank/internal/seat 1.681s
+ok   github.com/jackli/frank/internal/store 4.383s
+ok   github.com/jackli/frank/internal/tables 1.317s
+ok   github.com/jackli/frank/test/fixtures 141.168s
+ok   github.com/jackli/frank/test/invariants 3.959s
+ok   github.com/jackli/frank/test/replay 0.881s
+ok   github.com/jackli/frank/test/replay/dogfood 0.929s
+ok   github.com/jackli/frank/test/replay/zeroloss 1.919s
+?    github.com/jackli/frank/test/seatproc [no test files]
+
+EXIT: 0

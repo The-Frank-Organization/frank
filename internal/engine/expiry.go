@@ -28,7 +28,24 @@ type ExpiryPrompter struct {
 	store     *store.Store
 	submitter resummonSubmitter
 	mu        sync.Mutex
-	pending   map[string]chan observe.ExpiryDecision
+	pending   map[string]*expiryPending
+}
+
+type expiryPending struct {
+	done     chan struct{}
+	once     sync.Once
+	decision observe.ExpiryDecision
+}
+
+func newExpiryPending() *expiryPending {
+	return &expiryPending{done: make(chan struct{})}
+}
+
+func (p *expiryPending) resolve(decision observe.ExpiryDecision) {
+	p.once.Do(func() {
+		p.decision = decision
+		close(p.done)
+	})
 }
 
 type ExpiryRouter struct {
@@ -71,47 +88,66 @@ func NewExpiryPrompter(st *store.Store, submitter resummonSubmitter) (*ExpiryPro
 	if submitter == nil {
 		return nil, fmt.Errorf("expiry submitter required")
 	}
-	return &ExpiryPrompter{store: st, submitter: submitter, pending: map[string]chan observe.ExpiryDecision{}}, nil
+	return &ExpiryPrompter{store: st, submitter: submitter, pending: map[string]*expiryPending{}}, nil
 }
 
 func (p *ExpiryPrompter) Prompt(ctx context.Context, request observe.ExpiryRequest) observe.ExpiryDecision {
 	input := expiryPromptInput(request)
 	gateID := ExpiryGateID(input)
-	decision := make(chan observe.ExpiryDecision, 1)
 	p.mu.Lock()
-	p.pending[gateID] = decision
+	pending := p.pending[gateID]
+	owner := pending == nil
+	if owner {
+		pending = newExpiryPending()
+		p.pending[gateID] = pending
+	}
 	p.mu.Unlock()
+	if !owner {
+		return awaitExpiryPending(ctx, pending)
+	}
 	defer func() {
 		p.mu.Lock()
-		delete(p.pending, gateID)
+		if p.pending[gateID] == pending {
+			delete(p.pending, gateID)
+		}
 		p.mu.Unlock()
 	}()
+	fail := func() observe.ExpiryDecision {
+		decision := observe.ExpiryDecision{Action: observe.ExpiryKill}
+		pending.resolve(decision)
+		return decision
+	}
 	payload, err := json.Marshal(input)
 	if err != nil {
-		return observe.ExpiryDecision{Action: observe.ExpiryKill}
+		return fail()
 	}
 	reply, _, err := p.submitter.Submit(ctx, intake.Cmd{
 		Seat: "system", Role: "system", Verb: "emit-executor-expiry", Payload: payload, ContentHash: ExpiryContentHash(input),
 	})
 	if err != nil {
-		return observe.ExpiryDecision{Action: observe.ExpiryKill}
+		return fail()
 	}
 	select {
 	case <-ctx.Done():
-		return observe.ExpiryDecision{Action: observe.ExpiryKill}
+		return fail()
 	case outcome := <-reply:
 		if outcome.State != record.Accepted || outcome.RelayID != gateID {
-			return observe.ExpiryDecision{Action: observe.ExpiryKill}
+			return fail()
 		}
 	}
 	if existing, ok := p.existingDecision(gateID); ok {
+		pending.resolve(existing)
 		return existing
 	}
+	return awaitExpiryPending(ctx, pending)
+}
+
+func awaitExpiryPending(ctx context.Context, pending *expiryPending) observe.ExpiryDecision {
 	select {
 	case <-ctx.Done():
 		return observe.ExpiryDecision{Action: observe.ExpiryKill}
-	case picked := <-decision:
-		return picked
+	case <-pending.done:
+		return pending.decision
 	}
 }
 
@@ -160,10 +196,7 @@ func (p *ExpiryPrompter) Apply(resolution record.Record) error {
 	pending := p.pending[gateID]
 	p.mu.Unlock()
 	if pending != nil {
-		select {
-		case pending <- observe.ExpiryDecision{Action: action}:
-		default:
-		}
+		pending.resolve(observe.ExpiryDecision{Action: action})
 	}
 	return nil
 }

@@ -155,7 +155,7 @@ func run(ctx context.Context, cfg config) error {
 	expiryRouter := engine.NewExpiryRouter()
 	approvalRouter := engine.NewApprovalRouter()
 	executorHost := executor.New(executor.Config{
-		Suites: suites, HardCeiling: executor.DefaultHardCeiling, OnSoftExpiry: expiryRouter.Prompt,
+		Context: ctx, Suites: suites, HardCeiling: executor.DefaultHardCeiling, OnSoftExpiry: expiryRouter.Prompt,
 	})
 	checkRegistry := observe.NewRegistry(observe.RegistryEnv{
 		Lanes: pinned.Supply.LaneRoots, SchemaRefs: pinned.Supply.SchemaRefs, NamedSuites: namedSuites, Executor: executorHost,
@@ -273,6 +273,7 @@ func run(ctx context.Context, cfg config) error {
 	}
 	var loop *engine.Loop
 	var writer *intake.Writer[engine.Outcome]
+	var resummonScheduler *engine.ResummonScheduler
 	if result.Ready != nil {
 		loop = engine.New(st, engine.ApprovalHandler(engine.ExpiryHandler(engine.ResummonHandler(handler))), result.Ready)
 		loop.ServiceWhileBlocked = true
@@ -288,12 +289,19 @@ func run(ctx context.Context, cfg config) error {
 			}
 			loop.Tables = tab
 			liveTables.Publish(tab)
+			if resummonScheduler != nil {
+				return resummonScheduler.ArmParked(ctx, engine.DefaultResummonCadence)
+			}
 			return nil
 		}
 		loop.AfterAccepted = func(rec record.Record) (engine.OutcomeExtras, error) {
 			return completeSeatMint(rec, true)
 		}
 		writer, err = intake.NewWriter[engine.Outcome](journal, pinned.Engine, result.Ready)
+		if err != nil {
+			return err
+		}
+		resummonScheduler, err = engine.NewResummonScheduler(st, writer)
 		if err != nil {
 			return err
 		}
@@ -311,6 +319,9 @@ func run(ctx context.Context, cfg config) error {
 		loop.AfterApprovalResolution = approvalPrompter.Apply
 		go loop.Run(ctx)
 		go writer.Run(ctx, loop.In)
+		if err := resummonScheduler.ArmParked(ctx, engine.DefaultResummonCadence); err != nil {
+			return err
+		}
 	}
 	server, err = channel.ServeAuthenticated(socket, mgr, func(meta seat.SeatMeta) channel.ToolSet {
 		meta.AuthGeneration = currentAuthGeneration(meta.Name)

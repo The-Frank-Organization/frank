@@ -1,6 +1,7 @@
 package obligation_test
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -46,6 +47,49 @@ func TestCompleteAutoHandlesGateHeldAndQuarantineFacts(t *testing.T) {
 	}
 	if countByRelay(t, st, "incident-quarantined-ob") != 1 {
 		t.Fatalf("incident duplicated")
+	}
+}
+
+func TestCompleteAutoScopesCorruptRegistryAndCompletesUnambiguousGates(t *testing.T) {
+	root := t.TempDir()
+	st, err := store.Open(root)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	registryPath := filepath.Join(root, "config", "fieldspec", "registry.json")
+	if err := os.MkdirAll(filepath.Dir(registryPath), 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(registryPath, []byte(`{"version":"corrupt","fields":`), 0o644); err != nil {
+		t.Fatalf("write corrupt registry: %v", err)
+	}
+	commitObligationRecord(t, st, record.Record{
+		Envelope: record.Envelope{RelayID: "explicit-gate", From: "seat-a", Role: "implementer", DeliveryState: record.Accepted, SchemaVersion: 1},
+		Headers:  map[string]string{"PHASE": "SITREP", "SUBJECT": "explicit gate", "HUMAN_GATE_REQUIRED": "yes"},
+	})
+	commitObligationRecord(t, st, record.Record{
+		Envelope: record.Envelope{RelayID: "category-gate", From: "seat-b", Role: "implementer", DeliveryState: record.Accepted, SchemaVersion: 1},
+		Headers:  map[string]string{"PHASE": "SITREP", "SUBJECT": "category gate", "gate_category": "authz_security"},
+	})
+
+	err = obligation.CompleteAuto(st)
+	if !errors.Is(err, obligation.ErrGateRegistry) {
+		t.Fatalf("CompleteAuto err = %v, want typed ErrGateRegistry", err)
+	}
+	if countByRelay(t, st, "park-explicit-gate") != 1 || countByRelay(t, st, "outbox-gate-explicit-gate") != 1 {
+		t.Fatal("corrupt category registry aborted unambiguous gate obligations")
+	}
+	if countByRelay(t, st, "park-category-gate") != 0 {
+		t.Fatal("ambiguous category-only gate was classified through corrupt registry")
+	}
+	if countByRelay(t, st, "held-gate-registry-unavailable") != 1 {
+		t.Fatal("corrupt registry did not record one typed held fault")
+	}
+	if err := obligation.CompleteAuto(st); err != nil {
+		t.Fatalf("persistent corrupt registry wedged a future turn: %v", err)
+	}
+	if countByRelay(t, st, "held-gate-registry-unavailable") != 1 {
+		t.Fatal("typed registry fault duplicated")
 	}
 }
 

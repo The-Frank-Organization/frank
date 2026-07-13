@@ -61,6 +61,117 @@ func TestLoopProcessesFIFOAndRepliesAfterCommit(t *testing.T) {
 	}
 }
 
+func TestLoopRevalidatesGateResolutionAfterNestedServiceCommit(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("Open store: %v", err)
+	}
+	if _, err := st.Commit(record.Record{
+		Envelope: record.Envelope{RelayID: "gate-nested", From: "seat-a", Role: "implementer", DeliveryState: record.Accepted, SchemaVersion: 1},
+		Headers:  map[string]string{"PHASE": "SITREP", "SUBJECT": "nested gate", "HUMAN_GATE_REQUIRED": "yes"},
+	}, nil); err != nil {
+		t.Fatalf("Commit gate: %v", err)
+	}
+	outerStarted := make(chan struct{})
+	releaseOuter := make(chan struct{})
+	handler := func(_ context.Context, cmd intake.Cmd) (record.Record, []store.Intent, error) {
+		if cmd.Verb == "outer" {
+			close(outerStarted)
+			<-releaseOuter
+		} else {
+			close(releaseOuter)
+		}
+		return record.Record{
+			Envelope: record.Envelope{From: "operator", Role: "operator", DeliveryState: record.Accepted, SchemaVersion: 1},
+			Headers: map[string]string{
+				"PHASE": "SITREP", "SUBJECT": cmd.Verb + " verdict", "record_kind": "gate_resolution",
+				"resolves_gate": "gate-nested", "PARENT_DISPATCH_ID": "gate-nested",
+			},
+			Body: `{"choice":"approve"}`,
+		}, nil, nil
+	}
+	loop := engine.New(st, handler, engine.TestReady())
+	loop.ServiceWhileBlocked = true
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go loop.Run(ctx)
+
+	outerReply := make(chan engine.Outcome, 1)
+	loop.In <- engine.Job{Cmd: intake.Cmd{IntakeID: "outer-resolution", Seat: "operator", Role: "operator", Verb: "outer"}, ReplyCh: outerReply}
+	<-outerStarted
+	nestedReply := make(chan engine.Outcome, 1)
+	loop.In <- engine.Job{Cmd: intake.Cmd{IntakeID: "nested-resolution", Seat: "operator", Role: "operator", Verb: "nested"}, ReplyCh: nestedReply}
+	nested, outer := <-nestedReply, <-outerReply
+	if nested.State != record.Accepted {
+		t.Fatalf("nested outcome = %+v, want accepted", nested)
+	}
+	if outer.State != record.Rejected {
+		t.Fatalf("outer outcome = %+v, want commit-time rejected", outer)
+	}
+	rejected, err := st.Read(outer.RelayID)
+	if err != nil {
+		t.Fatalf("Read rejected outer resolution: %v", err)
+	}
+	if !strings.Contains(rejected.Body, "resolves_gate:already-resolved") {
+		t.Fatalf("outer rejection body = %q, want typed already-resolved", rejected.Body)
+	}
+	records, err := st.Records()
+	if err != nil {
+		t.Fatalf("Records: %v", err)
+	}
+	accepted := 0
+	for _, rec := range records {
+		if rec.Headers["resolves_gate"] == "gate-nested" && rec.Envelope.DeliveryState == record.Accepted {
+			accepted++
+		}
+	}
+	if accepted != 1 {
+		t.Fatalf("accepted gate resolutions = %d, want exactly one", accepted)
+	}
+}
+
+func TestLoopNestedReplySendTimesOutWhenReceiverAbandons(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("Open store: %v", err)
+	}
+	outerStarted := make(chan struct{})
+	releaseOuter := make(chan struct{})
+	loop := engine.New(st, func(_ context.Context, cmd intake.Cmd) (record.Record, []store.Intent, error) {
+		if cmd.Verb == "outer" {
+			close(outerStarted)
+			<-releaseOuter
+		} else {
+			close(releaseOuter)
+		}
+		return record.Record{
+			Envelope: record.Envelope{From: "seat-a", Role: "implementer", DeliveryState: record.Accepted, SchemaVersion: 1},
+			Headers:  map[string]string{"PHASE": "SITREP", "SUBJECT": cmd.Verb},
+		}, nil, nil
+	}, engine.TestReady())
+	loop.ServiceWhileBlocked = true
+	loop.Timeout = 20 * time.Millisecond
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go loop.Run(ctx)
+
+	outerReply := make(chan engine.Outcome, 1)
+	loop.In <- engine.Job{Cmd: intake.Cmd{IntakeID: "outer-abandoned-nested", Seat: "seat-a", Verb: "outer"}, ReplyCh: outerReply}
+	<-outerStarted
+	loop.In <- engine.Job{
+		Cmd:     intake.Cmd{IntakeID: "nested-abandoned", Seat: "seat-a", Verb: "nested"},
+		ReplyCh: make(chan engine.Outcome),
+	}
+	select {
+	case out := <-outerReply:
+		if out.State != record.Accepted {
+			t.Fatalf("outer outcome = %+v", out)
+		}
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("abandoned nested ReplyCh deadlocked the serialized loop")
+	}
+}
+
 func TestLoopCompletesObligationsOnSerializedTurn(t *testing.T) {
 	st, err := store.Open(t.TempDir())
 	if err != nil {

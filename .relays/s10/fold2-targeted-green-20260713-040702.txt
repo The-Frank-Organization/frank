@@ -1,0 +1,31 @@
+S10 SECOND-REVIEW FOLD — TARGETED GREEN
+
+COMMAND:
+go test ./internal/engine -run 'Test(LoopRevalidatesGateResolutionAfterNestedServiceCommit|LoopNestedReplySendTimesOutWhenReceiverAbandons|CommitRevalidationSweepsSnapshotDependentRecordKinds|S10ProductionSchedulerArmsParkedGateAndEmitsExactlyOneResummon|S10ResummonTimerCrashRefireDedupesBySeatDecisionAndCadenceSlot)' -count=1
+RESULT:
+ok  github.com/jackli/frank/internal/engine  0.699s
+
+COMMAND:
+go test ./internal/obligation -run 'TestCompleteAuto(ScopesCorruptRegistryAndCompletesUnambiguousGates|HandlesGateHeldAndQuarantineFacts)' -count=1
+RESULT:
+ok  github.com/jackli/frank/internal/obligation  0.777s
+
+COMMAND:
+go test ./test/fixtures -run 'TestS10(FreshGenesisRejectsV8WithCorruptedLockedPredecessorByte|FreshGenesisIsBornAtV8WithoutPreV8Records|ReadCompletionWinsOverLateKillDispositionAndCeiling|SuiteCompletionWinsOverLateKillDisposition|RootCancellationEndsPendingExpiryPrompts|ExpiryPrompterSharesDuplicateGateWaiters|ApprovalPrompterSharesDuplicateGateWaiters)' -count=1
+RESULT:
+ok  github.com/jackli/frank/test/fixtures  1.012s
+
+COMMAND: git diff --check
+RESULT: no output
+
+COMMAND:
+go test -race ./internal/engine -run 'Test(LoopRevalidatesGateResolutionAfterNestedServiceCommit|LoopNestedReplySendTimesOutWhenReceiverAbandons|S10ProductionSchedulerArmsParkedGateAndEmitsExactlyOneResummon)' -count=1
+RESULT:
+ok  github.com/jackli/frank/internal/engine  2.035s
+
+COMMAND:
+go test -race ./test/fixtures -run 'TestS10(ExpiryPrompterSharesDuplicateGateWaiters|ApprovalPrompterSharesDuplicateGateWaiters|RootCancellationEndsPendingExpiryPrompts)' -count=1
+RESULT:
+ok  github.com/jackli/frank/test/fixtures  1.982s
+
+EXIT: 0
