@@ -215,3 +215,101 @@ func TestS10LongRunningCheckParksAlertsAndAppliesOperatorExtend(t *testing.T) {
 		t.Fatalf("extended final verdict = %#v", verdict)
 	}
 }
+
+func TestS10ExpiryPrompterRejectsNonOperatorExtendAcrossReplayAndLivePaths(t *testing.T) {
+	request := observe.ExpiryRequest{
+		Selection: observe.Selection{
+			CheckID: "run-suite", ClaimRef: "non-operator-extend", Seat: "seat-a", CandidateDigest: "candidate-a",
+		},
+		SoftExpiry: 10 * time.Millisecond, HardCeiling: 50 * time.Millisecond,
+	}
+	nonOperatorExtend := func(gateID string) record.Record {
+		return record.Record{
+			Envelope: record.Envelope{
+				RelayID: "non-operator-extend", From: "seat-a", Role: "implementer",
+				DeliveryState: record.Accepted, SchemaVersion: 1,
+			},
+			Headers: map[string]string{"resolves_gate": gateID},
+			Body:    `{"choice":"extend"}`,
+		}
+	}
+
+	t.Run("replay lookup", func(t *testing.T) {
+		st, err := store.Open(t.TempDir())
+		if err != nil {
+			t.Fatalf("Open: %v", err)
+		}
+		submitter := &s10ExpirySubmitter{store: st}
+		submitter.afterGate = func(gateID string) error {
+			_, err := st.Commit(nonOperatorExtend(gateID), []store.Intent{})
+			return err
+		}
+		prompter, err := engine.NewExpiryPrompter(st, submitter)
+		if err != nil {
+			t.Fatalf("NewExpiryPrompter: %v", err)
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+		if got := prompter.Prompt(ctx, request); got.Action != observe.ExpiryKill {
+			t.Fatalf("non-operator replay decision = %q, want kill", got.Action)
+		}
+	})
+
+	t.Run("live apply", func(t *testing.T) {
+		st, err := store.Open(t.TempDir())
+		if err != nil {
+			t.Fatalf("Open: %v", err)
+		}
+		gateReady := make(chan string, 1)
+		submitter := &s10ExpirySubmitter{store: st, gateReady: gateReady}
+		prompter, err := engine.NewExpiryPrompter(st, submitter)
+		if err != nil {
+			t.Fatalf("NewExpiryPrompter: %v", err)
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+		decision := make(chan observe.ExpiryDecision, 1)
+		go func() { decision <- prompter.Prompt(ctx, request) }()
+		gateID := <-gateReady
+		if err := prompter.Apply(nonOperatorExtend(gateID)); err != nil {
+			t.Fatalf("Apply: %v", err)
+		}
+		if got := <-decision; got.Action != observe.ExpiryKill {
+			t.Fatalf("non-operator live decision = %q, want kill", got.Action)
+		}
+	})
+}
+
+type s10ExpirySubmitter struct {
+	store     *store.Store
+	afterGate func(string) error
+	gateReady chan<- string
+}
+
+func (s *s10ExpirySubmitter) Submit(_ context.Context, cmd intake.Cmd) (<-chan engine.Outcome, string, error) {
+	var input engine.ExpiryPromptInput
+	if err := json.Unmarshal(cmd.Payload, &input); err != nil {
+		return nil, "", err
+	}
+	gateID := engine.ExpiryGateID(input)
+	gate := record.Record{
+		Envelope: record.Envelope{
+			RelayID: gateID, From: "system", Role: "system", DeliveryState: record.Accepted, SchemaVersion: 1,
+		},
+		Headers: map[string]string{"expiry_check_id": input.CheckID},
+	}
+	if _, err := s.store.Commit(gate, []store.Intent{}); err != nil {
+		return nil, "", err
+	}
+	if s.afterGate != nil {
+		if err := s.afterGate(gateID); err != nil {
+			return nil, "", err
+		}
+	}
+	if s.gateReady != nil {
+		s.gateReady <- gateID
+	}
+	reply := make(chan engine.Outcome, 1)
+	reply <- engine.Outcome{State: record.Accepted, RelayID: gateID}
+	return reply, "expiry-test-intake", nil
+}

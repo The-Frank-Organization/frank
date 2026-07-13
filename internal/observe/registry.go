@@ -200,6 +200,7 @@ func (r *Registry) Run(selection Selection) CheckVerdict {
 		if !decision.Allowed || decision.Scope != ApprovalOnce && decision.Scope != ApprovalForEntry {
 			return refusedVerdictWithDetail(selection, "side-effecting-unapproved")
 		}
+		// Approval deliberately lifts only the prompt gate; real side-effecting execution remains a registered carry.
 		return refusedVerdictWithDetail(selection, "side-effecting-execution-refused")
 	}
 	switch selection.CheckID {

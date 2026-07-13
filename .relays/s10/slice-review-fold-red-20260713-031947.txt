@@ -1,0 +1,13 @@
+COMMAND: go test ./test/fixtures -run '^TestS10ExpiryPrompterRejectsNonOperatorExtendAcrossReplayAndLivePaths$' -count=1
+EXIT: 1 (expected RED)
+
+--- FAIL: TestS10ExpiryPrompterRejectsNonOperatorExtendAcrossReplayAndLivePaths (0.05s)
+    --- FAIL: TestS10ExpiryPrompterRejectsNonOperatorExtendAcrossReplayAndLivePaths/replay_lookup (0.04s)
+        s10_timeout_test.go:254: non-operator replay decision = "extend", want kill
+    --- FAIL: TestS10ExpiryPrompterRejectsNonOperatorExtendAcrossReplayAndLivePaths/live_apply (0.01s)
+        s10_timeout_test.go:278: non-operator live decision = "extend", want kill
+FAIL
+FAIL github.com/jackli/frank/test/fixtures 0.797s
+FAIL
+
+RED is behavioral and names both missing operator-FROM guards: replay lookup and live Apply each accepted a non-operator `extend`.

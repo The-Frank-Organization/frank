@@ -121,7 +121,7 @@ func (p *ExpiryPrompter) existingDecision(gateID string) (observe.ExpiryDecision
 		return observe.ExpiryDecision{}, false
 	}
 	for _, rec := range records {
-		if rec.Envelope.DeliveryState != record.Accepted || rec.Headers["resolves_gate"] != gateID {
+		if rec.Envelope.DeliveryState != record.Accepted || rec.Envelope.From != "operator" || rec.Headers["resolves_gate"] != gateID {
 			continue
 		}
 		reply, violation := ParseODBReply(rec.Body)
@@ -138,7 +138,7 @@ func (p *ExpiryPrompter) existingDecision(gateID string) (observe.ExpiryDecision
 
 func (p *ExpiryPrompter) Apply(resolution record.Record) error {
 	gateID := resolution.Headers["resolves_gate"]
-	if gateID == "" || resolution.Envelope.DeliveryState != record.Accepted {
+	if gateID == "" || resolution.Envelope.DeliveryState != record.Accepted || resolution.Envelope.From != "operator" {
 		return nil
 	}
 	gate, err := p.store.Read(gateID)

@@ -1,0 +1,15 @@
+COMMAND: go test ./test/fixtures -run '^TestS10ExpiryPrompterRejectsNonOperatorExtendAcrossReplayAndLivePaths$' -count=1
+EXIT: 0
+ok github.com/jackli/frank/test/fixtures 0.888s
+
+COMMAND: go test ./test/fixtures -run '^TestS10(E1LongRead|SuiteSoftExpiry|LongRunningCheck|ExpiryPrompter)' -count=1
+EXIT: 0
+ok github.com/jackli/frank/test/fixtures 3.301s
+
+COMMAND: go test ./internal/engine ./internal/observe -count=1
+EXIT: 0
+ok github.com/jackli/frank/internal/engine 1.196s
+? github.com/jackli/frank/internal/observe [no test files]
+
+COMMAND: git diff --check
+EXIT: 0
