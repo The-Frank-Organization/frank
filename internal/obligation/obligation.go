@@ -2,8 +2,12 @@ package obligation
 
 import (
 	"encoding/json"
+	"errors"
+	"os"
+	"path/filepath"
 	"time"
 
+	"github.com/jackli/frank/internal/fieldspec"
 	"github.com/jackli/frank/internal/record"
 	"github.com/jackli/frank/internal/store"
 	"github.com/jackli/frank/internal/tables"
@@ -86,10 +90,17 @@ func CompleteAuto(st *store.Store, existing ...*tables.T) error {
 	records := append([]record.Record(nil), t.Records...)
 	for _, rec := range records {
 		sourceKind := ""
-		switch {
-		case rec.Envelope.DeliveryState == record.Accepted && isGateRecord(rec):
+		switch rec.Envelope.DeliveryState {
+		case record.Accepted:
+			isA, err := isAGateRecord(st, rec)
+			if err != nil {
+				return err
+			}
+			if !isA {
+				continue
+			}
 			sourceKind = "gate"
-		case rec.Envelope.DeliveryState == record.Held:
+		case record.Held:
 			sourceKind = "held"
 		default:
 			continue
@@ -114,6 +125,9 @@ func firstTable(existing []*tables.T) *tables.T {
 }
 
 func completePark(st *store.Store, t *tables.T, gateRecord record.Record) error {
+	if err := completeODB(st, t, gateRecord); err != nil {
+		return err
+	}
 	parkID := "park-" + gateRecord.Envelope.RelayID
 	if _, ok := t.ByRelay[parkID]; ok || t.CompletionIndex["park"][gateRecord.Envelope.RelayID] {
 		return nil
@@ -129,11 +143,67 @@ func completePark(st *store.Store, t *tables.T, gateRecord record.Record) error 
 		},
 		Headers: map[string]string{
 			"PHASE":      "SITREP",
-			"SUBJECT":    "parked gate",
+			"SUBJECT":    "parked_waiting_human",
 			"parks_gate": gateRecord.Envelope.RelayID,
 		},
 	}
 	_, err := st.Commit(rec, nil)
+	if err == nil {
+		t.OnCommit(rec)
+	}
+	return err
+}
+
+func completeODB(st *store.Store, t *tables.T, gateRecord record.Record) error {
+	odbID := "odb-" + gateRecord.Envelope.RelayID
+	if _, ok := t.ByRelay[odbID]; ok {
+		return nil
+	}
+	choices, err := fieldspec.CanonicalMarshal([]map[string]string{
+		{"label": "Approve", "value": "approve"},
+		{"label": "Reject", "value": "reject"},
+	})
+	if err != nil {
+		return err
+	}
+	to, err := fieldspec.EncodeAddressList([]string{"operator"})
+	if err != nil {
+		return err
+	}
+	subject := gateRecord.Headers["SUBJECT"]
+	if subject == "" {
+		subject = gateRecord.Envelope.RelayID
+	}
+	completedProof := gateRecord.Headers["evidence_ref"]
+	if completedProof == "" {
+		completedProof = "accepted:" + gateRecord.Envelope.RelayID
+	}
+	rec := record.Record{
+		Envelope: record.Envelope{
+			RelayID:       odbID,
+			DispatchID:    gateRecord.Envelope.DispatchID,
+			From:          "system",
+			Role:          "system",
+			To:            "operator",
+			DeliveryState: record.Accepted,
+			SchemaVersion: 1,
+		},
+		Headers: map[string]string{
+			"PHASE":                 "SITREP",
+			"SUBJECT":               "Owner Decision Brief: " + gateRecord.Envelope.RelayID,
+			"TO":                    to,
+			"record_kind":           "odb",
+			"subject_ref":           gateRecord.Envelope.RelayID,
+			"plain_language_change": subject,
+			"why_now":               "The accepted A-gate requires an operator verdict before the lane can continue.",
+			"completed_proof":       completedProof,
+			"record_integrity":      "observed",
+			"tradeoffs_risks":       "The lane remains parked until a bounded operator choice is validated.",
+			"recommendation":        "Choose approve only when the accepted gate may safely resume.",
+			"choices":               choices,
+		},
+	}
+	_, err = st.Commit(rec, nil)
 	if err == nil {
 		t.OnCommit(rec)
 	}
@@ -185,6 +255,33 @@ func completeOutbox(st *store.Store, t *tables.T, rec record.Record, sourceKind 
 	return err
 }
 
-func isGateRecord(rec record.Record) bool {
-	return rec.Headers["HUMAN_GATE_REQUIRED"] == "yes" || rec.Headers["gate_category"] != ""
+func isAGateRecord(st *store.Store, rec record.Record) (bool, error) {
+	if rec.Headers["HUMAN_GATE_REQUIRED"] == "yes" || rec.Headers["egress_scan_result"] == "blocked" {
+		return true, nil
+	}
+	category := rec.Headers["gate_category"]
+	if category == "" {
+		return false, nil
+	}
+	reg, err := fieldspec.Load(filepath.Join(st.Root, "config", "fieldspec", "registry.json"))
+	if err == nil {
+		return reg.GateCategoryAuthorityBearing(category), nil
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return false, err
+	}
+	return defaultAGateCategories[category], nil
+}
+
+var defaultAGateCategories = map[string]bool{
+	"merge_to_protected":       true,
+	"irreversible_write":       true,
+	"residual_risk_acceptance": true,
+	"live_verify_skip":         true,
+	"ceremony_downgrade":       true,
+	"authz_security":           true,
+	"product_semantics":        true,
+	"scope_expansion":          true,
+	"routing_escalation":       true,
+	"other":                    true,
 }

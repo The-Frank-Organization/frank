@@ -1,0 +1,5 @@
+--- FAIL: TestS10OnlyAcceptedAGateEmitsODBAndParksWaitingForHuman (0.07s)
+    s10_park_test.go:34: record park-non-a-gate count = 1, want 0
+FAIL
+FAIL	github.com/jackli/frank/test/fixtures	0.760s
+FAIL
