@@ -1,0 +1,5 @@
+--- FAIL: TestS10OperatorReplyValidatesFrozenChoiceAndResolvesOnlyOnce (0.12s)
+    s10_reply_test.go:53: out-of-set reply = accepted/"{\"choice\":\"outside-frozen-set\"}", want rejected choices:enum
+FAIL
+FAIL	github.com/jackli/frank/test/fixtures	0.791s
+FAIL

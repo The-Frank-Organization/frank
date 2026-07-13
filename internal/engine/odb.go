@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -11,6 +12,11 @@ import (
 type ODBChoice struct {
 	Value string
 	Label string
+}
+
+type ODBReply struct {
+	Choice string `json:"choice"`
+	Note   string `json:"note,omitempty"`
 }
 
 type ODBInput struct {
@@ -134,4 +140,12 @@ func ClassifyODBChoice(odb record.Record, picked string) (string, *fieldspec.Vio
 		return record.Rejected, violation
 	}
 	return record.Accepted, nil
+}
+
+func ParseODBReply(body string) (ODBReply, *fieldspec.Violation) {
+	var reply ODBReply
+	if err := json.Unmarshal([]byte(body), &reply); err != nil || strings.TrimSpace(reply.Choice) == "" {
+		return ODBReply{}, &fieldspec.Violation{Field: "choices", Class: "typed-parse"}
+	}
+	return reply, nil
 }

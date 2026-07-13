@@ -462,7 +462,7 @@ func owedProjectionIntentsFromTable(t *tables.T, cand record.Record) []store.Int
 func classifyVerdict(t *tables.T, cand record.Record, meta seat.SeatMeta) record.Record {
 	if !(meta.IsOperator || meta.Name == "operator" || meta.Role == "operator") {
 		cand.Envelope.DeliveryState = record.Rejected
-		cand.Body = bounce.Format(fieldspec.Violation{Field: "record_kind", Class: "seat-scope", Reason: "gate_resolution requires operator"})
+		cand.Body = formatVerdictViolation(fieldspec.Violation{Field: "record_kind", Class: "seat-scope", Reason: "gate_resolution requires operator"})
 		return cand
 	}
 	gateRef := cand.Headers["resolves_gate"]
@@ -474,10 +474,14 @@ func classifyVerdict(t *tables.T, cand record.Record, meta seat.SeatMeta) record
 	}
 	var gateFound bool
 	var wakeSeat string
+	var odb record.Record
 	for _, existing := range t.Records {
 		if existing.Envelope.RelayID == gateRef && existing.Envelope.DeliveryState == record.Accepted && isGateCandidate(existing) {
 			gateFound = true
 			wakeSeat = existing.Envelope.From
+		}
+		if existing.Envelope.RelayID == "odb-"+gateRef && existing.Envelope.DeliveryState == record.Accepted && existing.Headers["record_kind"] == "odb" {
+			odb = existing
 		}
 		if existing.Headers["resolves_gate"] == gateRef && existing.Envelope.DeliveryState == record.Accepted {
 			cand.Envelope.DeliveryState = record.Rejected
@@ -490,9 +494,24 @@ func classifyVerdict(t *tables.T, cand record.Record, meta seat.SeatMeta) record
 		cand.Body = bounce.Format(lineage.Bounce{Edge: "PARENT_DISPATCH_ID", Kind: lineage.ParentUnknownRecompose})
 		return cand
 	}
+	if odb.Envelope.RelayID != "" {
+		reply, violation := ParseODBReply(cand.Body)
+		if violation == nil {
+			violation = ValidateODBChoice(odb, reply.Choice)
+		}
+		if violation != nil {
+			cand.Envelope.DeliveryState = record.Rejected
+			cand.Body = formatVerdictViolation(*violation)
+			return cand
+		}
+	}
 	cand.Envelope.To = wakeSeat
 	cand.Envelope.DeliveryState = record.Accepted
 	return cand
+}
+
+func formatVerdictViolation(violation fieldspec.Violation) string {
+	return bounce.Format(violation)
 }
 
 func anySlice[T any](values []T) []any {

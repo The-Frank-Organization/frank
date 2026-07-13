@@ -154,6 +154,7 @@ func TestS5Wire3BinaryPathS2ReferenceRaisesAndAbsentConfigIsFailSafeOnly(t *test
 			"resolves_gate":   gateOutcome.RelayID,
 			"gate_category":   "routing",
 		},
+		Body: `{"choice":"approve"}`,
 	})
 	verdictRead := readWire3Record(t, ctx, operatorClient, verdictOutcome.RelayID)
 	if verdictRead.Envelope.DeliveryState != record.Accepted {

@@ -256,6 +256,9 @@ func completeOutbox(st *store.Store, t *tables.T, rec record.Record, sourceKind 
 }
 
 func isAGateRecord(st *store.Store, rec record.Record) (bool, error) {
+	if rec.Headers["record_kind"] == "gate_resolution" {
+		return false, nil
+	}
 	if rec.Headers["HUMAN_GATE_REQUIRED"] == "yes" || rec.Headers["egress_scan_result"] == "blocked" {
 		return true, nil
 	}

@@ -1,0 +1,36 @@
+?   	github.com/jackli/frank/cmd/frank	[no test files]
+ok  	github.com/jackli/frank/cmd/frank-mcp	0.428s
+ok  	github.com/jackli/frank/internal/bounce	0.477s
+ok  	github.com/jackli/frank/internal/channel	1.054s
+ok  	github.com/jackli/frank/internal/config	0.981s
+ok  	github.com/jackli/frank/internal/crashpoint	0.850s
+ok  	github.com/jackli/frank/internal/egress	1.249s
+ok  	github.com/jackli/frank/internal/engine	2.876s
+?   	github.com/jackli/frank/internal/executor	[no test files]
+ok  	github.com/jackli/frank/internal/fieldspec	1.532s
+ok  	github.com/jackli/frank/internal/fsio	1.746s
+ok  	github.com/jackli/frank/internal/gate	2.868s
+ok  	github.com/jackli/frank/internal/gc	2.803s
+ok  	github.com/jackli/frank/internal/intake	5.573s
+ok  	github.com/jackli/frank/internal/lineage	2.053s
+ok  	github.com/jackli/frank/internal/migrate	1.808s
+ok  	github.com/jackli/frank/internal/obligation	2.289s
+?   	github.com/jackli/frank/internal/observe	[no test files]
+ok  	github.com/jackli/frank/internal/record	1.835s
+ok  	github.com/jackli/frank/internal/recover	3.763s
+ok  	github.com/jackli/frank/internal/seat	1.865s
+ok  	github.com/jackli/frank/internal/store	3.897s
+ok  	github.com/jackli/frank/internal/tables	1.337s
+--- FAIL: TestS8ProductionDogfoodRejectsFalseDoneAndNamesPredicate (45.42s)
+    s8_exit_gate_test.go:309: production suite state = "rejected", want accepted; read={"record":{"envelope":{"relay_id":"relay-767baf53a7600b27d88a8e48","dispatch_id":"s4-nudge","from":"s8.implementer","to":"recipient.planner","role":"implementer","delivery_state":"rejected","intake_id":"intake-000007","schema_version":1},"headers":{"ACTIONS_GIT_REF":"branch@candidate","AUTHORITY":"report-only","CEREMONY_TIER":"medium","EVIDENCE_TARGET":"E2","FINAL_GIT_STATUS_SHORT":"none - clean tree","PARENT_DISPATCH_ID":"relay-5684507561193cff4076b97d","PHASE":"SITREP","SUBJECT":"production governed suite","achieved_evidence":"E0","attestation_source":"conductor","authority_class":"no","bucket_binding_observed":"no","degradation_notes":"","deviated_observed":"no","egress_scan_result":"not_applicable","evidence_integrity":"{\"dogfood-battery-green\":\"observed\"}","executable_claim_results":"[{\"check_id\":\"run-suite\",\"claim_ref\":\"dogfood-battery-green\",\"outcome\":\"fail\"}]","executable_claims":"[{\"check_id\":\"run-suite\",\"claim_ref\":\"dogfood-battery-green\",\"params\":\"{\\\"expect_green\\\":\\\"true\\\",\\\"target\\\":\\\"dogfood-battery\\\"}\"}]","parent_provenance":"dispatch_root","record_integrity":"observed","surface_intent":"progress","target_gap_result":"target_gt_achieved"},"body":"dogfood-battery-green:observed-false","checksum":"c7706afaf05262d52f928873dc26f10895dd295b64237e944d3f5b9659dc7334"},"schema_version":1,"source_schema_version":1}
+FAIL
+FAIL	github.com/jackli/frank/test/fixtures	66.075s
+--- FAIL: TestLawPathHygiene (0.71s)
+    path_hygiene_test.go:188: AST sink census: bounce-format site count = 20, catalog pins 19
+FAIL
+FAIL	github.com/jackli/frank/test/invariants	3.261s
+ok  	github.com/jackli/frank/test/replay	1.689s
+ok  	github.com/jackli/frank/test/replay/dogfood	1.251s
+ok  	github.com/jackli/frank/test/replay/zeroloss	2.376s
+?   	github.com/jackli/frank/test/seatproc	[no test files]
+FAIL
