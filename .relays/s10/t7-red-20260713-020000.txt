@@ -1,0 +1,5 @@
+# github.com/jackli/frank/test/fixtures_test [github.com/jackli/frank/test/fixtures.test]
+test/fixtures/s10_crash_wake_test.go:97:24: undefined: engine.GateState
+test/fixtures/s10_crash_wake_test.go:100:30: undefined: engine.GateState
+FAIL	github.com/jackli/frank/test/fixtures [build failed]
+FAIL

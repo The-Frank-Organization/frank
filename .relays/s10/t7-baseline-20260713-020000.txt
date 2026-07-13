@@ -1,0 +1,1 @@
+ok  	github.com/jackli/frank/test/fixtures	1.768s
