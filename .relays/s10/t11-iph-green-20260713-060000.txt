@@ -1,0 +1,1 @@
+ok  	github.com/jackli/frank/test/invariants	0.919s
