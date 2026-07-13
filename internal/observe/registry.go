@@ -2,6 +2,7 @@ package observe
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -25,8 +26,28 @@ type Selection struct {
 	CheckID         string
 	ClaimRef        string
 	CandidateDigest string
+	Seat            string
 	Params          map[string]string
 }
+
+type ExpiryAction string
+
+const (
+	ExpiryKill   ExpiryAction = "kill"
+	ExpiryExtend ExpiryAction = "extend"
+)
+
+type ExpiryRequest struct {
+	Selection   Selection
+	SoftExpiry  time.Duration
+	HardCeiling time.Duration
+}
+
+type ExpiryDecision struct {
+	Action ExpiryAction
+}
+
+type ExpiryDisposition func(context.Context, ExpiryRequest) ExpiryDecision
 
 type ClaimIssue struct {
 	ClaimRef string
@@ -54,6 +75,8 @@ type RegistryEnv struct {
 	Executor      SuiteExecutor
 	GitExecutable string
 	ReadTimeout   time.Duration
+	HardCeiling   time.Duration
+	OnSoftExpiry  ExpiryDisposition
 	// ReadFileStageHook is an injected blocking seam for proving that the
 	// read-file control path detaches every filesystem-operation stage.
 	ReadFileStageHook func(ReadFileStage)
@@ -91,6 +114,8 @@ func NewRegistry(env RegistryEnv) *Registry {
 			Executor:          env.Executor,
 			GitExecutable:     gitExecutable,
 			ReadTimeout:       readTimeout,
+			HardCeiling:       env.HardCeiling,
+			OnSoftExpiry:      env.OnSoftExpiry,
 			ReadFileStageHook: env.ReadFileStageHook,
 		},
 		readFileLane: make(map[string]readFileLaneState),
@@ -155,6 +180,7 @@ func (r *Registry) Run(selection Selection) CheckVerdict {
 func (r *Registry) Evaluator(selection Selection) func(Candidate) PredicateResult {
 	return func(candidate Candidate) PredicateResult {
 		bound := selection
+		bound.Seat = candidate.Seat
 		if data, err := json.Marshal(candidate.Record); err == nil {
 			sum := sha256.Sum256(data)
 			bound.CandidateDigest = hex.EncodeToString(sum[:])

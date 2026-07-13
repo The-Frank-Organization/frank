@@ -46,6 +46,8 @@ type Loop struct {
 	Timeout               time.Duration
 	AfterCommit           func(*store.Store) error
 	AfterAccepted         func(record.Record) (OutcomeExtras, error)
+	AfterGateResolution   func(record.Record) error
+	ServiceWhileBlocked   bool
 	CurrentAuthGeneration func(seatName string) string
 	quarantine            chan string
 }
@@ -139,7 +141,7 @@ func (l *Loop) process(ctx context.Context, cmd intake.Cmd) (out Outcome) {
 	if l.Handler == nil {
 		return Outcome{State: record.Rejected, IntakeID: cmd.IntakeID, Reason: "no handler"}
 	}
-	rec, intents, err := l.Handler(ctx, cmd)
+	rec, intents, err := l.callHandler(ctx, cmd)
 	if err != nil {
 		return Outcome{State: record.Rejected, IntakeID: cmd.IntakeID, Reason: safeReason("internal-error")}
 	}
@@ -162,6 +164,11 @@ func (l *Loop) process(ctx context.Context, cmd intake.Cmd) (out Outcome) {
 		return Outcome{State: record.Rejected, RelayID: relayID, IntakeID: rec.Envelope.IntakeID, Reason: safeReason("obligation-error")}
 	}
 	var extras OutcomeExtras
+	if rec.Envelope.DeliveryState == record.Accepted && rec.Headers["resolves_gate"] != "" && l.AfterGateResolution != nil {
+		if err = l.AfterGateResolution(rec); err != nil {
+			return Outcome{State: record.Rejected, RelayID: relayID, IntakeID: rec.Envelope.IntakeID, Reason: safeReason("derived-work-error")}
+		}
+	}
 	if rec.Envelope.DeliveryState == record.Accepted && l.AfterAccepted != nil {
 		extras, err = l.AfterAccepted(rec)
 		if err != nil {
@@ -179,6 +186,43 @@ func (l *Loop) process(ctx context.Context, cmd intake.Cmd) (out Outcome) {
 		out.Detail = rec.Body
 	}
 	return out
+}
+
+type handlerResult struct {
+	record  record.Record
+	intents []store.Intent
+	err     error
+}
+
+// callHandler keeps the commit loop as the sole serialized writer while a
+// parked handler awaits an operator disposition. Only handler computation is
+// detached; every nested command still returns here for ordered commit.
+func (l *Loop) callHandler(ctx context.Context, cmd intake.Cmd) (record.Record, []store.Intent, error) {
+	if !l.ServiceWhileBlocked {
+		return l.Handler(ctx, cmd)
+	}
+	done := make(chan handlerResult, 1)
+	go func() {
+		rec, intents, err := l.Handler(ctx, cmd)
+		done <- handlerResult{record: rec, intents: intents, err: err}
+	}()
+	for {
+		select {
+		case result := <-done:
+			return result.record, result.intents, result.err
+		case relayID := <-l.quarantine:
+			l.processQuarantine(relayID)
+		case nested := <-l.In:
+			out := l.process(ctx, nested.Cmd)
+			select {
+			case nested.ReplyCh <- out:
+			case <-ctx.Done():
+				return record.Record{}, nil, ctx.Err()
+			}
+		case <-ctx.Done():
+			return record.Record{}, nil, ctx.Err()
+		}
+	}
 }
 
 func (l *Loop) supersededCredentialOutcome(cmd intake.Cmd) (Outcome, bool) {

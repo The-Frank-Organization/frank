@@ -152,9 +152,13 @@ func run(ctx context.Context, cfg config) error {
 		}
 		namedSuites[target] = true
 	}
-	executorHost := executor.New(executor.Config{Suites: suites})
+	expiryRouter := engine.NewExpiryRouter()
+	executorHost := executor.New(executor.Config{
+		Suites: suites, HardCeiling: executor.DefaultHardCeiling, OnSoftExpiry: expiryRouter.Prompt,
+	})
 	checkRegistry := observe.NewRegistry(observe.RegistryEnv{
 		Lanes: pinned.Supply.LaneRoots, SchemaRefs: pinned.Supply.SchemaRefs, NamedSuites: namedSuites, Executor: executorHost,
+		HardCeiling: executor.DefaultHardCeiling, OnSoftExpiry: expiryRouter.Prompt,
 	})
 	detectorConfig, err := engine.DetectorConfigFromPinned(pinned)
 	if err != nil {
@@ -268,7 +272,8 @@ func run(ctx context.Context, cfg config) error {
 	var loop *engine.Loop
 	var writer *intake.Writer[engine.Outcome]
 	if result.Ready != nil {
-		loop = engine.New(st, handler, result.Ready)
+		loop = engine.New(st, engine.ExpiryHandler(engine.ResummonHandler(handler)), result.Ready)
+		loop.ServiceWhileBlocked = true
 		loop.Tables = postRecoveryTables
 		loop.CurrentAuthGeneration = currentAuthGeneration
 		loop.AfterCommit = func(st *store.Store) error {
@@ -286,11 +291,17 @@ func run(ctx context.Context, cfg config) error {
 		loop.AfterAccepted = func(rec record.Record) (engine.OutcomeExtras, error) {
 			return completeSeatMint(rec, true)
 		}
-		go loop.Run(ctx)
 		writer, err = intake.NewWriter[engine.Outcome](journal, pinned.Engine, result.Ready)
 		if err != nil {
 			return err
 		}
+		expiryPrompter, err := engine.NewExpiryPrompter(st, writer)
+		if err != nil {
+			return err
+		}
+		expiryRouter.Bind(expiryPrompter)
+		loop.AfterGateResolution = expiryPrompter.Apply
+		go loop.Run(ctx)
 		go writer.Run(ctx, loop.In)
 	}
 	server, err = channel.ServeAuthenticated(socket, mgr, func(meta seat.SeatMeta) channel.ToolSet {

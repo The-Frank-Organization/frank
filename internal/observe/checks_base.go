@@ -121,7 +121,7 @@ func (r *Registry) runReadFile(selection Selection) CheckVerdict {
 	// validParams requires the supplied path to equal this canonical form. Pass
 	// only the canonical component sequence to the descriptor-relative worker.
 	relative := filepath.Clean(selection.Params["path"])
-	result := r.executeReadFile(selection.Params["lane_ref"], relative)
+	result := r.executeReadFile(selection, selection.Params["lane_ref"], relative)
 	switch result.kind {
 	case readFileResultAbsent:
 		return baseVerdict(selection, false, result.detail)

@@ -1,6 +1,7 @@
 package observe
 
 import (
+	"context"
 	"errors"
 	"io"
 	"os"
@@ -11,10 +12,11 @@ import (
 )
 
 const (
-	// readCheckTimeout is the interim silent deadline and sunsets at s10.
+	// readCheckTimeout is the E1 soft-expiry prompt point; it is not a silent
+	// auto-disposition boundary.
 	readCheckTimeout = 5 * time.Second
 	// readFileByteCeiling is a durable fail-closed resource bound; it does not
-	// sunset with the interim silent-deadline behavior.
+	// change with the soft-expiry prompt behavior.
 	readFileByteCeiling = 8 << 20
 	readFileChunkSize   = 32 << 10
 )
@@ -46,7 +48,7 @@ type readFileResult struct {
 	timing string
 }
 
-func (r *Registry) executeReadFile(laneRef, relative string) readFileResult {
+func (r *Registry) executeReadFile(selection Selection, laneRef, relative string) readFileResult {
 	if !r.beginReadFile(laneRef) {
 		return readFileResult{kind: readFileResultMachinery, detail: "check-machinery-read-file-breaker-open"}
 	}
@@ -60,10 +62,19 @@ func (r *Registry) executeReadFile(laneRef, relative string) readFileResult {
 	if timeout > readCheckTimeout {
 		timeout = readCheckTimeout
 	}
+	hardCeiling := r.env.HardCeiling
+	if hardCeiling < timeout {
+		hardCeiling = timeout
+	}
+	workerTimeout := timeout
+	if r.env.OnSoftExpiry != nil {
+		workerTimeout = hardCeiling
+	}
 	go func() {
-		done <- readFileWorker(root, relative, timeout, hook)
+		done <- readFileWorker(root, relative, workerTimeout, hook)
 	}()
 
+	startedAt := time.Now()
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 	select {
@@ -71,11 +82,54 @@ func (r *Registry) executeReadFile(laneRef, relative string) readFileResult {
 		r.finishReadFile(laneRef)
 		return result
 	case <-timer.C:
+		if r.env.OnSoftExpiry != nil {
+			return r.resolveReadFileExpiry(selection, laneRef, done, timeout, hardCeiling, startedAt.Add(hardCeiling))
+		}
 		// Set-before-return is load-bearing: a subsequent same-lane call must
 		// observe the open breaker before this machinery fault is returned.
 		r.tripReadFileBreaker(laneRef)
 		return readFileResult{
 			kind: readFileResultMachinery, detail: "check-machinery-read-file-timeout", timing: "timeout",
+		}
+	}
+}
+
+func (r *Registry) resolveReadFileExpiry(selection Selection, laneRef string, done <-chan readFileResult, softExpiry, hardCeiling time.Duration, hardDeadline time.Time) readFileResult {
+	ctx, cancel := context.WithDeadline(context.Background(), hardDeadline)
+	defer cancel()
+	decision := make(chan ExpiryDecision, 1)
+	go func() {
+		decision <- r.env.OnSoftExpiry(ctx, ExpiryRequest{
+			Selection: selection, SoftExpiry: softExpiry, HardCeiling: hardCeiling,
+		})
+	}()
+	completed := false
+	var completedResult readFileResult
+	for {
+		select {
+		case completedResult = <-done:
+			completed = true
+			done = nil
+		case picked := <-decision:
+			if picked.Action != ExpiryExtend {
+				r.tripReadFileBreaker(laneRef)
+				return readFileResult{kind: readFileResultMachinery, detail: "check-machinery-read-file-timeout", timing: "timeout"}
+			}
+			if completed {
+				r.finishReadFile(laneRef)
+				return completedResult
+			}
+			select {
+			case result := <-done:
+				r.finishReadFile(laneRef)
+				return result
+			case <-ctx.Done():
+				r.tripReadFileBreaker(laneRef)
+				return readFileResult{kind: readFileResultMachinery, detail: "check-machinery-read-file-timeout", timing: "timeout"}
+			}
+		case <-ctx.Done():
+			r.tripReadFileBreaker(laneRef)
+			return readFileResult{kind: readFileResultMachinery, detail: "check-machinery-read-file-timeout", timing: "timeout"}
 		}
 	}
 }

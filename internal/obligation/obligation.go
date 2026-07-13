@@ -159,10 +159,19 @@ func completeODB(st *store.Store, t *tables.T, gateRecord record.Record) error {
 	if _, ok := t.ByRelay[odbID]; ok {
 		return nil
 	}
-	choices, err := fieldspec.CanonicalMarshal([]map[string]string{
+	choiceRows := []map[string]string{
 		{"label": "Approve", "value": "approve"},
 		{"label": "Reject", "value": "reject"},
-	})
+	}
+	if raw := gateRecord.Headers["choices"]; raw != "" {
+		typed, parseErr := fieldspec.ParseTyped(&fieldspec.FieldSpec{ID: "choices", Type: "row_array"}, raw)
+		var ok bool
+		choiceRows, ok = typed.([]map[string]string)
+		if parseErr != nil || !ok || len(choiceRows) == 0 {
+			return errors.New("gate choices invalid")
+		}
+	}
+	choices, err := fieldspec.CanonicalMarshal(choiceRows)
 	if err != nil {
 		return err
 	}

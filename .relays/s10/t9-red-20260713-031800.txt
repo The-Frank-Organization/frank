@@ -1,0 +1,14 @@
+# github.com/jackli/frank/test/fixtures_test [github.com/jackli/frank/test/fixtures.test]
+test/fixtures/s10_timeout_test.go:16:39: undefined: executor.ExpiryDisposition
+test/fixtures/s10_timeout_test.go:21:4: unknown field HardCeiling in struct literal of type executor.Config
+test/fixtures/s10_timeout_test.go:22:4: unknown field OnSoftExpiry in struct literal of type executor.Config
+test/fixtures/s10_timeout_test.go:30:53: undefined: executor.ExpiryRequest
+test/fixtures/s10_timeout_test.go:30:77: undefined: executor.ExpiryDecision
+test/fixtures/s10_timeout_test.go:32:19: undefined: executor.ExpiryDecision
+test/fixtures/s10_timeout_test.go:32:51: undefined: executor.ExpiryExtend
+test/fixtures/s10_timeout_test.go:39:51: undefined: executor.ExpiryRequest
+test/fixtures/s10_timeout_test.go:39:75: undefined: executor.ExpiryDecision
+test/fixtures/s10_timeout_test.go:40:19: undefined: executor.ExpiryDecision
+test/fixtures/s10_timeout_test.go:40:19: too many errors
+FAIL	github.com/jackli/frank/test/fixtures [build failed]
+FAIL

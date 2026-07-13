@@ -5,6 +5,7 @@ package executor
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -23,6 +24,8 @@ import (
 
 const AmbientResidual = "same-uid ambient filesystem, network, and process access remains possible without an OS sandbox"
 
+const DefaultHardCeiling = 10 * time.Minute
+
 type Suite struct {
 	SourceDir    string
 	Command      string
@@ -32,15 +35,27 @@ type Suite struct {
 }
 
 type Config struct {
-	TempRoot    string
-	OutputLimit int
-	Suites      map[string]Suite
+	TempRoot     string
+	OutputLimit  int
+	Suites       map[string]Suite
+	HardCeiling  time.Duration
+	OnSoftExpiry ExpiryDisposition
 	// StageHook is a deterministic test seam invoked after the run snapshot is
 	// staged and before its manifest is hashed.
 	StageHook        func()
 	GroupGone        func(int) bool
 	GroupVerifyBound time.Duration
 }
+
+type ExpiryAction = observe.ExpiryAction
+type ExpiryRequest = observe.ExpiryRequest
+type ExpiryDecision = observe.ExpiryDecision
+type ExpiryDisposition = observe.ExpiryDisposition
+
+const (
+	ExpiryKill   = observe.ExpiryKill
+	ExpiryExtend = observe.ExpiryExtend
+)
 
 type Host struct {
 	config Config
@@ -75,6 +90,9 @@ func New(config Config) *Host {
 	}
 	if config.GroupVerifyBound <= 0 {
 		config.GroupVerifyBound = 750 * time.Millisecond
+	}
+	if config.HardCeiling <= 0 {
+		config.HardCeiling = DefaultHardCeiling
 	}
 	config.Suites = cloneSuites(config.Suites)
 	return &Host{config: config, runs: map[string]*run{}}
@@ -167,27 +185,93 @@ func (h *Host) execute(selection observe.Selection, suite Suite, workdir string)
 	pgid := cmd.Process.Pid
 	waited := make(chan error, 1)
 	go func() { waited <- cmd.Wait() }()
+	startedAt := time.Now()
 	timer := time.NewTimer(suite.Timeout)
 	defer timer.Stop()
-	var waitErr error
-	timedOut := false
 	select {
-	case waitErr = <-waited:
+	case waitErr := <-waited:
+		verdict, preserve := h.finalizeRun(selection, pgid, waitErr, false, false, capture)
+		if preserve {
+			cleanup = false
+		}
+		return verdict
 	case <-timer.C:
-		timedOut = true
-		_ = syscall.Kill(-pgid, syscall.SIGKILL)
-		waitErr = <-waited
+		if h.config.OnSoftExpiry == nil {
+			_ = syscall.Kill(-pgid, syscall.SIGKILL)
+			waitErr := <-waited
+			verdict, preserve := h.finalizeRun(selection, pgid, waitErr, true, false, capture)
+			if preserve {
+				cleanup = false
+			}
+			return verdict
+		}
+		hardCeiling := h.config.HardCeiling
+		if hardCeiling < suite.Timeout {
+			hardCeiling = suite.Timeout
+		}
+		hardDeadline := startedAt.Add(hardCeiling)
+		expiryCtx, cancel := context.WithDeadline(context.Background(), hardDeadline)
+		decision := make(chan ExpiryDecision, 1)
+		go func() {
+			decision <- h.config.OnSoftExpiry(expiryCtx, ExpiryRequest{
+				Selection: selection, SoftExpiry: suite.Timeout, HardCeiling: hardCeiling,
+			})
+		}()
+		select {
+		case picked := <-decision:
+			cancel()
+			extended := picked.Action == ExpiryExtend
+			timedOut := !extended
+			var waitErr error
+			if extended {
+				remaining := time.Until(hardDeadline)
+				if remaining > 0 {
+					hardTimer := time.NewTimer(remaining)
+					select {
+					case waitErr = <-waited:
+						if !hardTimer.Stop() {
+							<-hardTimer.C
+						}
+					case <-hardTimer.C:
+						timedOut = true
+						extended = false
+					}
+				} else {
+					timedOut = true
+					extended = false
+				}
+			}
+			if timedOut {
+				_ = syscall.Kill(-pgid, syscall.SIGKILL)
+				waitErr = <-waited
+			}
+			verdict, preserve := h.finalizeRun(selection, pgid, waitErr, timedOut, extended, capture)
+			if preserve {
+				cleanup = false
+			}
+			return verdict
+		case <-expiryCtx.Done():
+			cancel()
+			_ = syscall.Kill(-pgid, syscall.SIGKILL)
+			waitErr := <-waited
+			verdict, preserve := h.finalizeRun(selection, pgid, waitErr, true, false, capture)
+			if preserve {
+				cleanup = false
+			}
+			return verdict
+		}
 	}
+}
 
+func (h *Host) finalizeRun(selection observe.Selection, pgid int, waitErr error, timedOut, extended bool, capture *cappedCapture) (observe.CheckVerdict, bool) {
 	if !h.config.GroupGone(pgid) {
 		_ = syscall.Kill(-pgid, syscall.SIGKILL)
 		if !h.waitGroupGone(pgid) {
-			cleanup = false
-			return fault(selection, "executor-survivor")
+			return fault(selection, "executor-survivor"), true
 		}
 	}
 	if timedOut {
-		return faultWithTiming(selection, "executor-timeout", "timeout")
+		return faultWithTiming(selection, "executor-timeout", "timeout"), false
 	}
 
 	exitGreen := waitErr == nil || errors.Is(waitErr, exec.ErrWaitDelay)
@@ -195,6 +279,9 @@ func (h *Host) execute(selection observe.Selection, suite Suite, workdir string)
 	verdict := observe.CheckVerdict{
 		CheckID: selection.CheckID, ClaimRef: selection.ClaimRef,
 		Outcome: "pass", RungReached: "E2", Predicate: observe.Pass, Timing: "under-timeout",
+	}
+	if extended {
+		verdict.Timing = "extended"
 	}
 	if exitGreen != expectGreen {
 		verdict.Outcome = "fail"
@@ -204,7 +291,7 @@ func (h *Host) execute(selection observe.Selection, suite Suite, workdir string)
 	} else if capture.wasTruncated() {
 		verdict.FailingDetail = "output-truncated"
 	}
-	return verdict
+	return verdict, false
 }
 
 func fault(selection observe.Selection, detail string) observe.CheckVerdict {
