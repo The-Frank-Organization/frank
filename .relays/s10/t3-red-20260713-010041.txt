@@ -1,0 +1,11 @@
+$ go test ./test/fixtures -run '^TestS10ODBRejectsChoiceOutsideFrozenAgentEnumPickSet$' -count=1
+# github.com/jackli/frank/test/fixtures_test [github.com/jackli/frank/test/fixtures.test]
+test/fixtures/s10_odb_test.go:10:22: undefined: engine.ODBChoice
+test/fixtures/s10_odb_test.go:14:21: undefined: engine.RenderODB
+test/fixtures/s10_odb_test.go:14:38: undefined: engine.ODBInput
+test/fixtures/s10_odb_test.go:32:25: undefined: engine.ValidateODBChoice
+test/fixtures/s10_odb_test.go:35:22: undefined: engine.ValidateODBChoice
+FAIL github.com/jackli/frank/test/fixtures [build failed]
+FAIL
+
+The fixture defined the wished-for ODB render/frozen-choice API before the new engine unit existed.
