@@ -1,0 +1,9 @@
+# github.com/jackli/frank/internal/engine [github.com/jackli/frank/internal/engine.test]
+internal/engine/wake_test.go:32:51: too many arguments in call to classifyVerdict
+	have (*tables.T, record.Record, seat.SeatMeta, observe.Env)
+	want (*tables.T, record.Record, seat.SeatMeta)
+internal/engine/wake_test.go:46:51: too many arguments in call to classifyVerdict
+	have (*tables.T, record.Record, seat.SeatMeta, observe.Env)
+	want (*tables.T, record.Record, seat.SeatMeta)
+FAIL	github.com/jackli/frank/internal/engine [build failed]
+FAIL

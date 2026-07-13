@@ -144,7 +144,7 @@ func submitHandlerWithObservation(st *store.Store, reg *fieldspec.Registry, meta
 			return cand, nil, nil
 		}
 		if cand.Headers["resolves_gate"] != "" {
-			cand = classifyVerdict(tab, cand, meta)
+			cand = classifyVerdict(tab, cand, meta, observeEnv)
 			if cand.Envelope.DeliveryState == record.Accepted {
 				intents, err := store.DefaultProjectionIntentsStrict(cand)
 				return cand, intents, err
@@ -459,7 +459,7 @@ func owedProjectionIntentsFromTable(t *tables.T, cand record.Record) []store.Int
 	return []store.Intent{store.OwedOpenProjectionIntent(records)}
 }
 
-func classifyVerdict(t *tables.T, cand record.Record, meta seat.SeatMeta) record.Record {
+func classifyVerdict(t *tables.T, cand record.Record, meta seat.SeatMeta, observeEnv observe.Env) record.Record {
 	if !(meta.IsOperator || meta.Name == "operator" || meta.Role == "operator") {
 		cand.Envelope.DeliveryState = record.Rejected
 		cand.Body = formatVerdictViolation(fieldspec.Violation{Field: "record_kind", Class: "seat-scope", Reason: "gate_resolution requires operator"})
@@ -474,11 +474,13 @@ func classifyVerdict(t *tables.T, cand record.Record, meta seat.SeatMeta) record
 	}
 	var gateFound bool
 	var wakeSeat string
+	var gateRecord record.Record
 	var odb record.Record
 	for _, existing := range t.Records {
 		if existing.Envelope.RelayID == gateRef && existing.Envelope.DeliveryState == record.Accepted && isGateCandidate(existing) {
 			gateFound = true
 			wakeSeat = existing.Envelope.From
+			gateRecord = existing
 		}
 		if existing.Envelope.RelayID == "odb-"+gateRef && existing.Envelope.DeliveryState == record.Accepted && existing.Headers["record_kind"] == "odb" {
 			odb = existing
@@ -502,6 +504,24 @@ func classifyVerdict(t *tables.T, cand record.Record, meta seat.SeatMeta) record
 		if violation != nil {
 			cand.Envelope.DeliveryState = record.Rejected
 			cand.Body = formatVerdictViolation(*violation)
+			return cand
+		}
+	}
+	if observeEnv.PresentLayers["observe"] {
+		observeResult, terminal := observe.Gate(
+			gateRecord,
+			gateRecord.Envelope.From,
+			gateRecord.Headers["PHASE"],
+			gateRecord.Headers["AUTHORITY"],
+			observeEnv,
+		)
+		if terminal != record.Accepted {
+			failureClass := observeResult.FailureClass
+			if failureClass == "" {
+				failureClass = "observed-false"
+			}
+			cand.Envelope.DeliveryState = terminal
+			cand.Body = formatVerdictViolation(fieldspec.Violation{Field: observeResult.FailingPredicate, Class: failureClass})
 			return cand
 		}
 	}

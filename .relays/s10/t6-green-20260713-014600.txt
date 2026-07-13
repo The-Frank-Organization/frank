@@ -1,0 +1,29 @@
+?   	github.com/jackli/frank/cmd/frank	[no test files]
+ok  	github.com/jackli/frank/cmd/frank-mcp	0.320s
+ok  	github.com/jackli/frank/internal/bounce	0.450s
+ok  	github.com/jackli/frank/internal/channel	0.931s
+ok  	github.com/jackli/frank/internal/config	0.793s
+ok  	github.com/jackli/frank/internal/crashpoint	0.904s
+ok  	github.com/jackli/frank/internal/egress	1.139s
+ok  	github.com/jackli/frank/internal/engine	2.806s
+?   	github.com/jackli/frank/internal/executor	[no test files]
+ok  	github.com/jackli/frank/internal/fieldspec	1.403s
+ok  	github.com/jackli/frank/internal/fsio	1.509s
+ok  	github.com/jackli/frank/internal/gate	2.654s
+ok  	github.com/jackli/frank/internal/gc	2.631s
+ok  	github.com/jackli/frank/internal/intake	5.590s
+ok  	github.com/jackli/frank/internal/lineage	2.062s
+ok  	github.com/jackli/frank/internal/migrate	1.866s
+ok  	github.com/jackli/frank/internal/obligation	2.234s
+?   	github.com/jackli/frank/internal/observe	[no test files]
+ok  	github.com/jackli/frank/internal/record	2.057s
+ok  	github.com/jackli/frank/internal/recover	3.908s
+ok  	github.com/jackli/frank/internal/seat	2.040s
+ok  	github.com/jackli/frank/internal/store	4.191s
+ok  	github.com/jackli/frank/internal/tables	1.582s
+ok  	github.com/jackli/frank/test/fixtures	109.351s
+ok  	github.com/jackli/frank/test/invariants	3.787s
+ok  	github.com/jackli/frank/test/replay	1.411s
+ok  	github.com/jackli/frank/test/replay/dogfood	1.706s
+ok  	github.com/jackli/frank/test/replay/zeroloss	2.465s
+?   	github.com/jackli/frank/test/seatproc	[no test files]
