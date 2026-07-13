@@ -153,12 +153,14 @@ func run(ctx context.Context, cfg config) error {
 		namedSuites[target] = true
 	}
 	expiryRouter := engine.NewExpiryRouter()
+	approvalRouter := engine.NewApprovalRouter()
 	executorHost := executor.New(executor.Config{
 		Suites: suites, HardCeiling: executor.DefaultHardCeiling, OnSoftExpiry: expiryRouter.Prompt,
 	})
 	checkRegistry := observe.NewRegistry(observe.RegistryEnv{
 		Lanes: pinned.Supply.LaneRoots, SchemaRefs: pinned.Supply.SchemaRefs, NamedSuites: namedSuites, Executor: executorHost,
 		HardCeiling: executor.DefaultHardCeiling, OnSoftExpiry: expiryRouter.Prompt,
+		Context: ctx, OnSideEffectApproval: approvalRouter.Prompt,
 	})
 	detectorConfig, err := engine.DetectorConfigFromPinned(pinned)
 	if err != nil {
@@ -272,7 +274,7 @@ func run(ctx context.Context, cfg config) error {
 	var loop *engine.Loop
 	var writer *intake.Writer[engine.Outcome]
 	if result.Ready != nil {
-		loop = engine.New(st, engine.ExpiryHandler(engine.ResummonHandler(handler)), result.Ready)
+		loop = engine.New(st, engine.ApprovalHandler(engine.ExpiryHandler(engine.ResummonHandler(handler))), result.Ready)
 		loop.ServiceWhileBlocked = true
 		loop.Tables = postRecoveryTables
 		loop.CurrentAuthGeneration = currentAuthGeneration
@@ -301,6 +303,12 @@ func run(ctx context.Context, cfg config) error {
 		}
 		expiryRouter.Bind(expiryPrompter)
 		loop.AfterGateResolution = expiryPrompter.Apply
+		approvalPrompter, err := engine.NewApprovalPrompter(st, writer)
+		if err != nil {
+			return err
+		}
+		approvalRouter.Bind(approvalPrompter)
+		loop.AfterApprovalResolution = approvalPrompter.Apply
 		go loop.Run(ctx)
 		go writer.Run(ctx, loop.In)
 	}

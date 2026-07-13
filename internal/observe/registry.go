@@ -49,6 +49,25 @@ type ExpiryDecision struct {
 
 type ExpiryDisposition func(context.Context, ExpiryRequest) ExpiryDecision
 
+type ApprovalScope string
+
+const (
+	ApprovalOnce     ApprovalScope = "allow-once"
+	ApprovalForEntry ApprovalScope = "allow-for-entry"
+	ApprovalDenied   ApprovalScope = "deny"
+)
+
+type ApprovalRequest struct {
+	Selection Selection
+}
+
+type ApprovalDecision struct {
+	Allowed bool
+	Scope   ApprovalScope
+}
+
+type ApprovalDisposition func(context.Context, ApprovalRequest) ApprovalDecision
+
 type ClaimIssue struct {
 	ClaimRef string
 	Class    string
@@ -69,14 +88,16 @@ type SuiteExecutor interface {
 }
 
 type RegistryEnv struct {
-	Lanes         map[string]string
-	SchemaRefs    map[string]string
-	NamedSuites   map[string]bool
-	Executor      SuiteExecutor
-	GitExecutable string
-	ReadTimeout   time.Duration
-	HardCeiling   time.Duration
-	OnSoftExpiry  ExpiryDisposition
+	Lanes                map[string]string
+	SchemaRefs           map[string]string
+	NamedSuites          map[string]bool
+	Executor             SuiteExecutor
+	GitExecutable        string
+	ReadTimeout          time.Duration
+	HardCeiling          time.Duration
+	OnSoftExpiry         ExpiryDisposition
+	Context              context.Context
+	OnSideEffectApproval ApprovalDisposition
 	// ReadFileStageHook is an injected blocking seam for proving that the
 	// read-file control path detaches every filesystem-operation stage.
 	ReadFileStageHook func(ReadFileStage)
@@ -106,17 +127,23 @@ func NewRegistry(env RegistryEnv) *Registry {
 	if readTimeout <= 0 {
 		readTimeout = readCheckTimeout
 	}
+	approvalContext := env.Context
+	if approvalContext == nil {
+		approvalContext = context.Background()
+	}
 	return &Registry{
 		env: RegistryEnv{
-			Lanes:             cloneMap(env.Lanes),
-			SchemaRefs:        cloneMap(env.SchemaRefs),
-			NamedSuites:       cloneBoolMap(env.NamedSuites),
-			Executor:          env.Executor,
-			GitExecutable:     gitExecutable,
-			ReadTimeout:       readTimeout,
-			HardCeiling:       env.HardCeiling,
-			OnSoftExpiry:      env.OnSoftExpiry,
-			ReadFileStageHook: env.ReadFileStageHook,
+			Lanes:                cloneMap(env.Lanes),
+			SchemaRefs:           cloneMap(env.SchemaRefs),
+			NamedSuites:          cloneBoolMap(env.NamedSuites),
+			Executor:             env.Executor,
+			GitExecutable:        gitExecutable,
+			ReadTimeout:          readTimeout,
+			HardCeiling:          env.HardCeiling,
+			OnSoftExpiry:         env.OnSoftExpiry,
+			Context:              approvalContext,
+			OnSideEffectApproval: env.OnSideEffectApproval,
+			ReadFileStageHook:    env.ReadFileStageHook,
 		},
 		readFileLane: make(map[string]readFileLaneState),
 		entries: map[string]CheckEntry{
@@ -132,6 +159,12 @@ func NewRegistry(env RegistryEnv) *Registry {
 			},
 			"run-suite": {
 				ID: "run-suite", Rung: "E2", Class: "suite", ExecutorRequired: true, TimeoutClass: "suite_bounded",
+				ParamSchema: map[string]string{"target": "named-suite", "expect_green": "bool"},
+				Produces:    []string{"achieved_evidence", "executable_claim_results"},
+			},
+			"run-suite-unbounded": {
+				ID: "run-suite-unbounded", Rung: "E2", Class: "side_effecting",
+				ExecutorRequired: true, TimeoutClass: "unbounded",
 				ParamSchema: map[string]string{"target": "named-suite", "expect_green": "bool"},
 				Produces:    []string{"achieved_evidence", "executable_claim_results"},
 			},
@@ -159,12 +192,22 @@ func (r *Registry) Run(selection Selection) CheckVerdict {
 	if !ok || !r.validParams(entry, selection.Params) {
 		return refusedVerdict(selection)
 	}
+	if entry.Class == "side_effecting" {
+		if r.env.OnSideEffectApproval == nil {
+			return refusedVerdictWithDetail(selection, "side-effecting-unapproved")
+		}
+		decision := r.env.OnSideEffectApproval(r.env.Context, ApprovalRequest{Selection: selection})
+		if !decision.Allowed || decision.Scope != ApprovalOnce && decision.Scope != ApprovalForEntry {
+			return refusedVerdictWithDetail(selection, "side-effecting-unapproved")
+		}
+		return refusedVerdictWithDetail(selection, "side-effecting-execution-refused")
+	}
 	switch selection.CheckID {
 	case "read-file":
 		return r.runReadFile(selection)
 	case "git-status":
 		return r.runGitStatus(selection)
-	case "run-suite":
+	case "run-suite", "run-suite-unbounded":
 		if r.env.Executor != nil {
 			return r.env.Executor.Spawn(entry, selection)
 		}
@@ -331,7 +374,7 @@ func (r *Registry) validParams(entry CheckEntry, params map[string]string) bool 
 		}
 	case "git-status":
 		return r.env.Lanes[params["lane_ref"]] != "" && (params["expect"] == "clean" || params["expect"] == "dirty")
-	case "run-suite":
+	case "run-suite", "run-suite-unbounded":
 		return r.env.NamedSuites[params["target"]] && (params["expect_green"] == "true" || params["expect_green"] == "false")
 	}
 	return false

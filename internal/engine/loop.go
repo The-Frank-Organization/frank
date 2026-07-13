@@ -39,17 +39,18 @@ type OutcomeExtras struct {
 }
 
 type Loop struct {
-	In                    chan Job
-	Store                 *store.Store
-	Handler               Handler
-	Tables                *tables.T
-	Timeout               time.Duration
-	AfterCommit           func(*store.Store) error
-	AfterAccepted         func(record.Record) (OutcomeExtras, error)
-	AfterGateResolution   func(record.Record) error
-	ServiceWhileBlocked   bool
-	CurrentAuthGeneration func(seatName string) string
-	quarantine            chan string
+	In                      chan Job
+	Store                   *store.Store
+	Handler                 Handler
+	Tables                  *tables.T
+	Timeout                 time.Duration
+	AfterCommit             func(*store.Store) error
+	AfterAccepted           func(record.Record) (OutcomeExtras, error)
+	AfterGateResolution     func(record.Record) error
+	AfterApprovalResolution func(record.Record) error
+	ServiceWhileBlocked     bool
+	CurrentAuthGeneration   func(seatName string) string
+	quarantine              chan string
 }
 
 func New(st *store.Store, handler Handler, ready *Ready) *Loop {
@@ -166,6 +167,11 @@ func (l *Loop) process(ctx context.Context, cmd intake.Cmd) (out Outcome) {
 	var extras OutcomeExtras
 	if rec.Envelope.DeliveryState == record.Accepted && rec.Headers["resolves_gate"] != "" && l.AfterGateResolution != nil {
 		if err = l.AfterGateResolution(rec); err != nil {
+			return Outcome{State: record.Rejected, RelayID: relayID, IntakeID: rec.Envelope.IntakeID, Reason: safeReason("derived-work-error")}
+		}
+	}
+	if rec.Envelope.DeliveryState == record.Accepted && rec.Headers["resolves_gate"] != "" && l.AfterApprovalResolution != nil {
+		if err = l.AfterApprovalResolution(rec); err != nil {
 			return Outcome{State: record.Rejected, RelayID: relayID, IntakeID: rec.Envelope.IntakeID, Reason: safeReason("derived-work-error")}
 		}
 	}

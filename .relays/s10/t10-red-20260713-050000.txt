@@ -1,0 +1,12 @@
+# github.com/jackli/frank/test/fixtures_test [github.com/jackli/frank/test/fixtures.test]
+test/fixtures/s10_live_approval_test.go:42:3: unknown field OnSideEffectApproval in struct literal of type observe.RegistryEnv
+test/fixtures/s10_live_approval_test.go:42:55: undefined: observe.ApprovalRequest
+test/fixtures/s10_live_approval_test.go:42:80: undefined: observe.ApprovalDecision
+test/fixtures/s10_live_approval_test.go:43:19: undefined: observe.ApprovalDecision
+test/fixtures/s10_live_approval_test.go:43:66: undefined: observe.ApprovalOnce
+test/fixtures/s10_live_approval_test.go:85:32: undefined: engine.ApprovalHandler
+test/fixtures/s10_live_approval_test.go:95:26: undefined: engine.NewApprovalPrompter
+test/fixtures/s10_live_approval_test.go:99:7: loop.AfterApprovalResolution undefined (type *engine.Loop has no field or method AfterApprovalResolution)
+test/fixtures/s10_live_approval_test.go:101:62: unknown field OnSideEffectApproval in struct literal of type observe.RegistryEnv
+FAIL	github.com/jackli/frank/test/fixtures [build failed]
+FAIL
