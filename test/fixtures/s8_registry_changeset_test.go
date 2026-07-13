@@ -95,7 +95,7 @@ func TestS8FXCFG10MemberTransitionRelation(t *testing.T) {
 	}
 
 	root := t.TempDir()
-	if err := store.Init(root, s8ConfigSources(t, false)); err != nil {
+	if err := store.Init(root, s8HistoricalConfigSources(t, false)); err != nil {
 		t.Fatalf("Init v5 store: %v", err)
 	}
 	v5, err := os.ReadFile(filepath.Join(root, "config", "fieldspec", "registry.json"))
@@ -119,7 +119,7 @@ func TestS8FXCFG10MemberTransitionRelation(t *testing.T) {
 }
 
 func TestS8V5ToV6TransitionMakesCatalogAndAdoptionTokensLive(t *testing.T) {
-	h := newS4ShimHarness(t)
+	h := newS4ShimHarnessWithSources(t, s8HistoricalConfigSources(t, false))
 	credential, err := h.mgr.Mint("operator", "operator", true)
 	if err != nil {
 		t.Fatalf("Mint operator: %v", err)
@@ -213,4 +213,20 @@ func s8FieldspecV7Bytes(t *testing.T) []byte {
 	}
 	v7 := bytes.Replace(v8, v8Marker, []byte(`"version": "s8-fieldspec-v7"`), 1)
 	return bytes.Replace(v7, v8Kinds, v7Kinds, 1)
+}
+
+func s8FieldspecV7Path(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "registry-v7.json")
+	if err := os.WriteFile(path, s8FieldspecV7Bytes(t), 0o644); err != nil {
+		t.Fatalf("write historical v7 registry: %v", err)
+	}
+	return path
+}
+
+func s8HistoricalConfigSources(t *testing.T, observe bool) map[string]string {
+	t.Helper()
+	sources := s8ConfigSources(t, observe)
+	sources["fieldspec"] = s8FieldspecV7Path(t)
+	return sources
 }

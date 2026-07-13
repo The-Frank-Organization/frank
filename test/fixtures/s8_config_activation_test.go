@@ -24,7 +24,7 @@ const s8CatalogSHA256 = "943f07bb51da3414cf45a16d4bfa00bcee28cc538533fcb7fcd3e8a
 
 func TestS8FXCFG7GenesisComposesThreePinnedMembers(t *testing.T) {
 	root := t.TempDir()
-	sources := s8ConfigSources(t, false)
+	sources := s8HistoricalConfigSources(t, false)
 	if err := store.Init(root, sources); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
@@ -164,7 +164,7 @@ func TestS8ProductionInitRejectsObserveTrueEngine(t *testing.T) {
 
 func TestS8ServeRejectsLegacyStoreWithBlessInstruction(t *testing.T) {
 	root := t.TempDir()
-	sources := s8ConfigSources(t, false)
+	sources := s8HistoricalConfigSources(t, false)
 	delete(sources, "catalog")
 	if err := os.WriteFile(sources["engine"], []byte(`{"gc_enabled":false,"segment_rotate_bytes":4194304}`), 0o644); err != nil {
 		t.Fatalf("write legacy engine: %v", err)

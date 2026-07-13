@@ -26,7 +26,7 @@ import (
 
 func TestS8ExitGateFreshGenesisActivationAndDogfoodLegs(t *testing.T) {
 	root := t.TempDir()
-	if err := store.Init(root, s8ConfigSources(t, false)); err != nil {
+	if err := store.Init(root, s8HistoricalConfigSources(t, false)); err != nil {
 		t.Fatalf("fresh genesis: %v", err)
 	}
 	st, err := store.Open(root)
@@ -124,7 +124,7 @@ func TestS8ProductionDogfoodRejectsFalseDoneAndNamesPredicate(t *testing.T) {
 		return
 	}
 	root := t.TempDir()
-	sources := s8ConfigSources(t, false)
+	sources := s8HistoricalConfigSources(t, false)
 	ctx, cancel := context.WithTimeout(context.Background(), 150*time.Second)
 	t.Cleanup(cancel)
 	bin := buildFrank(t, ctx)
@@ -399,7 +399,7 @@ func TestS8ExecutableClaimTypedRejects(t *testing.T) {
 	lane := t.TempDir()
 	reg := observe.NewRegistry(observe.RegistryEnv{Lanes: map[string]string{"repo": lane}})
 	root := t.TempDir()
-	if err := store.Init(root, s8ConfigSources(t, false)); err != nil {
+	if err := store.Init(root, s8HistoricalConfigSources(t, false)); err != nil {
 		t.Fatalf("init typed-reject store: %v", err)
 	}
 	st, err := store.Open(root)

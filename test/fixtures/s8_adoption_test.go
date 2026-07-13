@@ -295,7 +295,7 @@ type adoptionFixtureMember struct {
 
 func s8LegacyStoreAndCandidates(t *testing.T) (string, map[string]string) {
 	t.Helper()
-	candidates := s8ConfigSources(t, false)
+	candidates := s8HistoricalConfigSources(t, false)
 	legacyEngine := filepath.Join(t.TempDir(), "engine.json")
 	if err := os.WriteFile(legacyEngine, []byte(`{"gc_enabled":false,"segment_rotate_bytes":4194304}`), 0o644); err != nil {
 		t.Fatalf("write legacy engine: %v", err)

@@ -1,0 +1,17 @@
+$ go test ./test/fixtures -run '^TestS10FreshGenesisIsBornAtV8WithoutPreV8Records$' -count=1
+--- FAIL: TestS10FreshGenesisIsBornAtV8WithoutPreV8Records (0.05s)
+    s10_fieldspec_test.go:71: fresh genesis did not write the v8 fieldspec bytes directly
+FAIL
+FAIL github.com/jackli/frank/test/fixtures 0.798s
+FAIL
+
+$ go test ./... -count=1
+--- FAIL: TestS8ProductionDogfoodRejectsFalseDoneAndNamesPredicate (0.13s)
+    s8_exit_gate_test.go:161: submit outcome = {State:rejected RelayID:relay-91eb261678887542af3533a8}
+--- FAIL: TestS8V5ToV6TransitionMakesCatalogAndAdoptionTokensLive (0.09s)
+    s8_registry_changeset_test.go:131: submit outcome = {State:rejected RelayID:relay-35cf3f71ae32bab05bc65bcb}
+FAIL
+FAIL github.com/jackli/frank/test/fixtures 21.777s
+FAIL
+
+Root cause: both historical transition fixtures still initialized from the live v8 source and then attempted the old v5-to-v6 step. Their setup was trued to the byte-identical historical v7 constructor; production current-genesis helpers remain on v8.

@@ -1,6 +1,7 @@
 package fixtures_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"os"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/jackli/frank/internal/config"
 	"github.com/jackli/frank/internal/fieldspec"
+	"github.com/jackli/frank/internal/store"
 )
 
 func TestS10V7ReaderRefusesV8MarkerBeforeContent(t *testing.T) {
@@ -47,5 +49,51 @@ func TestS10V7ReaderRefusesV8MarkerBeforeContent(t *testing.T) {
 		"s10-fieldspec-v8",
 	); err != nil {
 		t.Fatalf("v8 marker preflight interpreted planted content: %v", err)
+	}
+}
+
+func TestS10FreshGenesisIsBornAtV8WithoutPreV8Records(t *testing.T) {
+	root := t.TempDir()
+	sources := s8ConfigSources(t, false)
+	wantFieldspec, err := os.ReadFile(sources["fieldspec"])
+	if err != nil {
+		t.Fatalf("read v8 source: %v", err)
+	}
+	if err := store.Init(root, sources); err != nil {
+		t.Fatalf("Init fresh v8 store: %v", err)
+	}
+
+	gotFieldspec, err := os.ReadFile(filepath.Join(root, "config", "fieldspec", "registry.json"))
+	if err != nil {
+		t.Fatalf("read materialized fieldspec: %v", err)
+	}
+	if !bytes.Equal(gotFieldspec, wantFieldspec) {
+		t.Fatal("fresh genesis did not write the v8 fieldspec bytes directly")
+	}
+	pinned, err := config.Load(store.StoreRootConfigPaths(root))
+	if err != nil {
+		t.Fatalf("load fresh v8 config: %v", err)
+	}
+	if pinned.Registry.Version != "s10-fieldspec-v8" {
+		t.Fatalf("fresh genesis fieldspec = %q, want s10-fieldspec-v8", pinned.Registry.Version)
+	}
+
+	entries, err := os.ReadDir(filepath.Join(root, "records"))
+	if err != nil {
+		t.Fatalf("read records: %v", err)
+	}
+	if len(entries) != 1 || entries[0].Name() != "genesis.json" {
+		t.Fatalf("fresh v8 records = %v, want only genesis.json", entries)
+	}
+	st, err := store.Open(root)
+	if err != nil {
+		t.Fatalf("open fresh v8 store: %v", err)
+	}
+	genesis, err := st.Genesis()
+	if err != nil {
+		t.Fatalf("read genesis: %v", err)
+	}
+	if genesis.Headers["config_digest"] != pinned.Digest {
+		t.Fatalf("genesis digest = %q, want current v8 digest %q", genesis.Headers["config_digest"], pinned.Digest)
 	}
 }

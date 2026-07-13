@@ -181,7 +181,7 @@ func s5ConfigChangeDeps(t *testing.T) (*store.Store, *fieldspec.Registry) {
 	if err := os.WriteFile(enginePath, []byte(`{"gc_enabled":false,"segment_rotate_bytes":4194304}`), 0o644); err != nil {
 		t.Fatalf("write engine config: %v", err)
 	}
-	successorPath := filepath.Clean(filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
+	successorPath := s8FieldspecV7Path(t)
 	if err := store.Init(root, map[string]string{"engine": enginePath, "fieldspec": successorPath}); err != nil {
 		t.Fatalf("Init: %v", err)
 	}

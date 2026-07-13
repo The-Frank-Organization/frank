@@ -224,8 +224,15 @@ type s4ShimHarness struct {
 
 func newS4ShimHarness(t *testing.T) *s4ShimHarness {
 	t.Helper()
+	return newS4ShimHarnessWithSources(t, writeFixtureConfigSources(t))
+}
+
+func newS4ShimHarnessWithSources(t *testing.T, sources map[string]string) *s4ShimHarness {
+	t.Helper()
 	root := t.TempDir()
-	initFixtureStore(t, root)
+	if err := store.Init(root, sources); err != nil {
+		t.Fatalf("store Init: %v", err)
+	}
 	mgr, err := seat.Open(root)
 	if err != nil {
 		t.Fatalf("Open seats: %v", err)
