@@ -1,0 +1,10 @@
+# github.com/jackli/frank/internal/engine [github.com/jackli/frank/internal/engine.test]
+internal/engine/resummon_test.go:35:20: undefined: NewResummonScheduler
+internal/engine/resummon_test.go:40:11: undefined: ResummonInput
+internal/engine/resummon_test.go:44:18: undefined: ResummonNoResponse
+internal/engine/resummon_test.go:45:18: undefined: SummonLocal
+internal/engine/resummon_test.go:54:26: undefined: ResummonContentHash
+internal/engine/resummon_test.go:88:53: undefined: GateResummonDue
+internal/engine/resummon_test.go:89:47: undefined: GateResummonDue
+FAIL	github.com/jackli/frank/internal/engine [build failed]
+FAIL
