@@ -186,7 +186,7 @@ func TestS5Wire3InvalidAFloorMemberFailsBeforeServing(t *testing.T) {
 func initWire3FixtureStore(t *testing.T, root, detectorJSON string) *config.Pinned {
 	t.Helper()
 	sources := writeFixtureConfigSources(t)
-	if err := os.WriteFile(sources["engine"], wire3EngineConfigBytes(detectorJSON), 0o644); err != nil {
+	if err := os.WriteFile(sources["engine"], wire3EngineConfigBytes(t, detectorJSON), 0o644); err != nil {
 		t.Fatalf("write engine source: %v", err)
 	}
 	if err := store.Init(root, sources); err != nil {
@@ -197,13 +197,27 @@ func initWire3FixtureStore(t *testing.T, root, detectorJSON string) *config.Pinn
 
 func writeWire3EngineConfig(t *testing.T, root, detectorJSON string) {
 	t.Helper()
-	if err := os.WriteFile(filepath.Join(root, "config", "engine.json"), wire3EngineConfigBytes(detectorJSON), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "config", "engine.json"), wire3EngineConfigBytes(t, detectorJSON), 0o644); err != nil {
 		t.Fatalf("write wire3 engine config: %v", err)
 	}
 }
 
-func wire3EngineConfigBytes(detectorJSON string) []byte {
-	return []byte(fmt.Sprintf(`{"gc_enabled":false,"segment_rotate_bytes":4194304,%s}`, detectorJSON))
+func wire3EngineConfigBytes(t *testing.T, detectorJSON string) []byte {
+	t.Helper()
+	var engine map[string]any
+	if err := json.Unmarshal(fixtureEngineConfig(t, false), &engine); err != nil {
+		t.Fatalf("decode fixture engine: %v", err)
+	}
+	var detector map[string]any
+	if err := json.Unmarshal([]byte("{"+detectorJSON+"}"), &detector); err != nil {
+		t.Fatalf("decode detector config: %v", err)
+	}
+	engine["detector"] = detector["detector"]
+	raw, err := json.Marshal(engine)
+	if err != nil {
+		t.Fatalf("marshal wire3 engine: %v", err)
+	}
+	return raw
 }
 
 func mintWire3Seat(t *testing.T, root, name, role string, operator bool) seat.Cred {

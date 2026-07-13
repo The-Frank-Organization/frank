@@ -35,7 +35,7 @@ func TestDigestIsStableByMemberNameAndBytes(t *testing.T) {
 func TestLoadParsesEngineConfigAndStoresMemberBytes(t *testing.T) {
 	root := t.TempDir()
 	enginePath := writeFile(t, root, "engine.json", `{"gc_enabled":false,"segment_rotate_bytes":4194304}`)
-	registryPath := writeFile(t, root, "registry.json", `{"phase":["SITREP"],"authority":[],"ceremony_tier":[],"evidence_target":[],"gate_category":{},"grant":[]}`)
+	registryPath := writeFile(t, root, "registry.json", `{"version":"s7a-fieldspec-v5","phase":["SITREP"],"authority":[],"ceremony_tier":[],"evidence_target":[],"gate_category":{},"grant":[]}`)
 
 	pinned, err := config.Load(map[string]string{
 		"engine":    enginePath,
@@ -74,7 +74,7 @@ func TestFrameBytesDefault(t *testing.T) {
 
 func TestLoadRequiresEngineMember(t *testing.T) {
 	root := t.TempDir()
-	registryPath := writeFile(t, root, "registry.json", `{"phase":["SITREP"],"authority":[],"ceremony_tier":[],"evidence_target":[],"gate_category":{},"grant":[]}`)
+	registryPath := writeFile(t, root, "registry.json", `{"version":"s7a-fieldspec-v5","phase":["SITREP"],"authority":[],"ceremony_tier":[],"evidence_target":[],"gate_category":{},"grant":[]}`)
 
 	_, err := config.Load(map[string]string{"fieldspec": registryPath})
 	if !errors.Is(err, config.ErrMissingEngine) {

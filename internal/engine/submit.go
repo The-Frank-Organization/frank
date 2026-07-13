@@ -11,6 +11,7 @@ import (
 	"github.com/jackli/frank/internal/intake"
 	"github.com/jackli/frank/internal/lineage"
 	"github.com/jackli/frank/internal/migrate"
+	"github.com/jackli/frank/internal/observe"
 	"github.com/jackli/frank/internal/record"
 	"github.com/jackli/frank/internal/seat"
 	"github.com/jackli/frank/internal/store"
@@ -22,6 +23,24 @@ func SubmitHandler(st *store.Store, reg *fieldspec.Registry, meta seat.SeatMeta,
 }
 
 func SubmitHandlerWithRender(st *store.Store, reg *fieldspec.Registry, meta seat.SeatMeta, env fieldspec.RenderEnv, existing ...*tables.T) Handler {
+	return SubmitHandlerWithObservation(st, reg, meta, env, observe.Env{PresentLayers: env.PresentLayers}, existing...)
+}
+
+func SubmitHandlerWithObservation(st *store.Store, reg *fieldspec.Registry, meta seat.SeatMeta, env fieldspec.RenderEnv, observeEnv observe.Env, existing ...*tables.T) Handler {
+	return submitHandlerWithObservation(st, reg, meta, env, observeEnv, nil, existing...)
+}
+
+func SubmitHandlerWithClaimRegistry(st *store.Store, reg *fieldspec.Registry, meta seat.SeatMeta, env fieldspec.RenderEnv, checks *observe.Registry, existing ...*tables.T) Handler {
+	observeEnv := observe.Env{PresentLayers: env.PresentLayers}
+	if checks != nil {
+		observeEnv.Evaluate = func(candidate observe.Candidate) observe.PredicateResult {
+			return checks.EvaluateCandidateClaims(candidate)
+		}
+	}
+	return submitHandlerWithObservation(st, reg, meta, env, observeEnv, checks, existing...)
+}
+
+func submitHandlerWithObservation(st *store.Store, reg *fieldspec.Registry, meta seat.SeatMeta, env fieldspec.RenderEnv, observeEnv observe.Env, checks *observe.Registry, existing ...*tables.T) Handler {
 	return func(ctx context.Context, cmd intake.Cmd) (record.Record, []store.Intent, error) {
 		cand, formDigest, err := fieldspec.DecodeSubmitPayload(cmd.Payload)
 		if err != nil {
@@ -45,12 +64,24 @@ func SubmitHandlerWithRender(st *store.Store, reg *fieldspec.Registry, meta seat
 				return cand, nil, nil
 			}
 		}
+		if observeEnv.PresentLayers["observe"] {
+			if field := observe.LaneSuppliedSystemField(reg, cand); field != "" {
+				cand.Envelope.DeliveryState = record.Rejected
+				cand.Body = bounce.Format(fieldspec.Violation{Field: field, Class: "lane-supplied-system-field"})
+				return cand, nil, nil
+			}
+		}
 		if env.PreActive {
 			if rec, intents, handled, err := classifyBootAdmission(reg, cand, meta, formDigest, env); handled {
 				return rec, intents, err
 			}
 		}
 		violations := reg.Validate(cand, fieldspec.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator}, formDigest, env, lineage.RealGrantState(tab))
+		if rawClaims, claimsPresent := cand.Headers["executable_claims"]; len(violations) == 0 && observeEnv.PresentLayers["observe"] && checks != nil && claimsPresent {
+			if _, issue := checks.ValidateClaims(rawClaims); issue != nil {
+				violations = append(violations, fieldspec.Violation{Field: issue.ClaimRef, Class: issue.Class})
+			}
+		}
 		if len(violations) > 0 {
 			cand = clearGateRaiseHeaders(cand)
 			cand.Envelope.DeliveryState = record.Rejected
@@ -74,6 +105,33 @@ func SubmitHandlerWithRender(st *store.Store, reg *fieldspec.Registry, meta seat
 			cand = clearGateRaiseHeaders(cand)
 			cand.Envelope.DeliveryState = record.Rejected
 			cand.Body = bounce.Format(*violation)
+			return cand, nil, nil
+		}
+		if observeEnv.PresentLayers["observe"] {
+			if cand.Headers == nil {
+				cand.Headers = map[string]string{}
+			}
+			cand.Headers["authority_class"] = AuthorityClass(reg, cand, meta)
+		}
+		observeResult, terminal := observe.Gate(cand, meta.Name, cand.Headers["PHASE"], cand.Headers["AUTHORITY"], observeEnv)
+		if observeEnv.PresentLayers["observe"] {
+			var violation *fieldspec.Violation
+			cand, violation = CompleteObserved(cand, observeResult.ObservedFields)
+			if violation != nil {
+				cand = clearGateRaiseHeaders(cand)
+				cand.Envelope.DeliveryState = record.Rejected
+				cand.Body = bounce.Format(*violation)
+				return cand, nil, nil
+			}
+		}
+		if terminal != record.Accepted {
+			cand = clearGateRaiseHeaders(cand)
+			cand.Envelope.DeliveryState = terminal
+			failureClass := observeResult.FailureClass
+			if failureClass == "" {
+				failureClass = "observed-false"
+			}
+			cand.Body = bounce.Format(fieldspec.Violation{Field: observeResult.FailingPredicate, Class: failureClass})
 			return cand, nil, nil
 		}
 		if cand.Headers["record_kind"] == "config_change" {
@@ -338,18 +396,32 @@ func classifyConfigChange(st *store.Store, cand record.Record, meta seat.SeatMet
 		return reject("record_kind", "seat-scope", "config_change requires operator")
 	}
 	member := cand.Headers["member"]
-	if member != "fieldspec" && member != "engine" {
-		return reject("member", "enum", "member must be fieldspec or engine")
+	if member == "adoption" {
+		return reject("member", "offline-bless-only", "adoption requires offline bless")
+	}
+	if member != "fieldspec" && member != "engine" && member != "catalog" {
+		return reject("member", "enum", "unknown config member")
 	}
 	if cand.Headers["new_digest"] == "" {
 		return reject("new_digest", "required", "new_digest required")
 	}
-	digest, err := configDigestWithMember(st, member, []byte(cand.Body))
+	pinned, err := frankconfig.Load(store.StoreRootConfigPaths(st.Root))
+	if err != nil {
+		return reject("member", "config-read-error", "could not load pinned config")
+	}
+	current, ok := pinned.Members[member]
+	if !ok {
+		return reject("member", "not-adopted", "config member requires adoption")
+	}
+	digest, err := configDigestWithPinnedMember(pinned, member, []byte(cand.Body))
 	if err != nil {
 		return reject("new_digest", "config-read-error", "could not recompute config digest")
 	}
 	if cand.Headers["new_digest"] != digest {
 		return reject("new_digest", "digest-mismatch", "new_digest does not match recomputed config digest")
+	}
+	if err := frankconfig.ValidateMemberTransition(member, current, []byte(cand.Body)); err != nil {
+		return reject("member", "config-version-transition", "config member transition refused")
 	}
 	cand.Envelope.DeliveryState = record.Accepted
 	return cand
@@ -362,6 +434,13 @@ func configDigestWithMember(st *store.Store, member string, body []byte) (string
 	pinned, err := frankconfig.Load(store.StoreRootConfigPaths(st.Root))
 	if err != nil {
 		return "", err
+	}
+	return configDigestWithPinnedMember(pinned, member, body)
+}
+
+func configDigestWithPinnedMember(pinned *frankconfig.Pinned, member string, body []byte) (string, error) {
+	if pinned == nil {
+		return "", fmt.Errorf("pinned config required")
 	}
 	members := make(map[string][]byte, len(pinned.Members))
 	for name, data := range pinned.Members {

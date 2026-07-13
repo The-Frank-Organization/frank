@@ -3,8 +3,6 @@ package fixtures_test
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"os"
 	"path/filepath"
 	"testing"
@@ -18,13 +16,9 @@ import (
 	"github.com/jackli/frank/internal/store"
 )
 
-// s5PreRegistrySHA256 pins the vendored genesis fixture (testdata/s5_pre_registry.json)
-// so a corrupted checkout is caught. The config_change tests below drive a real
-// old→new registry swap: genesis on this pre-registry, then a config_change to the
-// registry currently landed in the tree (internal/fieldspec/registry.json), which is
-// a superset and differs — exercising the §7 path with two registries that both ship
-// in the repo, no git history required.
-const s5PreRegistrySHA256 = "e31c4b1e72b69699df7e100a9264ee9c10f0d9107c2dd645ddd58107244d7363"
+// These config_change tests drive the current lawful fieldspec transition:
+// store.Init materializes the lock-pinned v5 predecessor, then the accepted
+// config_change advances to the governed v6 predecessor bytes.
 
 func TestS5ConfigChangeOperatorAcceptsLandedRegistryShape(t *testing.T) {
 	st, reg := s5ConfigChangeDeps(t)
@@ -187,15 +181,15 @@ func s5ConfigChangeDeps(t *testing.T) (*store.Store, *fieldspec.Registry) {
 	if err := os.WriteFile(enginePath, []byte(`{"gc_enabled":false,"segment_rotate_bytes":4194304}`), 0o644); err != nil {
 		t.Fatalf("write engine config: %v", err)
 	}
-	registryPath := s5PreRegistryPath(t)
-	if err := store.Init(root, map[string]string{"engine": enginePath, "fieldspec": registryPath}); err != nil {
+	successorPath := filepath.Clean(filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
+	if err := store.Init(root, map[string]string{"engine": enginePath, "fieldspec": successorPath}); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
 	st, err := store.Open(root)
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	reg, err := fieldspec.Load(registryPath)
+	reg, err := fieldspec.Load(filepath.Join(root, "config", "fieldspec", "registry.json"))
 	if err != nil {
 		t.Fatalf("Load registry: %v", err)
 	}
@@ -234,33 +228,11 @@ func s5SubmitConfigChange(t *testing.T, st *store.Store, reg *fieldspec.Registry
 	return got, intents
 }
 
-func s5PreRegistryPath(t *testing.T) string {
-	t.Helper()
-	path := filepath.Join("testdata", "s5_pre_registry.json")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read pre-s5 registry fixture: %v", err)
-	}
-	sum := sha256.Sum256(data)
-	if got := hex.EncodeToString(sum[:]); got != s5PreRegistrySHA256 {
-		t.Fatalf("pre-s5 registry fixture %s SHA256 = %s, want %s (corrupted checkout?)", path, got, s5PreRegistrySHA256)
-	}
-	return path
-}
-
-// s5ALandedRegistryBytes returns the registry currently landed in the tree. The
-// config_change tests use it as the new registry in an old→new swap (genesis is the
-// pre-registry fixture). It only needs to be a valid registry that differs from the
-// pre-registry and carries the routing_escalation member — both true of the shipped
-// registry — so the tests are self-contained with no git history or frozen snapshot.
+// s5ALandedRegistryBytes returns the shipped v6 successor. Genesis remains pinned
+// to v5; these bytes reach the store only through the accepted transition.
 func s5ALandedRegistryBytes(t *testing.T) []byte {
 	t.Helper()
-	path := filepath.Clean(filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read landed registry %s: %v", path, err)
-	}
-	return data
+	return s8FieldspecV6Bytes(t)
 }
 
 func s5ALandedRegistry(t *testing.T) *fieldspec.Registry {

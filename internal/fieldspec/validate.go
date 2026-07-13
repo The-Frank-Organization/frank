@@ -20,13 +20,14 @@ func (r *Registry) Validate(cand record.Record, seat SeatMeta, formDigest string
 	phase := cand.Headers["PHASE"]
 	tier := cand.Headers["CEREMONY_TIER"]
 	_, currentDigest := r.Render(env, seat, phase, tier, grants)
-	if formDigest == "" || formDigest != currentDigest {
+	staleForm := formDigest == "" || formDigest != currentDigest
+	if staleForm {
 		violations = append(violations, Violation{Field: "form_digest", Class: "re-render", Reason: "stale form digest"})
 	}
 
 	fields := r.evalFields(cand)
 	rows := r.rowValues(cand)
-	ctx := EvalContext{Seat: seat, Phase: phase, Tier: tier, PresentLayers: DefaultLayers()}
+	ctx := EvalContext{Seat: seat, Phase: phase, Tier: tier, PresentLayers: renderLayers(env)}
 
 	for i := range r.Fields {
 		spec := &r.Fields[i]
@@ -38,7 +39,7 @@ func (r *Registry) Validate(cand record.Record, seat SeatMeta, formDigest string
 		if r.ignorePayloadField(spec) {
 			continue
 		}
-		if len(spec.RequiredWhen.Raw) > 0 && spec.RequiredWhen.Eval(fields, rows, ctx) && raw == "" {
+		if !staleForm && len(spec.RequiredWhen.Raw) > 0 && spec.RequiredWhen.Eval(fields, rows, ctx) && raw == "" {
 			violations = append(violations, Violation{Field: spec.ID, Class: "required", Reason: spec.ID + " required"})
 		}
 		if spec.ID == "SUBJECT" && raw == "" {
@@ -139,7 +140,10 @@ func (r *Registry) ignorePayloadField(spec *FieldSpec) bool {
 	if spec.ID == "record_kind" {
 		return false
 	}
-	return spec.Owner == "system" || spec.FillConstraints == "system_only"
+	return spec.Owner == "system" ||
+		spec.Owner == "computed" ||
+		spec.FillConstraints == "system_only" ||
+		spec.FillConstraints == "computed_result"
 }
 
 func (r *Registry) systemOwnedHeader(spec *FieldSpec) bool {

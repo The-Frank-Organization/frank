@@ -15,8 +15,8 @@ import (
 func TestRegistryV2MemberParsesAndExposesLockedEnums(t *testing.T) {
 	reg := loadRegistry(t)
 
-	if reg.Version != "s7a-fieldspec-v5" {
-		t.Fatalf("Version = %q, want s7a-fieldspec-v5", reg.Version)
+	if reg.Version != "s8-fieldspec-v7" {
+		t.Fatalf("Version = %q, want s8-fieldspec-v7", reg.Version)
 	}
 	wantProvenance := map[string]string{
 		"owner":         "m-2",
@@ -30,8 +30,8 @@ func TestRegistryV2MemberParsesAndExposesLockedEnums(t *testing.T) {
 	if len(reg.NamedEnums) != 25 {
 		t.Fatalf("named enum count = %d, want 25", len(reg.NamedEnums))
 	}
-	if len(reg.Fields) != 91 {
-		t.Fatalf("row count = %d, want 91", len(reg.Fields))
+	if len(reg.Fields) != 92 {
+		t.Fatalf("row count = %d, want 92", len(reg.Fields))
 	}
 
 	assertTokens(t, reg.NamedEnums["PHASE"], []string{
