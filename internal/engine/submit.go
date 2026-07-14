@@ -66,8 +66,7 @@ func submitHandlerWithObservation(st *store.Store, reg *fieldspec.Registry, meta
 		}
 		if observeEnv.PresentLayers["observe"] {
 			if field := observe.LaneSuppliedSystemField(reg, cand); field != "" {
-				cand.Envelope.DeliveryState = record.Rejected
-				cand.Body = bounce.Format(fieldspec.Violation{Field: field, Class: "lane-supplied-system-field"})
+				cand = rejectAtEdge(cand, "form-validation", bounce.Format(fieldspec.Violation{Field: field, Class: "lane-supplied-system-field"}))
 				return cand, nil, nil
 			}
 		}
@@ -83,28 +82,20 @@ func submitHandlerWithObservation(st *store.Store, reg *fieldspec.Registry, meta
 			}
 		}
 		if len(violations) > 0 {
-			cand = clearGateRaiseHeaders(cand)
-			cand.Envelope.DeliveryState = record.Rejected
-			cand.Body = bounce.Format(anySlice(violations)...)
+			cand = rejectAtEdge(cand, "form-validation", bounce.Format(anySlice(violations)...))
 			return cand, nil, nil
 		}
 		cand = stampParent(st, tab, cand, meta, env)
 		if violation := validateWaiverRows(tab, cand, meta); violation != nil {
-			cand = clearGateRaiseHeaders(cand)
-			cand.Envelope.DeliveryState = record.Rejected
-			cand.Body = bounce.Format(*violation)
+			cand = rejectAtEdge(cand, "form-validation", bounce.Format(*violation))
 			return cand, nil, nil
 		}
 		if lineageBounce := (&lineage.Engine{Reg: reg, T: tab}).Check(cand, seat.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator}); lineageBounce != nil {
-			cand = clearGateRaiseHeaders(cand)
-			cand.Envelope.DeliveryState = record.Rejected
-			cand.Body = bounce.Format(lineageBounce)
+			cand = rejectAtEdge(cand, "lineage", bounce.Format(lineageBounce))
 			return cand, nil, nil
 		}
 		if violation := validateRecordKind(tab, cand, meta); violation != nil {
-			cand = clearGateRaiseHeaders(cand)
-			cand.Envelope.DeliveryState = record.Rejected
-			cand.Body = bounce.Format(*violation)
+			cand = rejectAtEdge(cand, "form-validation", bounce.Format(*violation))
 			return cand, nil, nil
 		}
 		if observeEnv.PresentLayers["observe"] {
@@ -118,20 +109,16 @@ func submitHandlerWithObservation(st *store.Store, reg *fieldspec.Registry, meta
 			var violation *fieldspec.Violation
 			cand, violation = CompleteObserved(cand, observeResult.ObservedFields)
 			if violation != nil {
-				cand = clearGateRaiseHeaders(cand)
-				cand.Envelope.DeliveryState = record.Rejected
-				cand.Body = bounce.Format(*violation)
+				cand = rejectAtEdge(cand, "declared-vs-observed", bounce.Format(*violation))
 				return cand, nil, nil
 			}
 		}
 		if terminal != record.Accepted {
-			cand = clearGateRaiseHeaders(cand)
-			cand.Envelope.DeliveryState = terminal
 			failureClass := observeResult.FailureClass
 			if failureClass == "" {
 				failureClass = "observed-false"
 			}
-			cand.Body = bounce.Format(fieldspec.Violation{Field: observeResult.FailingPredicate, Class: failureClass})
+			cand = failAtEdge(cand, terminal, "observe-predicate", bounce.Format(fieldspec.Violation{Field: observeResult.FailingPredicate, Class: failureClass}))
 			return cand, nil, nil
 		}
 		if cand.Headers["record_kind"] == "config_change" {
@@ -140,7 +127,7 @@ func submitHandlerWithObservation(st *store.Store, reg *fieldspec.Registry, meta
 				intents, err := store.ConfigChangeIntentsStrict(cand)
 				return cand, intents, err
 			}
-			cand = clearGateRaiseHeaders(cand)
+			cand = failAtEdge(cand, cand.Envelope.DeliveryState, "form-validation", cand.Body)
 			return cand, nil, nil
 		}
 		if cand.Headers["resolves_gate"] != "" {
@@ -149,7 +136,7 @@ func submitHandlerWithObservation(st *store.Store, reg *fieldspec.Registry, meta
 				intents, err := store.DefaultProjectionIntentsStrict(cand)
 				return cand, intents, err
 			}
-			cand = clearGateRaiseHeaders(cand)
+			cand = failAtEdge(cand, cand.Envelope.DeliveryState, "form-validation", cand.Body)
 			return cand, nil, nil
 		}
 		cand.Envelope.DeliveryState = record.Accepted
@@ -169,14 +156,12 @@ func classifyBootAdmission(reg *fieldspec.Registry, cand record.Record, meta sea
 	bootEnv.PreActive = env.PreActive
 	_, currentDigest := reg.Render(bootEnv, fieldspec.SeatMeta{Name: meta.Name, Role: meta.Role, IsOperator: meta.IsOperator}, cand.Headers["PHASE"], cand.Headers["CEREMONY_TIER"], fieldspec.ClosedGrantState)
 	if formDigest == "" || formDigest != currentDigest {
-		cand.Envelope.DeliveryState = record.Rejected
-		cand.Body = bounce.Format(fieldspec.Violation{Field: "form_digest", Class: "re-render", Reason: "stale form digest"})
+		cand = rejectAtEdge(cand, "form-validation", bounce.Format(fieldspec.Violation{Field: "form_digest", Class: "re-render", Reason: "stale form digest"}))
 		return cand, nil, true, nil
 	}
 	violations := bootAdmissionViolations(cand)
 	if len(violations) > 0 {
-		cand.Envelope.DeliveryState = record.Rejected
-		cand.Body = bounce.Format(anySlice(violations)...)
+		cand = rejectAtEdge(cand, "form-validation", bounce.Format(anySlice(violations)...))
 		return cand, nil, true, nil
 	}
 	cand.Envelope.DeliveryState = record.Accepted
@@ -295,9 +280,24 @@ func rejected(cmd intake.Cmd, meta seat.SeatMeta, reason string) record.Record {
 			IntakeID:      cmd.IntakeID,
 			SchemaVersion: 1,
 		},
-		Headers: map[string]string{"PHASE": "SITREP", "SUBJECT": "submit rejected"},
+		Headers: map[string]string{"PHASE": "SITREP", "SUBJECT": "submit rejected", "failing_edge": "form-validation"},
 		Body:    reason,
 	}
+}
+
+func rejectAtEdge(rec record.Record, edge, body string) record.Record {
+	return failAtEdge(rec, record.Rejected, edge, body)
+}
+
+func failAtEdge(rec record.Record, state, edge, body string) record.Record {
+	rec = clearGateRaiseHeaders(rec)
+	if rec.Headers == nil {
+		rec.Headers = map[string]string{}
+	}
+	rec.Headers["failing_edge"] = edge
+	rec.Envelope.DeliveryState = state
+	rec.Body = body
+	return rec
 }
 
 func submitProjectionIntents(rec record.Record) ([]store.Intent, error) {

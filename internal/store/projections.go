@@ -337,6 +337,35 @@ func (s *Store) ProjectBucketC() ([]string, error) {
 	return relayIDs, nil
 }
 
+// ProjectBucketD is the acceptance-bounce return view for an authoring seat.
+// Egress failures are excluded because they occur after acceptance and remain
+// on the local A-gate resummon path.
+func (s *Store) ProjectBucketD(author string) ([]string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	records, err := s.recordsLocked()
+	if err != nil {
+		return nil, err
+	}
+	var relayIDs []string
+	for _, rec := range records {
+		if rec.Envelope.DeliveryState != record.Rejected || rec.Envelope.From != author || !bucketDFailingEdge(rec.Headers["failing_edge"]) {
+			continue
+		}
+		relayIDs = append(relayIDs, rec.Envelope.RelayID)
+	}
+	return relayIDs, nil
+}
+
+func bucketDFailingEdge(edge string) bool {
+	switch edge {
+	case "form-validation", "lineage", "observe-predicate", "declared-vs-observed":
+		return true
+	default:
+		return false
+	}
+}
+
 func containsRecipient(values []string, recipient string) bool {
 	for _, value := range values {
 		if strings.TrimSpace(value) == recipient {

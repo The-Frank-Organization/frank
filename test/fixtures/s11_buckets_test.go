@@ -1,13 +1,18 @@
 package fixtures_test
 
 import (
+	"context"
 	"errors"
 	"os"
 	"reflect"
 	"testing"
 
+	"github.com/jackli/frank/internal/engine"
+	"github.com/jackli/frank/internal/fieldspec"
+	"github.com/jackli/frank/internal/intake"
 	"github.com/jackli/frank/internal/obligation"
 	"github.com/jackli/frank/internal/record"
+	"github.com/jackli/frank/internal/seat"
 	"github.com/jackli/frank/internal/store"
 )
 
@@ -98,6 +103,60 @@ func TestS11BucketCIsOperatorCCFYIWithoutDecisionObligation(t *testing.T) {
 	}
 	if _, err := st.Read("odb-" + ccOnly.Envelope.RelayID); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("CC-FYI created a decision obligation: %v", err)
+	}
+}
+
+func TestS11BucketDIsAuthorFacingAndEgressBlockedStaysA(t *testing.T) {
+	root := t.TempDir()
+	pinned := initFixtureStore(t, root)
+	st, err := store.Open(root)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+
+	rejected := s11BucketRecord("bucket-d-observe", "")
+	rejected.Envelope.DeliveryState = record.Rejected
+	rejected.Headers["failing_edge"] = "observe-predicate"
+	if _, err := st.Commit(rejected, nil); err != nil {
+		t.Fatalf("commit D record: %v", err)
+	}
+	egressBlocked := s11BucketRecord("bucket-a-egress", "authz_security")
+	egressBlocked.Headers["failing_edge"] = "egress"
+	egressBlocked.Headers["egress_scan_result"] = "blocked"
+	if _, err := st.Commit(egressBlocked, nil); err != nil {
+		t.Fatalf("commit egress-blocked record: %v", err)
+	}
+
+	got, err := st.ProjectBucketD("s11.planner")
+	if err != nil {
+		t.Fatalf("ProjectBucketD author: %v", err)
+	}
+	if want := []string{rejected.Envelope.RelayID}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("bucket D = %v, want %v", got, want)
+	}
+	if got, err := st.ProjectBucketD("operator"); err != nil || len(got) != 0 {
+		t.Fatalf("operator bucket D = %v, %v; want empty", got, err)
+	}
+	if err := obligation.CompleteAuto(st); err != nil {
+		t.Fatalf("CompleteAuto egress blocked: %v", err)
+	}
+	if odb, err := st.Read("odb-" + egressBlocked.Envelope.RelayID); err != nil || odb.Envelope.To != "operator" {
+		t.Fatalf("egress-blocked A missing local operator ODB: %+v, %v", odb, err)
+	}
+
+	meta := seat.SeatMeta{Name: "s11.implementer", Role: "implementer"}
+	renderEnv := fieldspec.RenderEnv{ConfigDigest: pinned.Digest}
+	payload := s10ExitPayload(t, pinned.Registry, renderEnv, meta, record.Record{Headers: map[string]string{
+		"PHASE": "SITREP", "AUTHORITY": "report-only", "CEREMONY_TIER": "medium", "EVIDENCE_TARGET": "E1",
+	}})
+	formRejected, _, err := engine.SubmitHandlerWithRender(st, pinned.Registry, meta, renderEnv)(context.Background(), intake.Cmd{
+		IntakeID: "s11-form-rejected", Seat: meta.Name, Role: meta.Role, Payload: payload,
+	})
+	if err != nil {
+		t.Fatalf("SubmitHandler form rejection: %v", err)
+	}
+	if formRejected.Envelope.DeliveryState != record.Rejected || formRejected.Headers["failing_edge"] != "form-validation" {
+		t.Fatalf("form rejection = %s/%q, want rejected/form-validation", formRejected.Envelope.DeliveryState, formRejected.Headers["failing_edge"])
 	}
 }
 
