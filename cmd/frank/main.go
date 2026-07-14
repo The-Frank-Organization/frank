@@ -158,7 +158,7 @@ func run(ctx context.Context, cfg config) error {
 		Context: ctx, Suites: suites, HardCeiling: executor.DefaultHardCeiling, OnSoftExpiry: expiryRouter.Prompt,
 	})
 	checkRegistry := observe.NewRegistry(observe.RegistryEnv{
-		Lanes: pinned.Supply.LaneRoots, SchemaRefs: pinned.Supply.SchemaRefs, NamedSuites: namedSuites, Executor: executorHost,
+		Lanes: pinned.Supply.LaneRoots, SchemaRefs: pinned.Supply.SchemaRefs, LaneVCS: pinned.Supply.LaneVCS, NamedSuites: namedSuites, Executor: executorHost,
 		HardCeiling: executor.DefaultHardCeiling, OnSoftExpiry: expiryRouter.Prompt,
 		Context: ctx, OnSideEffectApproval: approvalRouter.Prompt,
 	})

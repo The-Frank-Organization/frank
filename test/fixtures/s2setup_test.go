@@ -57,10 +57,11 @@ func writeFixtureConfigSources(t *testing.T) map[string]string {
 func fixtureEngineConfig(t *testing.T, observe bool) []byte {
 	t.Helper()
 	raw, err := json.Marshal(map[string]any{
-		"version": 2, "gc_enabled": false, "segment_rotate_bytes": 4194304,
+		"version": 3, "gc_enabled": false, "segment_rotate_bytes": 4194304,
 		"present_layers": map[string]bool{"observe": observe},
 		"supply": map[string]any{
 			"lane_roots":  map[string]string{"repo": fixtureRepoRoot(t)},
+			"lane_vcs":    map[string]string{"repo": "git"},
 			"schema_refs": map[string]string{},
 			"suites": map[string]any{"dogfood-battery": map[string]any{
 				"lane": "repo", "command": "scripts/dogfood-suite.sh", "args": []string{},

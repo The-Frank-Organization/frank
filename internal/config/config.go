@@ -43,6 +43,7 @@ type Supply struct {
 	LaneRoots  map[string]string `json:"lane_roots"`
 	SchemaRefs map[string]string `json:"schema_refs"`
 	Suites     map[string]Suite  `json:"suites"`
+	LaneVCS    map[string]string `json:"lane_vcs,omitempty"`
 }
 
 type Suite struct {
@@ -196,9 +197,9 @@ func Load(members map[string]string) (*Pinned, error) {
 		return nil, fmt.Errorf("parse engine config: %w", err)
 	}
 	var supply *Supply
-	if engineVersion == 2 {
+	if engineVersion >= 2 {
 		var err error
-		supply, err = composeSupply(engine.Supply)
+		supply, err = composeSupply(engine.Supply, engineVersion)
 		if err != nil {
 			return nil, fmt.Errorf("%w: supply", ErrConfigLoad)
 		}
@@ -260,7 +261,7 @@ func ValidateMemberTransition(member string, current, candidate []byte) error {
 		if err != nil {
 			return ErrConfigVersionTransition
 		}
-		if candidateVersion == currentVersion || candidateVersion == currentVersion+1 && candidateVersion <= 2 {
+		if candidateVersion == currentVersion || candidateVersion == currentVersion+1 && candidateVersion <= 3 {
 			return nil
 		}
 		return ErrConfigVersionTransition
@@ -310,7 +311,7 @@ func preflightMemberMarkers(loaded map[string][]byte) error {
 	}
 	if data, ok := loaded["engine"]; ok {
 		_, present, err := rawIntMarker(data)
-		if err != nil || present && ValidateEngineReaderMarker(data, 2) != nil || !present && loaded["catalog"] != nil {
+		if err != nil || present && ValidateEngineReaderMarker(data, 3) != nil || !present && loaded["catalog"] != nil {
 			return fmt.Errorf("%w: engine-marker", ErrConfigLoad)
 		}
 	}
@@ -479,8 +480,11 @@ func validateCatalogSchema(data []byte) error {
 
 const suiteBoundedCeiling = 120 * time.Second
 
-func composeSupply(raw *Supply) (*Supply, error) {
+func composeSupply(raw *Supply, version int) (*Supply, error) {
 	if raw == nil || len(raw.LaneRoots) == 0 || len(raw.Suites) == 0 {
+		return nil, ErrConfigLoad
+	}
+	if version == 2 && raw.LaneVCS != nil || version >= 3 && raw.LaneVCS == nil {
 		return nil, ErrConfigLoad
 	}
 	out := &Supply{LaneRoots: map[string]string{}, SchemaRefs: map[string]string{}, Suites: map[string]Suite{}}
@@ -519,6 +523,21 @@ func composeSupply(raw *Supply) (*Supply, error) {
 		suite.SourceDir = root
 		suite.Timeout = time.Duration(suite.TimeoutSeconds) * time.Second
 		out.Suites[target] = suite
+	}
+	if version >= 3 {
+		out.LaneVCS = map[string]string{}
+		for id, kind := range raw.LaneVCS {
+			if kind != "git" && kind != "none" {
+				return nil, ErrConfigLoad
+			}
+			if _, ok := out.LaneRoots[id]; !ok {
+				return nil, ErrConfigLoad
+			}
+			out.LaneVCS[id] = kind
+		}
+		if len(out.LaneVCS) != len(out.LaneRoots) {
+			return nil, ErrConfigLoad
+		}
 	}
 	return out, nil
 }
@@ -572,6 +591,12 @@ func cloneSupply(in *Supply) *Supply {
 		suite.Args = append([]string(nil), suite.Args...)
 		out.Suites[target] = suite
 	}
+	if in.LaneVCS != nil {
+		out.LaneVCS = map[string]string{}
+		for id, kind := range in.LaneVCS {
+			out.LaneVCS[id] = kind
+		}
+	}
 	return out
 }
 
@@ -597,7 +622,7 @@ func validateEngineSchema(data []byte) (int, error) {
 		return 0, err
 	}
 	version, err := engineVersion(data)
-	if err != nil || version < 0 || version > 2 {
+	if err != nil || version < 0 || version > 3 {
 		return 0, ErrConfigVersionTransition
 	}
 	allowed := map[string]string{
@@ -609,7 +634,7 @@ func validateEngineSchema(data []byte) (int, error) {
 	if version == 1 {
 		allowed["version"] = "number"
 		allowed["present_layers"] = "layers"
-	} else if version == 2 {
+	} else if version == 2 || version == 3 {
 		allowed["version"] = "number"
 		allowed["present_layers"] = "layers"
 		allowed["supply"] = "object"
@@ -633,17 +658,20 @@ func validateEngineSchema(data []byte) (int, error) {
 			return 0, ErrConfigVersionTransition
 		}
 	}
-	if version == 2 {
+	if version >= 2 {
 		supply, ok := raw["supply"].(map[string]any)
-		if !ok || !validSupplyShape(supply) {
+		if !ok || !validSupplyShape(supply, version) {
 			return 0, ErrConfigVersionTransition
 		}
 	}
 	return version, nil
 }
 
-func validSupplyShape(raw map[string]any) bool {
-	if !exactKeys(raw, "lane_roots", "schema_refs", "suites") {
+func validSupplyShape(raw map[string]any, version int) bool {
+	if version == 2 && !exactKeys(raw, "lane_roots", "schema_refs", "suites") {
+		return false
+	}
+	if version >= 3 && !exactKeys(raw, "lane_roots", "schema_refs", "suites", "lane_vcs") {
 		return false
 	}
 	lanes, ok := raw["lane_roots"].(map[string]any)
@@ -684,6 +712,21 @@ func validSupplyShape(raw map[string]any) bool {
 		seconds, ok := suite["timeout_seconds"].(float64)
 		if !ok || seconds != float64(int(seconds)) {
 			return false
+		}
+	}
+	if version >= 3 {
+		vcs, ok := raw["lane_vcs"].(map[string]any)
+		if !ok || len(vcs) != len(lanes) {
+			return false
+		}
+		for id, value := range vcs {
+			kind, ok := value.(string)
+			if !ok || kind != "git" && kind != "none" {
+				return false
+			}
+			if _, ok := lanes[id]; !ok {
+				return false
+			}
 		}
 	}
 	return true

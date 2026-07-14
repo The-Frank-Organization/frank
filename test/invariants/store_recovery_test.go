@@ -255,10 +255,10 @@ func initPinnedStore(t *testing.T, root string) *config.Pinned {
 	sourceDir := t.TempDir()
 	enginePath := filepath.Join(sourceDir, "engine.json")
 	engineBytes, err := json.Marshal(map[string]any{
-		"version": 2, "gc_enabled": false, "segment_rotate_bytes": 4194304,
+		"version": 3, "gc_enabled": false, "segment_rotate_bytes": 4194304,
 		"present_layers": map[string]bool{"observe": false},
 		"supply": map[string]any{
-			"lane_roots": map[string]string{"repo": repoRoot(t)}, "schema_refs": map[string]string{},
+			"lane_roots": map[string]string{"repo": repoRoot(t)}, "lane_vcs": map[string]string{"repo": "git"}, "schema_refs": map[string]string{},
 			"suites": map[string]any{"dogfood-battery": map[string]any{
 				"lane": "repo", "command": "scripts/dogfood-suite.sh", "args": []string{},
 				"timeout_class": "suite_bounded", "timeout_seconds": 120,
