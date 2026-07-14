@@ -8,7 +8,7 @@
 | T2 find-references | T1 descriptor-rooted worker | implemented, verification pending commit |
 | T3 verdict binding | conductor `Selection`, registry `CheckEntry`, executor verdict | pending |
 | T4 absence floor | T1 root health, T3 rows, m-7 `lane_vcs` owner bytes | held on m-7 return |
-| T5 attestation negative | system-owned FieldSpec admission | pending |
+| T5 attestation negative | system-owned FieldSpec admission | verified covered; test-only fixture |
 | T6 mixed rollup | T3 row output | pending verification |
 | T7 bounce class | m-2 registry co-sign | closed |
 | T8 envelope key hygiene | m-1 and m-2 co-signs | closed |
@@ -26,5 +26,7 @@
 | `internal/observe/fs_worker.go` | T2 descriptor-rooted scanner operation | in |
 | `internal/observe/registry.go` | T2 entry, params, dispatch and verdict mapping | in |
 | `internal/observe/registry_test.go` | T2 RED/GREEN fixtures | in |
+| `test/fixtures/s8_suppliability_guard_test.go` | T5 lane-forgery negative + conductor default fixture | in |
+| `.relays/s9/t5-verification.md` | T5 verification evidence | in |
 
 No `internal/executor/executor.go` diff. No T7/T8 or blocked-ledger code.
