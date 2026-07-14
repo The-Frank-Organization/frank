@@ -90,6 +90,7 @@ type SuiteExecutor interface {
 type RegistryEnv struct {
 	Lanes                map[string]string
 	SchemaRefs           map[string]string
+	LaneVCS              map[string]string
 	NamedSuites          map[string]bool
 	Executor             SuiteExecutor
 	GitExecutable        string
@@ -131,6 +132,7 @@ func NewRegistry(env RegistryEnv) *Registry {
 		env: RegistryEnv{
 			Lanes:                cloneMap(env.Lanes),
 			SchemaRefs:           cloneMap(env.SchemaRefs),
+			LaneVCS:              cloneMap(env.LaneVCS),
 			NamedSuites:          cloneBoolMap(env.NamedSuites),
 			Executor:             env.Executor,
 			GitExecutable:        gitExecutable,

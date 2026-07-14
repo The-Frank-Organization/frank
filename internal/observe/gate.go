@@ -150,7 +150,9 @@ func Gate(cand record.Record, seat, phase, authority string, env Env) (ObserveRe
 }
 
 func noVantageDisposition(cand record.Record, verdict PredicateResult, result ObserveResult) (ObserveResult, string) {
-	result.ObservedFields["degradation_notes"] = "observation-unavailable"
+	if result.ObservedFields["degradation_notes"] == "" {
+		result.ObservedFields["degradation_notes"] = "observation-unavailable"
+	}
 	if cand.Headers["authority_class"] == "yes" {
 		result.Veto = "block_delivery"
 		result.FailingPredicate = verdict.ID

@@ -5,8 +5,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"io"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -52,25 +50,30 @@ func (r *Registry) evaluateAbsenceFloor(candidate Candidate) PredicateResult {
 		return claimlessResult("phase-done", Fail, "unsafe", "phase-predicate-unsupported")
 	}
 
-	root := r.env.Lanes["repo"]
-	resolved, err := filepath.EvalSymlinks(root)
-	if root == "" || err != nil {
-		return claimlessResult("phase-done", Degraded, "skipped", "observation-unavailable")
+	if r.env.Lanes["repo"] == "" {
+		result := claimlessResult("phase-done", Blocked, "unsafe", "lane-ungoverned")
+		result.MachineryFault = true
+		return result
 	}
-	dir, err := os.Open(resolved)
-	if err != nil {
-		return claimlessResult("phase-done", Degraded, "skipped", "observation-unavailable")
+	health := r.executeRootHealth(Selection{CheckID: "claimless-floor", ClaimRef: "phase-done"}, "repo")
+	if health.kind == fsResultMachinery {
+		detail := health.detail
+		if strings.HasPrefix(detail, "check-machinery-fs-") {
+			detail = "check-machinery-root-observability-" + strings.TrimPrefix(detail, "check-machinery-fs-")
+		}
+		result := claimlessResult("phase-done", Blocked, "unsafe", detail)
+		result.MachineryFault = true
+		return result
 	}
-	info, statErr := dir.Stat()
-	_, readErr := dir.Readdirnames(1)
-	closeErr := dir.Close()
-	if statErr != nil || (readErr != nil && readErr != io.EOF) || closeErr != nil || !info.IsDir() {
-		return claimlessResult("phase-done", Degraded, "skipped", "observation-unavailable")
+	if r.env.LaneVCS["repo"] == "none" {
+		result := claimlessResult("phase-done", Degraded, "skipped", "opaque-lane-no-vantage")
+		result.ObservedFields = map[string]string{"degradation_notes": "opaque-lane-no-vantage"}
+		return result
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), r.env.ReadTimeout)
 	defer cancel()
-	status, err := exec.CommandContext(ctx, r.env.GitExecutable, "-C", resolved, "status", "--porcelain=v1").Output()
+	status, err := exec.CommandContext(ctx, r.env.GitExecutable, "-C", r.env.Lanes["repo"], "status", "--porcelain=v1").Output()
 	if ctx.Err() != nil {
 		result := claimlessResult("phase-done", Blocked, "skipped", "check-machinery-git-status-timeout")
 		result.MachineryFault = true
