@@ -11,6 +11,8 @@ const (
 	GateResummonDue              = "resummon_due"
 	GateRepliedPendingValidation = "replied_pending_validation"
 	GateResumed                  = "resumed"
+	GateBouncedRepair            = "bounced_repair"
+	GateEgressBlocked            = "egress_blocked"
 )
 
 // GateState derives the wake state from durable records. A valid accepted
@@ -20,19 +22,34 @@ func GateState(tab *tables.T, gateRef string) string {
 	if tab == nil || gateRef == "" {
 		return GateActive
 	}
-	state := GateActive
-	if tab.ParkedLanes[gateRef] {
-		state = GateParkedWaitingHuman
-	}
 	for _, rec := range tab.Records {
 		if rec.Envelope.DeliveryState == record.Accepted && rec.Headers["resolves_gate"] == gateRef {
 			return GateResumed
 		}
+	}
+	gate := tab.ByRelay[gateRef]
+	if gate.Envelope.DeliveryState == record.Rejected && acceptanceBounceEdge(gate.Headers["failing_edge"]) {
+		return GateBouncedRepair
+	}
+	if gate.Envelope.DeliveryState == record.Accepted && gate.Headers["egress_scan_result"] == "blocked" && gate.Headers["failing_edge"] == "egress" {
+		return GateEgressBlocked
 	}
 	for _, rec := range tab.Records {
 		if rec.Envelope.DeliveryState == record.Accepted && rec.Headers["record_kind"] == "resummon_command" && rec.Headers["subject_ref"] == gateRef {
 			return GateResummonDue
 		}
 	}
-	return state
+	if tab.ParkedLanes[gateRef] {
+		return GateParkedWaitingHuman
+	}
+	return GateActive
+}
+
+func acceptanceBounceEdge(edge string) bool {
+	switch edge {
+	case "form-validation", "lineage", "observe-predicate", "declared-vs-observed":
+		return true
+	default:
+		return false
+	}
 }
