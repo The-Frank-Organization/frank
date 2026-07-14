@@ -47,7 +47,7 @@ func TestS10ResummonTimerCrashRefireDedupesBySeatDecisionAndCadenceSlot(t *testi
 		t.Fatalf("NewWriter: %v", err)
 	}
 	go writer.Run(ctx, loop.In)
-	scheduler, err := NewResummonScheduler(st, writer)
+	scheduler, err := NewResummonScheduler(st, writer, resummonTestSnapshot(t, st))
 	if err != nil {
 		t.Fatalf("NewResummonScheduler: %v", err)
 	}
@@ -148,7 +148,7 @@ func TestS10ProductionSchedulerArmsParkedGateAndEmitsExactlyOneResummon(t *testi
 	if err != nil {
 		t.Fatalf("NewWriter: %v", err)
 	}
-	scheduler, err := NewResummonScheduler(st, writer)
+	scheduler, err := NewResummonScheduler(st, writer, resummonTestSnapshot(t, st))
 	if err != nil {
 		t.Fatalf("NewResummonScheduler: %v", err)
 	}
@@ -201,4 +201,14 @@ func TestS11StaleSchemaSuppressesOldCadenceAndReplacementRestartsIdentity(t *tes
 	if oldKey == replacementKey {
 		t.Fatal("replacement decision did not restart cadence under its new identity")
 	}
+}
+
+func resummonTestSnapshot(t *testing.T, st *store.Store) func() *tables.T {
+	t.Helper()
+	tab, err := tables.Build(st)
+	if err != nil {
+		t.Fatalf("Build scheduler snapshot: %v", err)
+	}
+	live := tables.NewLive(tab)
+	return live.Snapshot
 }

@@ -301,7 +301,7 @@ func run(ctx context.Context, cfg config) error {
 		if err != nil {
 			return err
 		}
-		resummonScheduler, err = engine.NewResummonScheduler(st, writer)
+		resummonScheduler, err = engine.NewResummonScheduler(st, writer, liveTables.Snapshot)
 		if err != nil {
 			return err
 		}

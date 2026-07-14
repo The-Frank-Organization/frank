@@ -30,6 +30,28 @@ Observed: GREEN.
 
 Between-item battery: `go test -count=1 ./... && go vet ./...` GREEN.
 
+## Item 5 — drop per-emit tables.Build
+
+The scheduler constructor now requires a table-snapshot supplier; production
+injects the already-published `liveTables.Snapshot`. `Emit` resolves content
+hashes from that snapshot plus a scheduler-local post-submit cache, so crash
+refire dedupe remains byte-identical without rebuilding tables from disk for
+each emit. The two other `tables.Build` sites in `resummon.go` are unchanged:
+`ArmParked` and the post-timer `due` recheck are the plan-classified
+evidence-only sites.
+
+Targeted command:
+
+```text
+go test -count=1 ./internal/engine -run '^TestS10(ResummonTimerCrashRefireDedupesBySeatDecisionAndCadenceSlot|ProductionSchedulerArmsParkedGateAndEmitsExactlyOneResummon)$' -v
+test "$(rg -n 'tables\.Build' internal/engine/resummon.go | wc -l | tr -d ' ')" = 2
+```
+
+Observed: GREEN; both remaining build loci are `ArmParked`/`due`, and
+`outcomeForContentHash` contains no build.
+
+Between-item battery: `go test -count=1 ./... && go vet ./...` GREEN.
+
 ## Item 4 — prompter lookups from table snapshots
 
 Approval and expiry prompters now build one startup `tables.Live` view and use

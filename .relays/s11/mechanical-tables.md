@@ -19,6 +19,7 @@
 | T8 item 1 generic prompter | approval/expiry adapters + shared owner/wait/emit/resolve lifecycle | implemented; fail-safe decisions and duplicate-waiter fixtures green |
 | T8 item 3 one ODB builder | public engine adapter + obligation gate adapter -> `obligation.RenderODB` | implemented; public, derived, structural, and reissue ODB fixtures green |
 | T8 item 4 snapshot lookups | one startup table view + gate/entry indexes + incremental resolution publish | implemented; no prompter `Store.Records()` scans; replay/live fixtures green |
+| T8 item 5 resummon snapshot supply | production live snapshot + local emitted-hash cache | implemented; per-emit build removed, dedupe output unchanged |
 
 ## Diff to license
 
@@ -43,8 +44,9 @@
 | `internal/migrate/migrate.go` | T6 deep-clone before every migration step | IN — token row `frank/internal/migrate/`, T6 only |
 | `internal/engine/odb.go` | T6 frozen π guard; T8 item 3 adapter to the one ODB builder | IN — token row `frank/internal/engine/`, named ODB seam; item order T6 then T8.3 |
 | `internal/engine/submit.go` | T6 live verdict guard, typed stale candidate, deterministic durable reissue intent | IN — token row `frank/internal/engine/`, named verdict seam |
-| `internal/engine/resummon.go` | T6 suppress superseded decision after durable stale-schema fault | IN — token row `frank/internal/engine/`, scheduler seam |
-| `internal/engine/resummon_test.go` | T6 old-decision suppression and replacement cadence-key restart | IN — token row `frank/internal/engine/`, scheduler seam |
+| `internal/engine/resummon.go` | T6 superseded-decision suppression; T8 item 5 per-emit build removal + snapshot supply | IN — token row `frank/internal/engine/`, scheduler seam; item order T6 then T8.5 |
+| `internal/engine/resummon_test.go` | T6 cadence restart; T8 item 5 dedupe/scheduler snapshot characterization | IN — token row `frank/internal/engine/`, scheduler seam |
+| `cmd/frank/main.go` | T8 item 5 production live-table snapshot injection | IN — token row `frank/cmd/frank/main.go`, composition-root-only item-5 seam |
 | `internal/obligation/obligation.go` | T6 durable stale-intent consumer; T8 item 3 single ODB builder | IN — token row `frank/internal/obligation/`, ODB/envelope consumption seam; item order T6 then T8.3 |
 | `internal/crashpoint/crashpoint.go` | T6 stale reissue durability boundary | IN — token row `frank/internal/crashpoint/`, T6 only |
 | `internal/crashpoint/crashpoint_test.go` | T6 exact registered-crashpoint assertion adjacency | IN — token row `frank/internal/crashpoint/`, T6 only |

@@ -54,19 +54,27 @@ type resummonSubmitter interface {
 type ResummonScheduler struct {
 	store     *store.Store
 	submitter resummonSubmitter
+	snapshot  func() *tables.T
 	after     func(time.Duration) <-chan time.Time
 	mu        sync.Mutex
 	armed     map[string]bool
+	seen      map[string]string
 }
 
-func NewResummonScheduler(st *store.Store, submitter resummonSubmitter) (*ResummonScheduler, error) {
+func NewResummonScheduler(st *store.Store, submitter resummonSubmitter, snapshot func() *tables.T) (*ResummonScheduler, error) {
 	if st == nil {
 		return nil, fmt.Errorf("resummon store required")
 	}
 	if submitter == nil {
 		return nil, fmt.Errorf("resummon submitter required")
 	}
-	return &ResummonScheduler{store: st, submitter: submitter, armed: map[string]bool{}}, nil
+	if snapshot == nil {
+		return nil, fmt.Errorf("resummon table snapshot required")
+	}
+	return &ResummonScheduler{
+		store: st, submitter: submitter, snapshot: snapshot,
+		armed: map[string]bool{}, seen: map[string]string{},
+	}, nil
 }
 
 func (s *ResummonScheduler) EmitAfter(ctx context.Context, delay time.Duration, input ResummonInput) (ResummonResult, error) {
@@ -212,10 +220,7 @@ func (s *ResummonScheduler) Emit(ctx context.Context, input ResummonInput) (Resu
 		return ResummonResult{}, err
 	}
 	contentHash := ResummonContentHash(input)
-	existingIntake, err := s.outcomeForContentHash(contentHash)
-	if err != nil {
-		return ResummonResult{}, err
-	}
+	existingIntake := s.outcomeForContentHash(contentHash)
 	knownBefore := existingIntake != ""
 	reply, _, err := s.submitter.Submit(ctx, intake.Cmd{
 		Seat: "system", Role: "system", Verb: "emit-resummon", Payload: body, ContentHash: contentHash,
@@ -234,16 +239,21 @@ func (s *ResummonScheduler) Emit(ctx context.Context, input ResummonInput) (Resu
 		if err != nil {
 			return ResummonResult{}, err
 		}
+		s.mu.Lock()
+		s.seen[contentHash] = rec.Envelope.IntakeID
+		s.mu.Unlock()
 		return ResummonResult{Record: rec, ContentHash: contentHash, Deduped: knownBefore}, nil
 	}
 }
 
-func (s *ResummonScheduler) outcomeForContentHash(contentHash string) (string, error) {
-	tab, err := tables.Build(s.store)
-	if err != nil {
-		return "", err
+func (s *ResummonScheduler) outcomeForContentHash(contentHash string) string {
+	s.mu.Lock()
+	known := s.seen[contentHash]
+	s.mu.Unlock()
+	if known != "" {
+		return known
 	}
-	return tab.ContentHash[contentHash], nil
+	return s.snapshot().ContentHash[contentHash]
 }
 
 // ResummonHandler is an internal conductor arm. It accepts only the system
