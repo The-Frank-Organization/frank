@@ -29,3 +29,23 @@ go test -count=1 ./test/fixtures -run '^TestS10(ApprovalPrompterSharesDuplicateG
 Observed: GREEN.
 
 Between-item battery: `go test -count=1 ./... && go vet ./...` GREEN.
+
+## Item 3 — one ODB builder
+
+`obligation.RenderODB` is now the single record builder. The public
+`engine.RenderODB` adapter preserves its existing input API, while
+`completeODB` supplies its gate-derived phase/schema/choice-row values to the
+same builder. The adapter flags preserve the pre-refactor byte distinctions:
+the public render includes its dispatch header; derived gate ODBs retain
+`PHASE:SITREP`, the gate schema version, and representational choice columns.
+
+Targeted command:
+
+```text
+go test -count=1 ./internal/engine ./internal/obligation
+go test -count=1 ./test/fixtures -run '^TestS(9OwnerDecisionBriefIsExactAndModelIsPayloadOnly|10ODB|10Park|11StaleChoice|11StructuralChoice)' -v
+```
+
+Observed: GREEN, including the T6 structural-column and crash-reissue ODB paths.
+
+Between-item battery: `go test -count=1 ./... && go vet ./...` GREEN.

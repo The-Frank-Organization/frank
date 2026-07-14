@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/jackli/frank/internal/crashpoint"
@@ -30,6 +31,114 @@ type Class struct {
 }
 
 type Tables = tables.T
+
+type ODBChoice struct {
+	Value string
+	Label string
+}
+
+type ODBRenderInput struct {
+	SubjectRef           string
+	DispatchID           string
+	ParentDispatchID     string
+	PlainLanguageChange  string
+	WhyNow               string
+	CompletedProof       string
+	RecordIntegrity      string
+	TradeoffsRisks       string
+	Recommendation       string
+	Choices              []ODBChoice
+	ChoiceRows           []map[string]string
+	ModelName            string
+	Phase                string
+	SchemaVersion        int
+	IncludeDispatchField bool
+}
+
+func RenderODB(input ODBRenderInput) (record.Record, error) {
+	required := map[string]string{
+		"subject_ref":           input.SubjectRef,
+		"plain_language_change": input.PlainLanguageChange,
+		"why_now":               input.WhyNow,
+		"completed_proof":       input.CompletedProof,
+		"record_integrity":      input.RecordIntegrity,
+		"tradeoffs_risks":       input.TradeoffsRisks,
+		"recommendation":        input.Recommendation,
+	}
+	for field, value := range required {
+		if strings.TrimSpace(value) == "" {
+			return record.Record{}, fmt.Errorf("ODB %s required", field)
+		}
+	}
+	if input.RecordIntegrity != "observed" && input.RecordIntegrity != "self_reported" && input.RecordIntegrity != "mixed" {
+		return record.Record{}, fmt.Errorf("ODB record_integrity invalid")
+	}
+	rows := input.ChoiceRows
+	if len(rows) == 0 {
+		rows = make([]map[string]string, 0, len(input.Choices))
+		for _, choice := range input.Choices {
+			rows = append(rows, map[string]string{"label": choice.Label, "value": choice.Value})
+		}
+	}
+	seen := make(map[string]bool, len(rows))
+	for _, row := range rows {
+		if strings.TrimSpace(row["value"]) == "" || strings.TrimSpace(row["label"]) == "" {
+			return record.Record{}, fmt.Errorf("ODB choice value and label required")
+		}
+		if seen[row["value"]] {
+			return record.Record{}, fmt.Errorf("ODB choice %q duplicated", row["value"])
+		}
+		seen[row["value"]] = true
+	}
+	if len(rows) == 0 {
+		return record.Record{}, fmt.Errorf("ODB choices required")
+	}
+	choices, err := fieldspec.CanonicalMarshal(rows)
+	if err != nil {
+		return record.Record{}, fmt.Errorf("ODB choices: %w", err)
+	}
+	to, err := fieldspec.EncodeAddressList([]string{"operator"})
+	if err != nil {
+		return record.Record{}, fmt.Errorf("ODB TO: %w", err)
+	}
+	headers := map[string]string{
+		"SUBJECT":               "Owner Decision Brief: " + input.SubjectRef,
+		"TO":                    to,
+		"record_kind":           "odb",
+		"subject_ref":           input.SubjectRef,
+		"plain_language_change": input.PlainLanguageChange,
+		"why_now":               input.WhyNow,
+		"completed_proof":       input.CompletedProof,
+		"record_integrity":      input.RecordIntegrity,
+		"tradeoffs_risks":       input.TradeoffsRisks,
+		"recommendation":        input.Recommendation,
+		"choices":               choices,
+	}
+	if input.Phase != "" {
+		headers["PHASE"] = input.Phase
+	}
+	if input.IncludeDispatchField && input.DispatchID != "" {
+		headers["DISPATCH_ID"] = input.DispatchID
+	}
+	if input.ParentDispatchID != "" {
+		headers["PARENT_DISPATCH_ID"] = input.ParentDispatchID
+	}
+	if input.ModelName != "" {
+		headers["model_name"] = input.ModelName
+	}
+	schemaVersion := input.SchemaVersion
+	if schemaVersion == 0 {
+		schemaVersion = 1
+	}
+	return record.Record{
+		Envelope: record.Envelope{
+			RelayID: "odb-" + input.SubjectRef, DispatchID: input.DispatchID,
+			From: "system", To: "operator", Role: "system",
+			DeliveryState: record.Accepted, SchemaVersion: schemaVersion,
+		},
+		Headers: headers,
+	}, nil
+}
 
 type Engine struct {
 	classes map[string]Class
@@ -283,14 +392,6 @@ func completeODB(st *store.Store, t *tables.T, gateRecord record.Record) error {
 			return errors.New("gate choices invalid")
 		}
 	}
-	choices, err := fieldspec.CanonicalMarshal(choiceRows)
-	if err != nil {
-		return err
-	}
-	to, err := fieldspec.EncodeAddressList([]string{"operator"})
-	if err != nil {
-		return err
-	}
 	subject := gateRecord.Headers["SUBJECT"]
 	if subject == "" {
 		subject = gateRecord.Envelope.RelayID
@@ -299,30 +400,17 @@ func completeODB(st *store.Store, t *tables.T, gateRecord record.Record) error {
 	if completedProof == "" {
 		completedProof = "accepted:" + gateRecord.Envelope.RelayID
 	}
-	rec := record.Record{
-		Envelope: record.Envelope{
-			RelayID:       odbID,
-			DispatchID:    gateRecord.Envelope.DispatchID,
-			From:          "system",
-			Role:          "system",
-			To:            "operator",
-			DeliveryState: record.Accepted,
-			SchemaVersion: gateRecord.Envelope.SchemaVersion,
-		},
-		Headers: map[string]string{
-			"PHASE":                 "SITREP",
-			"SUBJECT":               "Owner Decision Brief: " + gateRecord.Envelope.RelayID,
-			"TO":                    to,
-			"record_kind":           "odb",
-			"subject_ref":           gateRecord.Envelope.RelayID,
-			"plain_language_change": subject,
-			"why_now":               "The accepted A-gate requires an operator verdict before the lane can continue.",
-			"completed_proof":       completedProof,
-			"record_integrity":      "observed",
-			"tradeoffs_risks":       "The lane remains parked until a bounded operator choice is validated.",
-			"recommendation":        "Choose approve only when the accepted gate may safely resume.",
-			"choices":               choices,
-		},
+	rec, err := RenderODB(ODBRenderInput{
+		SubjectRef: gateRecord.Envelope.RelayID, DispatchID: gateRecord.Envelope.DispatchID,
+		PlainLanguageChange: subject,
+		WhyNow:              "The accepted A-gate requires an operator verdict before the lane can continue.",
+		CompletedProof:      completedProof, RecordIntegrity: "observed",
+		TradeoffsRisks: "The lane remains parked until a bounded operator choice is validated.",
+		Recommendation: "Choose approve only when the accepted gate may safely resume.",
+		ChoiceRows:     choiceRows, Phase: "SITREP", SchemaVersion: gateRecord.Envelope.SchemaVersion,
+	})
+	if err != nil {
+		return err
 	}
 	_, err = st.Commit(rec, nil)
 	if err == nil {

@@ -2,12 +2,12 @@ package engine
 
 import (
 	"encoding/json"
-	"fmt"
 	"maps"
 	"strings"
 
 	"github.com/jackli/frank/internal/fieldspec"
 	"github.com/jackli/frank/internal/migrate"
+	"github.com/jackli/frank/internal/obligation"
 	"github.com/jackli/frank/internal/record"
 )
 
@@ -36,80 +36,17 @@ type ODBInput struct {
 }
 
 func RenderODB(input ODBInput) (record.Record, error) {
-	required := map[string]string{
-		"subject_ref":           input.SubjectRef,
-		"plain_language_change": input.PlainLanguageChange,
-		"why_now":               input.WhyNow,
-		"completed_proof":       input.CompletedProof,
-		"record_integrity":      input.RecordIntegrity,
-		"tradeoffs_risks":       input.TradeoffsRisks,
-		"recommendation":        input.Recommendation,
-	}
-	for field, value := range required {
-		if strings.TrimSpace(value) == "" {
-			return record.Record{}, fmt.Errorf("ODB %s required", field)
-		}
-	}
-	if input.RecordIntegrity != "observed" && input.RecordIntegrity != "self_reported" && input.RecordIntegrity != "mixed" {
-		return record.Record{}, fmt.Errorf("ODB record_integrity invalid")
-	}
-	rows := make([]map[string]string, 0, len(input.Choices))
-	seen := make(map[string]bool, len(input.Choices))
+	choices := make([]obligation.ODBChoice, 0, len(input.Choices))
 	for _, choice := range input.Choices {
-		if strings.TrimSpace(choice.Value) == "" || strings.TrimSpace(choice.Label) == "" {
-			return record.Record{}, fmt.Errorf("ODB choice value and label required")
-		}
-		if seen[choice.Value] {
-			return record.Record{}, fmt.Errorf("ODB choice %q duplicated", choice.Value)
-		}
-		seen[choice.Value] = true
-		rows = append(rows, map[string]string{"label": choice.Label, "value": choice.Value})
+		choices = append(choices, obligation.ODBChoice{Value: choice.Value, Label: choice.Label})
 	}
-	if len(rows) == 0 {
-		return record.Record{}, fmt.Errorf("ODB choices required")
-	}
-	choices, err := fieldspec.CanonicalMarshal(rows)
-	if err != nil {
-		return record.Record{}, fmt.Errorf("ODB choices: %w", err)
-	}
-	to, err := fieldspec.EncodeAddressList([]string{"operator"})
-	if err != nil {
-		return record.Record{}, fmt.Errorf("ODB TO: %w", err)
-	}
-	headers := map[string]string{
-		"SUBJECT":               "Owner Decision Brief: " + input.SubjectRef,
-		"TO":                    to,
-		"record_kind":           "odb",
-		"subject_ref":           input.SubjectRef,
-		"plain_language_change": input.PlainLanguageChange,
-		"why_now":               input.WhyNow,
-		"completed_proof":       input.CompletedProof,
-		"record_integrity":      input.RecordIntegrity,
-		"tradeoffs_risks":       input.TradeoffsRisks,
-		"recommendation":        input.Recommendation,
-		"choices":               choices,
-	}
-	if input.DispatchID != "" {
-		headers["DISPATCH_ID"] = input.DispatchID
-	}
-	if input.ParentDispatchID != "" {
-		headers["PARENT_DISPATCH_ID"] = input.ParentDispatchID
-	}
-	if input.ModelName != "" {
-		headers["model_name"] = input.ModelName
-	}
-	return record.Record{
-		Envelope: record.Envelope{
-			RelayID:       "odb-" + input.SubjectRef,
-			DispatchID:    input.DispatchID,
-			From:          "system",
-			To:            "operator",
-			Role:          "system",
-			DeliveryState: record.Accepted,
-			SchemaVersion: 1,
-		},
-		Headers: headers,
-	}, nil
+	return obligation.RenderODB(obligation.ODBRenderInput{
+		SubjectRef: input.SubjectRef, DispatchID: input.DispatchID, ParentDispatchID: input.ParentDispatchID,
+		PlainLanguageChange: input.PlainLanguageChange, WhyNow: input.WhyNow,
+		CompletedProof: input.CompletedProof, RecordIntegrity: input.RecordIntegrity,
+		TradeoffsRisks: input.TradeoffsRisks, Recommendation: input.Recommendation,
+		Choices: choices, ModelName: input.ModelName, IncludeDispatchField: true,
+	})
 }
 
 func ValidateODBChoice(odb record.Record, picked string) *fieldspec.Violation {
