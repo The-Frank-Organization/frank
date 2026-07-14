@@ -16,6 +16,7 @@
 | T6 cadence restart | old decision suppressed by held fault + new decision ID in resummon content key | implemented; same-seat/new-ID key separation fixture green |
 | T7 terminal/edge matrix | T1–T4/T6 bucket queries + obligation-derived A artifacts | registered; 14 positive/negative boundary rows green |
 | T7 ③ known-A NF | live submit validator + known-A floor + B saved query + A ODB | registered; rewrite/provenance/no-absorb behavior green |
+| T8 item 1 generic prompter | approval/expiry adapters + shared owner/wait/emit/resolve lifecycle | implemented; fail-safe decisions and duplicate-waiter fixtures green |
 
 ## Diff to license
 
@@ -28,6 +29,10 @@
 | `.relays/s11/t4-red-green.md` | T4 sequence-honest RED/GREEN evidence | IN — token row `frank/.relays/s11/` |
 | `.relays/s11/t6-red-green.md` | T6 sequence-honest RED/GREEN and crash-replay evidence | IN — token row `frank/.relays/s11/` |
 | `.relays/s11/t7-matrix.md` | T7 prerequisite RED lineage and consolidated matrix evidence | IN — token row `frank/.relays/s11/` |
+| `.relays/s11/t8-cleanup.md` | T8 per-item order, characterization, and battery evidence | IN — token row `frank/.relays/s11/` |
+| `internal/engine/prompter.go` | T8 item 1 shared generic prompter lifecycle | IN — token row `frank/internal/engine/`, generic-prompter seam |
+| `internal/engine/approval.go` | T8 item 1 approval adapter over generic prompter | IN — token row `frank/internal/engine/`, generic-prompter seam |
+| `internal/engine/expiry.go` | T8 item 1 expiry adapter over generic prompter | IN — token row `frank/internal/engine/`, generic-prompter seam |
 | `internal/migrate/migrate_test.go` | T6 alias-safety RED/GREEN | IN — token row `frank/internal/migrate/`, T6 only |
 | `test/fixtures/s11_8a_test.go` | T6 live-path, byte-token, no-wake, structural, and crash-replay fixtures | IN — token row `frank/test/fixtures/` |
 | `test/fixtures/f11_test.go` | T6 crashpoint registry live-site census adjacency | IN — token row `frank/test/fixtures/` |

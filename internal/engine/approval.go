@@ -23,27 +23,8 @@ type ApprovalPromptInput struct {
 }
 
 type ApprovalPrompter struct {
-	store     *store.Store
-	submitter resummonSubmitter
-	mu        sync.Mutex
-	pending   map[string]*approvalPending
-}
-
-type approvalPending struct {
-	done     chan struct{}
-	once     sync.Once
-	decision observe.ApprovalDecision
-}
-
-func newApprovalPending() *approvalPending {
-	return &approvalPending{done: make(chan struct{})}
-}
-
-func (p *approvalPending) resolve(decision observe.ApprovalDecision) {
-	p.once.Do(func() {
-		p.decision = decision
-		close(p.done)
-	})
+	store *store.Store
+	core  *genericPrompter[observe.ApprovalDecision]
 }
 
 type ApprovalRouter struct {
@@ -78,7 +59,10 @@ func NewApprovalPrompter(st *store.Store, submitter resummonSubmitter) (*Approva
 	if submitter == nil {
 		return nil, fmt.Errorf("approval submitter required")
 	}
-	return &ApprovalPrompter{store: st, submitter: submitter, pending: map[string]*approvalPending{}}, nil
+	return &ApprovalPrompter{
+		store: st,
+		core:  newGenericPrompter(submitter, "emit-side-effect-approval", observe.ApprovalDecision{Scope: observe.ApprovalDenied}),
+	}, nil
 }
 
 func (p *ApprovalPrompter) Prompt(ctx context.Context, request observe.ApprovalRequest) observe.ApprovalDecision {
@@ -87,61 +71,13 @@ func (p *ApprovalPrompter) Prompt(ctx context.Context, request observe.ApprovalR
 	}
 	input := approvalPromptInput(request)
 	gateID := ApprovalGateID(input)
-	p.mu.Lock()
-	pending := p.pending[gateID]
-	owner := pending == nil
-	if owner {
-		pending = newApprovalPending()
-		p.pending[gateID] = pending
-	}
-	p.mu.Unlock()
-	if !owner {
-		return awaitApprovalPending(ctx, pending)
-	}
-	defer func() {
-		p.mu.Lock()
-		if p.pending[gateID] == pending {
-			delete(p.pending, gateID)
-		}
-		p.mu.Unlock()
-	}()
-	fail := func() observe.ApprovalDecision {
-		decision := observe.ApprovalDecision{Scope: observe.ApprovalDenied}
-		pending.resolve(decision)
-		return decision
-	}
 	payload, err := json.Marshal(input)
 	if err != nil {
-		return fail()
-	}
-	reply, _, err := p.submitter.Submit(ctx, intake.Cmd{
-		Seat: "system", Role: "system", Verb: "emit-side-effect-approval", Payload: payload, ContentHash: ApprovalContentHash(input),
-	})
-	if err != nil {
-		return fail()
-	}
-	select {
-	case <-ctx.Done():
-		return fail()
-	case outcome := <-reply:
-		if outcome.State != record.Accepted || outcome.RelayID != gateID {
-			return fail()
-		}
-	}
-	if existing, ok := p.existingDecision(gateID); ok {
-		pending.resolve(existing)
-		return existing
-	}
-	return awaitApprovalPending(ctx, pending)
-}
-
-func awaitApprovalPending(ctx context.Context, pending *approvalPending) observe.ApprovalDecision {
-	select {
-	case <-ctx.Done():
 		return observe.ApprovalDecision{Scope: observe.ApprovalDenied}
-	case <-pending.done:
-		return pending.decision
 	}
+	return p.core.prompt(ctx, gateID, payload, ApprovalContentHash(input), func() (observe.ApprovalDecision, bool) {
+		return p.existingDecision(gateID)
+	})
 }
 
 func (p *ApprovalPrompter) Apply(resolution record.Record) error {
@@ -157,12 +93,7 @@ func (p *ApprovalPrompter) Apply(resolution record.Record) error {
 	if !ok {
 		return nil
 	}
-	p.mu.Lock()
-	pending := p.pending[gateID]
-	p.mu.Unlock()
-	if pending != nil {
-		pending.resolve(decision)
-	}
+	p.core.resolve(gateID, decision)
 	return nil
 }
 
