@@ -39,8 +39,8 @@ func TestS8FXCFG7GenesisComposesThreePinnedMembers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if pinned.Engine.Version != 2 {
-		t.Fatalf("engine.version = %d, want 2", pinned.Engine.Version)
+	if pinned.Engine.Version != 3 || pinned.Supply.LaneVCS["repo"] != "git" {
+		t.Fatalf("engine.version = %d LaneVCS = %#v, want v3 git", pinned.Engine.Version, pinned.Supply.LaneVCS)
 	}
 	t.Logf("fresh_v2_genesis_config_digest=%s", pinned.Digest)
 	if config.PresentLayers(pinned)["observe"] {

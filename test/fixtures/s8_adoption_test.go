@@ -73,7 +73,7 @@ func TestS8FXCFG12BlessRejectsNonCurrentEngineCandidate(t *testing.T) {
 
 func TestS8FXCFG12BlessRejectsObserveTrueEngineCandidate(t *testing.T) {
 	root, candidates := s8LegacyStoreAndCandidates(t)
-	if err := os.WriteFile(candidates["engine"], fixtureEngineConfig(t, true), 0o644); err != nil {
+	if err := os.WriteFile(candidates["engine"], fixtureEngineConfigV2(t, true), 0o644); err != nil {
 		t.Fatalf("write observe-active engine candidate: %v", err)
 	}
 
@@ -296,6 +296,9 @@ type adoptionFixtureMember struct {
 func s8LegacyStoreAndCandidates(t *testing.T) (string, map[string]string) {
 	t.Helper()
 	candidates := s8HistoricalConfigSources(t, false)
+	if err := os.WriteFile(candidates["engine"], fixtureEngineConfigV2(t, false), 0o644); err != nil {
+		t.Fatalf("write v2 adoption engine: %v", err)
+	}
 	legacyEngine := filepath.Join(t.TempDir(), "engine.json")
 	if err := os.WriteFile(legacyEngine, []byte(`{"gc_enabled":false,"segment_rotate_bytes":4194304}`), 0o644); err != nil {
 		t.Fatalf("write legacy engine: %v", err)

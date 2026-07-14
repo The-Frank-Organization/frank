@@ -75,6 +75,21 @@ func fixtureEngineConfig(t *testing.T, observe bool) []byte {
 	return raw
 }
 
+func fixtureEngineConfigV2(t *testing.T, observe bool) []byte {
+	t.Helper()
+	var raw map[string]any
+	if err := json.Unmarshal(fixtureEngineConfig(t, observe), &raw); err != nil {
+		t.Fatalf("decode fixture engine config: %v", err)
+	}
+	raw["version"] = 2
+	delete(raw["supply"].(map[string]any), "lane_vcs")
+	encoded, err := json.Marshal(raw)
+	if err != nil {
+		t.Fatalf("marshal v2 fixture engine config: %v", err)
+	}
+	return encoded
+}
+
 func fixtureRepoRoot(t *testing.T) string {
 	t.Helper()
 	root, err := filepath.Abs(filepath.Join("..", ".."))

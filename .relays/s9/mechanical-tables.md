@@ -7,7 +7,7 @@
 | T1 read-file | governed `RegistryEnv.Lanes[lane_ref]`, timeout router | landed in T1 shared worker |
 | T2 find-references | T1 descriptor-rooted worker | landed at `5f6a7ec` |
 | T3 verdict binding | conductor `Selection`, registry `CheckEntry`, executor verdict | implemented; full commit-point battery green |
-| T4 absence floor | T1 root health, T3 rows, m-7 `lane_vcs` owner bytes | held on m-7 return |
+| T4 absence floor | T1 root health, T3 rows, m-7 `lane_vcs` owner bytes | implemented; m-7 bytes at `db9a166`; full battery green |
 | T5 attestation negative | system-owned FieldSpec admission | verified covered; test-only fixture |
 | T6 mixed rollup | T3 row output | pending verification |
 | T7 bounce class | m-2 registry co-sign | closed |
@@ -35,5 +35,12 @@
 | `test/fixtures/s8_adversarial_test.go` | T3 six-column row regression | in |
 | `test/fixtures/s8_exit_gate_test.go` | T3 valid-origin aggregation + dogfood row regression | in |
 | `.relays/s9/t3-red-green.md` | T3 implementation evidence | in |
+| `internal/observe/checks_base.go` | T4 total input table + worker-root-health consumption | in |
+| `internal/observe/checks_base_test.go` | T4 opaque/nil/git/config/serialization fixtures | in |
+| `internal/config/lane_vcs_test.go` | T4 FX-VCS load/transition/ceiling fixtures | in |
+| `test/fixtures/s8_adoption_test.go` | dedicated v2 residency/adoption path after v3 dogfood move | in |
+| `test/fixtures/s8_config_activation_test.go` | v3 dogfood genesis assertion | in |
+| `test/fixtures/s8_supply_test.go` | v3 duplicate-marker fixture | in |
+| `.relays/s9/t4-red-green.md` | T4 implementation evidence | in |
 
 No `internal/executor/executor.go` diff. No T7/T8 or blocked-ledger code.
