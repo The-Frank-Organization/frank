@@ -59,6 +59,7 @@ func TestF11CrashpointRegistryNamesAreLiveInSource(t *testing.T) {
 		filepath.Join("..", "..", "internal", "store", "projections.go"),
 		filepath.Join("..", "..", "internal", "intake", "journal.go"),
 		filepath.Join("..", "..", "internal", "recover", "recover.go"),
+		filepath.Join("..", "..", "internal", "obligation", "obligation.go"),
 		filepath.Join("..", "..", "internal", "gc", "gc.go"),
 		filepath.Join("..", "..", "internal", "engine", "loop.go"),
 	)

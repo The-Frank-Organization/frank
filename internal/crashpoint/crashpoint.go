@@ -34,6 +34,7 @@ var names = []string{
 	"recovery_post_phase3_5",
 	"recovery_post_phase3_6",
 	"recovery_post_phase4",
+	"stale_reissue_after_held",
 	"pre_gc_marker",
 	"post_gc_marker",
 	"pre_gc_unlink",

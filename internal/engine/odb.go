@@ -3,9 +3,11 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"strings"
 
 	"github.com/jackli/frank/internal/fieldspec"
+	"github.com/jackli/frank/internal/migrate"
 	"github.com/jackli/frank/internal/record"
 )
 
@@ -111,28 +113,49 @@ func RenderODB(input ODBInput) (record.Record, error) {
 }
 
 func ValidateODBChoice(odb record.Record, picked string) *fieldspec.Violation {
+	projection, violation := decisionProjection(odb)
+	if violation != nil {
+		return violation
+	}
+	if projection[picked] == "" {
+		return &fieldspec.Violation{Field: "choices", Class: "enum"}
+	}
+	return nil
+}
+
+func decisionProjection(odb record.Record) (map[string]string, *fieldspec.Violation) {
 	if odb.Headers["record_kind"] != "odb" {
-		return &fieldspec.Violation{Field: "record_kind", Class: "enum"}
+		return nil, &fieldspec.Violation{Field: "record_kind", Class: "enum"}
 	}
 	typed, err := fieldspec.ParseTyped(&fieldspec.FieldSpec{ID: "choices", Type: "row_array"}, odb.Headers["choices"])
 	if err != nil {
-		return &fieldspec.Violation{Field: "choices", Class: "typed-parse"}
+		return nil, &fieldspec.Violation{Field: "choices", Class: "typed-parse"}
 	}
 	rows, ok := typed.([]map[string]string)
 	if !ok || len(rows) == 0 {
-		return &fieldspec.Violation{Field: "choices", Class: "typed-parse"}
+		return nil, &fieldspec.Violation{Field: "choices", Class: "typed-parse"}
 	}
-	seen := make(map[string]bool, len(rows))
+	projection := make(map[string]string, len(rows))
 	for _, row := range rows {
-		if len(row) != 2 || row["value"] == "" || row["label"] == "" || seen[row["value"]] {
-			return &fieldspec.Violation{Field: "choices", Class: "typed-parse"}
+		if row["value"] == "" || row["label"] == "" || projection[row["value"]] != "" {
+			return nil, &fieldspec.Violation{Field: "choices", Class: "typed-parse"}
 		}
-		seen[row["value"]] = true
-		if row["value"] == picked {
-			return nil
-		}
+		projection[row["value"]] = row["label"]
 	}
-	return &fieldspec.Violation{Field: "choices", Class: "enum"}
+	return projection, nil
+}
+
+func guardedMigratedODB(source record.Record, migrations *migrate.Registry) (record.Record, bool) {
+	sourceProjection, violation := decisionProjection(source)
+	migrated, err := migrate.Apply(migrations, source)
+	if err != nil {
+		return source, false
+	}
+	migratedProjection, violation := decisionProjection(migrated)
+	if sourceProjection == nil || violation != nil || !maps.Equal(sourceProjection, migratedProjection) {
+		return migrated, false
+	}
+	return migrated, true
 }
 
 func ClassifyODBChoice(odb record.Record, picked string) (string, *fieldspec.Violation) {

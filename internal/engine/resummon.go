@@ -110,7 +110,7 @@ func (s *ResummonScheduler) ArmParked(ctx context.Context, cadence ResummonCaden
 		return err
 	}
 	for gateID := range tab.ParkedLanes {
-		if GateState(tab, gateID) == GateResumed {
+		if GateState(tab, gateID) == GateResumed || gateUnpreservable(tab, gateID) {
 			continue
 		}
 		gate, ok := tab.ByRelay[gateID]
@@ -178,6 +178,9 @@ func (s *ResummonScheduler) due(input ResummonInput) (bool, error) {
 	if GateState(tab, input.DecisionID) == GateResumed {
 		return false, nil
 	}
+	if gateUnpreservable(tab, input.DecisionID) {
+		return false, nil
+	}
 	answered := false
 	for _, rec := range tab.Records {
 		if rec.Headers["resolves_gate"] == input.DecisionID {
@@ -189,6 +192,15 @@ func (s *ResummonScheduler) due(input ResummonInput) (bool, error) {
 		return answered, nil
 	}
 	return !answered, nil
+}
+
+func gateUnpreservable(tab *tables.T, gateID string) bool {
+	for _, rec := range tab.Records {
+		if rec.Envelope.DeliveryState == record.Held && rec.Headers["failing_edge"] == "stale_schema" && rec.Headers["subject_ref"] == gateID {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *ResummonScheduler) Emit(ctx context.Context, input ResummonInput) (ResummonResult, error) {

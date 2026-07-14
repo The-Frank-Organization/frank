@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/jackli/frank/internal/crashpoint"
 	"github.com/jackli/frank/internal/fieldspec"
 	"github.com/jackli/frank/internal/record"
 	"github.com/jackli/frank/internal/store"
@@ -93,6 +94,14 @@ func CompleteAuto(st *store.Store, existing ...*tables.T) error {
 	gateRegistry, useDefaultCategories, registryErr := loadGateRegistry(st)
 	records := append([]record.Record(nil), t.Records...)
 	for _, rec := range records {
+		if rec.Envelope.DeliveryState != record.Rejected || rec.Headers["failing_edge"] != "stale_choice_set" {
+			continue
+		}
+		if err := completeStaleChoiceReissue(st, t, rec); err != nil {
+			return err
+		}
+	}
+	for _, rec := range records {
 		sourceKind := ""
 		switch rec.Envelope.DeliveryState {
 		case record.Accepted:
@@ -129,6 +138,97 @@ func CompleteAuto(st *store.Store, existing ...*tables.T) error {
 	return nil
 }
 
+type staleChoiceIntent struct {
+	Reason                string `json:"reason"`
+	SourceGate            string `json:"source_gate"`
+	ReplacementDecisionID string `json:"replacement_decision_id"`
+	Choices               string `json:"choices"`
+	TargetSchemaVersion   int    `json:"target_schema_version"`
+}
+
+func completeStaleChoiceReissue(st *store.Store, t *tables.T, stale record.Record) error {
+	var intent staleChoiceIntent
+	if err := json.Unmarshal([]byte(stale.Body), &intent); err != nil {
+		return fmt.Errorf("decode stale choice reissue: %w", err)
+	}
+	if intent.Reason != "stale_choice_set" || intent.SourceGate == "" || intent.ReplacementDecisionID == "" || intent.TargetSchemaVersion < 1 {
+		return errors.New("stale choice reissue intent invalid")
+	}
+	source, ok := t.ByRelay[intent.SourceGate]
+	if !ok || source.Envelope.DeliveryState != record.Accepted {
+		return errors.New("stale choice source gate unavailable")
+	}
+
+	heldID := "held-stale-schema-" + intent.SourceGate
+	held, heldExists := t.ByRelay[heldID]
+	if !heldExists {
+		to, err := fieldspec.EncodeAddressList([]string{"operator"})
+		if err != nil {
+			return err
+		}
+		held = record.Record{
+			Envelope: record.Envelope{
+				RelayID: heldID, DispatchID: source.Envelope.DispatchID,
+				From: "system", To: "operator", Role: "system",
+				DeliveryState: record.Held, SchemaVersion: intent.TargetSchemaVersion,
+			},
+			Headers: map[string]string{
+				"PHASE": "SITREP", "SUBJECT": "stale schema requires replacement decision",
+				"TO": to, "failing_edge": "stale_schema", "subject_ref": intent.SourceGate,
+			},
+			Body: "stale_schema",
+		}
+		if _, err := st.Commit(held, nil); err != nil {
+			return err
+		}
+		t.OnCommit(held)
+		if err := completeOutbox(st, t, held, "held"); err != nil {
+			return err
+		}
+		crashpoint.Hit("stale_reissue_after_held")
+	}
+	if _, err := fieldspec.ParseTyped(&fieldspec.FieldSpec{ID: "choices", Type: "row_array"}, intent.Choices); err != nil {
+		return fmt.Errorf("stale choice reissue choices: %w", err)
+	}
+
+	if _, ok := t.ByRelay[intent.ReplacementDecisionID]; !ok {
+		replacement := cloneRecord(source)
+		replacement.Checksum = ""
+		replacement.Envelope.RelayID = intent.ReplacementDecisionID
+		replacement.Envelope.IntakeID = ""
+		replacement.Envelope.SchemaVersion = intent.TargetSchemaVersion
+		replacement.Headers["choices"] = intent.Choices
+		replacement.Headers["reissues_gate"] = intent.SourceGate
+		replacement.Headers["SUBJECT"] = source.Headers["SUBJECT"] + " (schema replacement)"
+		if _, err := st.Commit(replacement, nil); err != nil {
+			return err
+		}
+		t.OnCommit(replacement)
+	}
+	replacement := t.ByRelay[intent.ReplacementDecisionID]
+	if err := completePark(st, t, replacement); err != nil {
+		return err
+	}
+	return completeOutbox(st, t, replacement, "gate")
+}
+
+func cloneRecord(rec record.Record) record.Record {
+	rec.Headers = cloneStrings(rec.Headers)
+	rec.XFields = cloneStrings(rec.XFields)
+	return rec
+}
+
+func cloneStrings(values map[string]string) map[string]string {
+	if values == nil {
+		return nil
+	}
+	out := make(map[string]string, len(values))
+	for key, value := range values {
+		out[key] = value
+	}
+	return out
+}
+
 func firstTable(existing []*tables.T) *tables.T {
 	if len(existing) == 0 {
 		return nil
@@ -151,7 +251,7 @@ func completePark(st *store.Store, t *tables.T, gateRecord record.Record) error 
 			Role:          "system",
 			To:            gateRecord.Envelope.From,
 			DeliveryState: record.Accepted,
-			SchemaVersion: 1,
+			SchemaVersion: gateRecord.Envelope.SchemaVersion,
 		},
 		Headers: map[string]string{
 			"PHASE":      "SITREP",
@@ -207,7 +307,7 @@ func completeODB(st *store.Store, t *tables.T, gateRecord record.Record) error {
 			Role:          "system",
 			To:            "operator",
 			DeliveryState: record.Accepted,
-			SchemaVersion: 1,
+			SchemaVersion: gateRecord.Envelope.SchemaVersion,
 		},
 		Headers: map[string]string{
 			"PHASE":                 "SITREP",

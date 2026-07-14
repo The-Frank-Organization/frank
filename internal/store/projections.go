@@ -359,7 +359,7 @@ func (s *Store) ProjectBucketD(author string) ([]string, error) {
 
 func bucketDFailingEdge(edge string) bool {
 	switch edge {
-	case "form-validation", "lineage", "observe-predicate", "declared-vs-observed":
+	case "form-validation", "lineage", "observe-predicate", "declared-vs-observed", "stale_choice_set":
 		return true
 	default:
 		return false

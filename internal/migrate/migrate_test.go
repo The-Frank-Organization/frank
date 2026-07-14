@@ -84,3 +84,29 @@ func TestReaderStoreErrorsWinBeforeMigration(t *testing.T) {
 		t.Fatalf("Read error = %v, want checksum", err)
 	}
 }
+
+func TestApplyDeepClonesHeadersAndXFieldsBeforeInPlaceMigrator(t *testing.T) {
+	source := record.Record{
+		Envelope: record.Envelope{SchemaVersion: 1},
+		Headers:  map[string]string{"choices": `[{"label":"Approve","value":"approve"}]`},
+		XFields:  map[string]string{"source": "immutable"},
+	}
+	reg := migrate.New()
+	reg.Current = 2
+	reg.Register(1, func(rec record.Record) (record.Record, error) {
+		rec.Headers["choices"] = `[{"label":"Ship","value":"approve"}]`
+		rec.XFields["source"] = "mutated"
+		return rec, nil
+	})
+
+	view, err := migrate.Apply(reg, source)
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if view.Headers["choices"] == source.Headers["choices"] || view.XFields["source"] != "mutated" {
+		t.Fatalf("migrated view = %+v", view)
+	}
+	if source.Headers["choices"] != `[{"label":"Approve","value":"approve"}]` || source.XFields["source"] != "immutable" {
+		t.Fatalf("source aliased by migrator: %+v", source)
+	}
+}

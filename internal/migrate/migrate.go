@@ -59,15 +59,15 @@ func Apply(reg *Registry, rec record.Record) (record.Record, error) {
 	case version > current:
 		return record.Record{}, ErrFutureVersion
 	case version == current:
-		return rec, nil
+		return cloneRecord(rec), nil
 	}
-	out := rec
+	out := cloneRecord(rec)
 	for from := version; from < current; from++ {
 		step, ok := reg.steps[from]
 		if !ok {
 			return record.Record{}, fmt.Errorf("%w: %d->%d", ErrMigrationGap, from, from+1)
 		}
-		next, err := step(out)
+		next, err := step(cloneRecord(out))
 		if err != nil {
 			return record.Record{}, err
 		}
@@ -75,6 +75,23 @@ func Apply(reg *Registry, rec record.Record) (record.Record, error) {
 		out = next
 	}
 	return out, nil
+}
+
+func cloneRecord(rec record.Record) record.Record {
+	rec.Headers = cloneStrings(rec.Headers)
+	rec.XFields = cloneStrings(rec.XFields)
+	return rec
+}
+
+func cloneStrings(values map[string]string) map[string]string {
+	if values == nil {
+		return nil
+	}
+	out := make(map[string]string, len(values))
+	for key, value := range values {
+		out[key] = value
+	}
+	return out
 }
 
 func (r Reader) Read(relayID string) (View, error) {

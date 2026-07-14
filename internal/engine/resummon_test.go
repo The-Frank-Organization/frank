@@ -183,3 +183,22 @@ func TestS10ProductionSchedulerArmsParkedGateAndEmitsExactlyOneResummon(t *testi
 	}
 	t.Fatal("production-composed scheduler did not emit a resummon command")
 }
+
+func TestS11StaleSchemaSuppressesOldCadenceAndReplacementRestartsIdentity(t *testing.T) {
+	tab := tables.New()
+	tab.OnCommit(record.Record{
+		Envelope: record.Envelope{RelayID: "held-stale-schema-old", DeliveryState: record.Held},
+		Headers:  map[string]string{"failing_edge": "stale_schema", "subject_ref": "old"},
+	})
+	if !gateUnpreservable(tab, "old") {
+		t.Fatal("old decision remained eligible for resummon after stale_schema signal")
+	}
+	if gateUnpreservable(tab, "replacement") {
+		t.Fatal("replacement decision inherited old decision suppression")
+	}
+	oldKey := ResummonContentHash(ResummonInput{Seat: "seat-a", DecisionID: "old", CadenceSlot: "g4-no-response-1"})
+	replacementKey := ResummonContentHash(ResummonInput{Seat: "seat-a", DecisionID: "replacement", CadenceSlot: "g4-no-response-1"})
+	if oldKey == replacementKey {
+		t.Fatal("replacement decision did not restart cadence under its new identity")
+	}
+}

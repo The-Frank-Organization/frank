@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 
@@ -27,7 +28,14 @@ func SubmitHandlerWithRender(st *store.Store, reg *fieldspec.Registry, meta seat
 }
 
 func SubmitHandlerWithObservation(st *store.Store, reg *fieldspec.Registry, meta seat.SeatMeta, env fieldspec.RenderEnv, observeEnv observe.Env, existing ...*tables.T) Handler {
-	return submitHandlerWithObservation(st, reg, meta, env, observeEnv, nil, existing...)
+	return submitHandlerWithObservation(st, reg, meta, env, observeEnv, nil, migrate.New(), existing...)
+}
+
+// SubmitHandlerWithMigration exposes the read-side migration registry to the
+// live operator-verdict path. Production v1 callers continue through the
+// default empty registry; the first breaking bump supplies its governed steps.
+func SubmitHandlerWithMigration(st *store.Store, reg *fieldspec.Registry, migrations *migrate.Registry, meta seat.SeatMeta, existing ...*tables.T) Handler {
+	return submitHandlerWithObservation(st, reg, meta, fieldspec.RenderEnv{}, observe.Env{}, nil, migrations, existing...)
 }
 
 func SubmitHandlerWithClaimRegistry(st *store.Store, reg *fieldspec.Registry, meta seat.SeatMeta, env fieldspec.RenderEnv, checks *observe.Registry, existing ...*tables.T) Handler {
@@ -37,10 +45,10 @@ func SubmitHandlerWithClaimRegistry(st *store.Store, reg *fieldspec.Registry, me
 			return checks.EvaluateCandidateClaims(candidate)
 		}
 	}
-	return submitHandlerWithObservation(st, reg, meta, env, observeEnv, checks, existing...)
+	return submitHandlerWithObservation(st, reg, meta, env, observeEnv, checks, migrate.New(), existing...)
 }
 
-func submitHandlerWithObservation(st *store.Store, reg *fieldspec.Registry, meta seat.SeatMeta, env fieldspec.RenderEnv, observeEnv observe.Env, checks *observe.Registry, existing ...*tables.T) Handler {
+func submitHandlerWithObservation(st *store.Store, reg *fieldspec.Registry, meta seat.SeatMeta, env fieldspec.RenderEnv, observeEnv observe.Env, checks *observe.Registry, migrations *migrate.Registry, existing ...*tables.T) Handler {
 	return func(ctx context.Context, cmd intake.Cmd) (record.Record, []store.Intent, error) {
 		cand, formDigest, err := fieldspec.DecodeSubmitPayload(cmd.Payload)
 		if err != nil {
@@ -131,12 +139,16 @@ func submitHandlerWithObservation(st *store.Store, reg *fieldspec.Registry, meta
 			return cand, nil, nil
 		}
 		if cand.Headers["resolves_gate"] != "" {
-			cand = classifyVerdict(tab, cand, meta, observeEnv)
+			cand = classifyVerdict(tab, cand, meta, observeEnv, migrations)
 			if cand.Envelope.DeliveryState == record.Accepted {
 				intents, err := store.DefaultProjectionIntentsStrict(cand)
 				return cand, intents, err
 			}
-			cand = failAtEdge(cand, cand.Envelope.DeliveryState, "form-validation", cand.Body)
+			if cand.Headers["failing_edge"] == "" {
+				cand = failAtEdge(cand, cand.Envelope.DeliveryState, "form-validation", cand.Body)
+			} else {
+				cand = clearGateRaiseHeaders(cand)
+			}
 			return cand, nil, nil
 		}
 		cand.Envelope.DeliveryState = record.Accepted
@@ -508,7 +520,7 @@ func owedProjectionIntentsFromTable(t *tables.T, cand record.Record) []store.Int
 	return []store.Intent{store.OwedOpenProjectionIntent(records)}
 }
 
-func classifyVerdict(t *tables.T, cand record.Record, meta seat.SeatMeta, observeEnv observe.Env) record.Record {
+func classifyVerdict(t *tables.T, cand record.Record, meta seat.SeatMeta, observeEnv observe.Env, migrationRegistry ...*migrate.Registry) record.Record {
 	if !(meta.IsOperator || meta.Name == "operator" || meta.Role == "operator") {
 		cand.Envelope.DeliveryState = record.Rejected
 		cand.Body = formatVerdictViolation(fieldspec.Violation{Field: "record_kind", Class: "seat-scope", Reason: "gate_resolution requires operator"})
@@ -547,9 +559,16 @@ func classifyVerdict(t *tables.T, cand record.Record, meta seat.SeatMeta, observ
 	}
 	if odb.Envelope.RelayID != "" {
 		reply, violation := ParseODBReply(cand.Body)
-		if violation == nil {
-			violation = ValidateODBChoice(odb, reply.Choice)
+		if violation != nil {
+			cand.Envelope.DeliveryState = record.Rejected
+			cand.Body = formatVerdictViolation(*violation)
+			return cand
 		}
+		migrated, compatible := guardedMigratedODB(odb, firstMigrationRegistry(migrationRegistry))
+		if !compatible {
+			return staleChoiceCandidate(cand, gateRecord, odb, migrated)
+		}
+		violation = ValidateODBChoice(migrated, reply.Choice)
 		if violation != nil {
 			cand.Envelope.DeliveryState = record.Rejected
 			cand.Body = formatVerdictViolation(*violation)
@@ -577,6 +596,59 @@ func classifyVerdict(t *tables.T, cand record.Record, meta seat.SeatMeta, observ
 	cand.Envelope.To = wakeSeat
 	cand.Envelope.DeliveryState = record.Accepted
 	return cand
+}
+
+type staleChoiceIntent struct {
+	Reason                string `json:"reason"`
+	SourceGate            string `json:"source_gate"`
+	ReplacementDecisionID string `json:"replacement_decision_id"`
+	Choices               string `json:"choices"`
+	TargetSchemaVersion   int    `json:"target_schema_version"`
+}
+
+func staleChoiceCandidate(cand, gate, sourceODB, migratedODB record.Record) record.Record {
+	choices := ""
+	for _, candidate := range []record.Record{migratedODB, sourceODB, gate} {
+		if _, violation := decisionProjection(record.Record{Headers: map[string]string{
+			"record_kind": "odb", "choices": candidate.Headers["choices"],
+		}}); violation == nil {
+			choices = candidate.Headers["choices"]
+			break
+		}
+	}
+	targetVersion := migratedODB.Envelope.SchemaVersion
+	if targetVersion == 0 {
+		targetVersion = sourceODB.Envelope.SchemaVersion
+	}
+	replacementID := replacementDecisionID(gate.Envelope.RelayID, choices, targetVersion)
+	intent := staleChoiceIntent{
+		Reason: "stale_choice_set", SourceGate: gate.Envelope.RelayID,
+		ReplacementDecisionID: replacementID, Choices: choices, TargetSchemaVersion: targetVersion,
+	}
+	body, err := json.Marshal(intent)
+	if err != nil {
+		return rejectAtEdge(cand, "stale_choice_set", formatVerdictViolation(fieldspec.Violation{Field: "choices", Class: "typed-parse"}))
+	}
+	cand = rejectAtEdge(cand, "stale_choice_set", string(body))
+	cand.Headers["subject_ref"] = gate.Envelope.RelayID
+	return cand
+}
+
+func replacementDecisionID(gateID, choices string, targetVersion int) string {
+	payload, _ := json.Marshal(struct {
+		GateID        string `json:"gate_id"`
+		Choices       string `json:"choices"`
+		TargetVersion int    `json:"target_version"`
+	}{gateID, choices, targetVersion})
+	sum := sha256.Sum256(payload)
+	return fmt.Sprintf("reissue-%x", sum[:12])
+}
+
+func firstMigrationRegistry(registries []*migrate.Registry) *migrate.Registry {
+	if len(registries) == 0 || registries[0] == nil {
+		return migrate.New()
+	}
+	return registries[0]
 }
 
 func formatVerdictViolation(violation fieldspec.Violation) string {
