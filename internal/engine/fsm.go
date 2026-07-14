@@ -2,6 +2,7 @@ package engine
 
 import (
 	"github.com/jackli/frank/internal/record"
+	"github.com/jackli/frank/internal/store"
 	"github.com/jackli/frank/internal/tables"
 )
 
@@ -28,7 +29,7 @@ func GateState(tab *tables.T, gateRef string) string {
 		}
 	}
 	gate := tab.ByRelay[gateRef]
-	if gate.Envelope.DeliveryState == record.Rejected && acceptanceBounceEdge(gate.Headers["failing_edge"]) {
+	if gate.Envelope.DeliveryState == record.Rejected && store.AcceptanceBounceEdge(gate.Headers["failing_edge"]) {
 		return GateBouncedRepair
 	}
 	if gate.Envelope.DeliveryState == record.Accepted && gate.Headers["egress_scan_result"] == "blocked" && gate.Headers["failing_edge"] == "egress" {
@@ -43,13 +44,4 @@ func GateState(tab *tables.T, gateRef string) string {
 		return GateParkedWaitingHuman
 	}
 	return GateActive
-}
-
-func acceptanceBounceEdge(edge string) bool {
-	switch edge {
-	case "form-validation", "lineage", "observe-predicate", "declared-vs-observed":
-		return true
-	default:
-		return false
-	}
 }

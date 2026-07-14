@@ -349,7 +349,7 @@ func (s *Store) ProjectBucketD(author string) ([]string, error) {
 	}
 	var relayIDs []string
 	for _, rec := range records {
-		if rec.Envelope.DeliveryState != record.Rejected || rec.Envelope.From != author || !bucketDFailingEdge(rec.Headers["failing_edge"]) {
+		if rec.Envelope.DeliveryState != record.Rejected || rec.Envelope.From != author || !BucketDFailingEdge(rec.Headers["failing_edge"]) {
 			continue
 		}
 		relayIDs = append(relayIDs, rec.Envelope.RelayID)
@@ -357,13 +357,25 @@ func (s *Store) ProjectBucketD(author string) ([]string, error) {
 	return relayIDs, nil
 }
 
-func bucketDFailingEdge(edge string) bool {
-	switch edge {
-	case "form-validation", "lineage", "observe-predicate", "declared-vs-observed", "stale_choice_set":
-		return true
-	default:
-		return false
-	}
+var acceptanceBounceEdges = map[string]struct{}{
+	"form-validation":      {},
+	"lineage":              {},
+	"observe-predicate":    {},
+	"declared-vs-observed": {},
+}
+
+// AcceptanceBounceEdge reports whether a rejected record returns to its
+// author for repair and therefore enters the bounced-repair FSM state.
+func AcceptanceBounceEdge(edge string) bool {
+	_, ok := acceptanceBounceEdges[edge]
+	return ok
+}
+
+// BucketDFailingEdge reports whether a rejected record belongs in the
+// author-facing repair view. A stale choice set is visible in Bucket D but
+// deliberately does not bounce the original decision's FSM state.
+func BucketDFailingEdge(edge string) bool {
+	return edge == "stale_choice_set" || AcceptanceBounceEdge(edge)
 }
 
 func containsRecipient(values []string, recipient string) bool {

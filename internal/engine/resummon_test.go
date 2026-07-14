@@ -196,8 +196,16 @@ func TestS11StaleSchemaSuppressesOldCadenceAndReplacementRestartsIdentity(t *tes
 	if gateUnpreservable(tab, "replacement") {
 		t.Fatal("replacement decision inherited old decision suppression")
 	}
+	replacement := record.Record{Envelope: record.Envelope{RelayID: "replacement", From: "seat-a"}}
+	replacementInputs := g4ResummonInputs(replacement)
+	if got := replacementInputs[0].CadenceSlot; got != "g4-no-response-1" {
+		t.Fatalf("replacement no-response cadence slot = %q, want g4-no-response-1", got)
+	}
+	if got := replacementInputs[1].CadenceSlot; got != "g4-answered-stalled-1" {
+		t.Fatalf("replacement answered-stalled cadence slot = %q, want g4-answered-stalled-1", got)
+	}
 	oldKey := ResummonContentHash(ResummonInput{Seat: "seat-a", DecisionID: "old", CadenceSlot: "g4-no-response-1"})
-	replacementKey := ResummonContentHash(ResummonInput{Seat: "seat-a", DecisionID: "replacement", CadenceSlot: "g4-no-response-1"})
+	replacementKey := ResummonContentHash(replacementInputs[0])
 	if oldKey == replacementKey {
 		t.Fatal("replacement decision did not restart cadence under its new identity")
 	}

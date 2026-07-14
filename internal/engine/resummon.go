@@ -120,16 +120,24 @@ func (s *ResummonScheduler) ArmParked(ctx context.Context, cadence ResummonCaden
 		if !ok {
 			continue
 		}
-		s.arm(ctx, cadence.NoResponse, ResummonInput{
-			Seat: gate.Envelope.From, DecisionID: gateID, CadenceSlot: "g4-no-response-1",
-			Reason: ResummonNoResponse, SummonChannel: SummonLocal,
-		})
-		s.arm(ctx, cadence.AnsweredStalled, ResummonInput{
-			Seat: gate.Envelope.From, DecisionID: gateID, CadenceSlot: "g4-answered-stalled-1",
-			Reason: ResummonAnsweredStalled, SummonChannel: SummonLouderLocal,
-		})
+		inputs := g4ResummonInputs(gate)
+		s.arm(ctx, cadence.NoResponse, inputs[0])
+		s.arm(ctx, cadence.AnsweredStalled, inputs[1])
 	}
 	return nil
+}
+
+func g4ResummonInputs(gate record.Record) [2]ResummonInput {
+	return [2]ResummonInput{
+		{
+			Seat: gate.Envelope.From, DecisionID: gate.Envelope.RelayID, CadenceSlot: "g4-no-response-1",
+			Reason: ResummonNoResponse, SummonChannel: SummonLocal,
+		},
+		{
+			Seat: gate.Envelope.From, DecisionID: gate.Envelope.RelayID, CadenceSlot: "g4-answered-stalled-1",
+			Reason: ResummonAnsweredStalled, SummonChannel: SummonLouderLocal,
+		},
+	}
 }
 
 func (s *ResummonScheduler) arm(ctx context.Context, delay time.Duration, input ResummonInput) {

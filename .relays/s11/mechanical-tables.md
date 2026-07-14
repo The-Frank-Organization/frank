@@ -13,7 +13,7 @@
 | T6 frozen decision guard | immutable source ODB π snapshot + deep-cloned migrated view + live `classifyVerdict` | implemented; alias, breaking, and structural fixtures green |
 | T6 stale disposition | rejected `stale_choice_set` candidate + durable reissue intent + held `stale_schema` + new decision identity | implemented; both byte tokens, D query, no-wake, and operator outbox proven |
 | T6 crash replay | deterministic intent on stale candidate + recovery replay after `stale_reissue_after_held` | implemented; real-process crash replays same identity exactly once |
-| T6 cadence restart | old decision suppressed by held fault + new decision ID in resummon content key | implemented; same-seat/new-ID key separation fixture green |
+| T6 cadence restart | old decision suppressed by held fault + new decision ID and scheduler-assigned first G4 slots in resummon content key | implemented; replacement slots asserted independently before same-seat/new-ID key separation |
 | T7 terminal/edge matrix | T1–T4/T6 bucket queries + obligation-derived A artifacts | registered; 14 positive/negative boundary rows green |
 | T7 ③ known-A NF | live submit validator + known-A floor + B saved query + A ODB | registered; rewrite/provenance/no-absorb behavior green |
 | T8 item 1 generic prompter | approval/expiry adapters + shared owner/wait/emit/resolve lifecycle | implemented; fail-safe decisions and duplicate-waiter fixtures green |
@@ -35,6 +35,7 @@
 | Path | Task/seam | License |
 |---|---|---|
 | `.relays/s11/mechanical-tables.md` | cross-task consumption and diff-license evidence | IN — token row `frank/.relays/s11/` |
+| `.relays/s11/fold-optionals-red-green.md` | optional findings 1/2 RED, focused GREEN, and targeted package/fixture evidence | IN — review-fold FOLD_SCOPE row `frank/.relays/s11/fold-optionals-red-green.md` |
 | `.relays/s11/t1-red-green.md` | T1 sequence-honest RED/GREEN evidence | IN — token row `frank/.relays/s11/` |
 | `.relays/s11/t2-red-green.md` | T2 sequence-honest RED/GREEN evidence | IN — token row `frank/.relays/s11/` |
 | `.relays/s11/t3-red-green.md` | T3 sequence-honest RED/GREEN evidence | IN — token row `frank/.relays/s11/` |
@@ -57,8 +58,8 @@
 | `internal/migrate/migrate.go` | T6 deep-clone before every migration step | IN — token row `frank/internal/migrate/`, T6 only |
 | `internal/engine/odb.go` | T6 frozen π guard; T8 item 3 adapter to the one ODB builder | IN — token row `frank/internal/engine/`, named ODB seam; item order T6 then T8.3 |
 | `internal/engine/submit.go` | T3 acceptance-edge writer; T6 live verdict guard, typed stale candidate, deterministic durable reissue intent | IN — token row `frank/internal/engine/`; named seam order T3 then T6 |
-| `internal/engine/resummon.go` | T6 suppression; T8 item 5 snapshot supply; T8 item 6 operator-record adapter; T9 cadence source | IN — token row `frank/internal/engine/`; item order T6 then T8.5 then T8.6 then T9 |
-| `internal/engine/resummon_test.go` | T6 cadence restart; T8 item 5 dedupe/scheduler snapshot characterization | IN — token row `frank/internal/engine/`, scheduler seam |
+| `internal/engine/resummon.go` | T6 suppression; T8 item 5 snapshot supply; T8 item 6 operator-record adapter; T9 cadence source; optional finding 2 testable G4 input construction | IN — token row `frank/internal/engine/` plus review-fold FOLD_SCOPE; item order T6 then T8.5 then T8.6 then T9 |
+| `internal/engine/resummon_test.go` | T6 cadence restart; T8 item 5 dedupe/scheduler snapshot characterization; optional finding 2 replacement-slot assertion | IN — token row `frank/internal/engine/` plus review-fold FOLD_SCOPE, scheduler seam |
 | `cmd/frank/main.go` | T8 item 5 production live-table snapshot injection; T9 pinned cadence handoff | IN — composition-root-only seams; item order T8.5 then T9 |
 | `internal/config/config.go` | T9 exact G4 cadence object, validation, and shipped defaults | IN — token row `frank/internal/config/config.go`, G4 cadence loci only |
 | `test/fixtures/s11_cadence_test.go` | T9 RED/GREEN production wiring and no-auto-approve boundary | IN — token row `frank/test/fixtures/`, T9 only |
@@ -66,8 +67,9 @@
 | `internal/crashpoint/crashpoint.go` | T6 stale reissue durability boundary | IN — token row `frank/internal/crashpoint/`, T6 only |
 | `internal/crashpoint/crashpoint_test.go` | T6 exact registered-crashpoint assertion adjacency | IN — token row `frank/internal/crashpoint/`, T6 only |
 | `test/fixtures/s11_fsm_test.go` | T4 seven-state branch fixture and fixture-scoped egress negative | IN — token row `frank/test/fixtures/` |
-| `internal/engine/fsm.go` | T4 two missing labels and durable-state derivation | IN — token row `frank/internal/engine/` and named FSM seam |
-| `internal/store/projections.go` | T1 bucket-B, T2 bucket-C, and T3 author-facing bucket-D saved queries, including delayed T3 acceptance-edge token closure for `stale_choice_set` | IN — token row `frank/internal/store/projections.go`; read-side T1–T3 only |
+| `internal/bounce/edges_test.go` | optional finding 1 relation assertion: Bucket D equals the FSM acceptance-bounce subset plus `stale_choice_set` | IN — review-fold FOLD_SCOPE row `frank/internal/bounce/edges_test.go` |
+| `internal/engine/fsm.go` | T4 two missing labels and durable-state derivation; optional finding 1 shared acceptance-bounce consumer | IN — token row `frank/internal/engine/`, named FSM seam, plus review-fold FOLD_SCOPE |
+| `internal/store/projections.go` | T1 bucket-B, T2 bucket-C, and T3 author-facing bucket-D saved queries, including delayed T3 acceptance-edge token closure for `stale_choice_set`; optional finding 1 named shared classifier | IN — token row `frank/internal/store/projections.go` plus review-fold FOLD_SCOPE; read-side T1–T3 only |
 | `test/fixtures/s11_buckets_test.go` | T1–T3 bucket fixtures + T7 14-row matrix and live ③ known-A NF | IN — token row `frank/test/fixtures/` |
 
 The table is updated before each task commit and reconciled to the live diff.
