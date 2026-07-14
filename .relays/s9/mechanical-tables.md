@@ -5,7 +5,7 @@
 | Consumer | Supply | State |
 |---|---|---|
 | T1 read-file | governed `RegistryEnv.Lanes[lane_ref]`, timeout router | landed in T1 shared worker |
-| T2 find-references | T1 descriptor-rooted worker | pending |
+| T2 find-references | T1 descriptor-rooted worker | implemented, verification pending commit |
 | T3 verdict binding | conductor `Selection`, registry `CheckEntry`, executor verdict | pending |
 | T4 absence floor | T1 root health, T3 rows, m-7 `lane_vcs` owner bytes | held on m-7 return |
 | T5 attestation negative | system-owned FieldSpec admission | pending |
@@ -23,5 +23,8 @@
 | `internal/observe/read_file_worker.go` | T1 extraction, read-file byte semantics preserved | in |
 | `internal/observe/registry.go` | T1 shared worker state and hook only | in |
 | `.relays/s9/` | evidence capture | in |
+| `internal/observe/fs_worker.go` | T2 descriptor-rooted scanner operation | in |
+| `internal/observe/registry.go` | T2 entry, params, dispatch and verdict mapping | in |
+| `internal/observe/registry_test.go` | T2 RED/GREEN fixtures | in |
 
 No `internal/executor/executor.go` diff. No T7/T8 or blocked-ledger code.

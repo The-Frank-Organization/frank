@@ -103,7 +103,8 @@ type RegistryEnv struct {
 	ReadFileStageHook func(ReadFileStage)
 	// FSStageHook is the generalized injected seam shared by every detachable
 	// descriptor-rooted filesystem operation.
-	FSStageHook func(FSStage)
+	FSStageHook   func(FSStage)
+	findRefLimits *findRefLimits
 }
 
 type Registry struct {
@@ -140,6 +141,7 @@ func NewRegistry(env RegistryEnv) *Registry {
 			OnSideEffectApproval: env.OnSideEffectApproval,
 			ReadFileStageHook:    env.ReadFileStageHook,
 			FSStageHook:          env.FSStageHook,
+			findRefLimits:        env.findRefLimits,
 		},
 		fsLane: make(map[string]fsLaneState),
 		entries: map[string]CheckEntry{
@@ -152,6 +154,11 @@ func NewRegistry(env RegistryEnv) *Registry {
 				ID: "git-status", Rung: "E1", Class: "base", TimeoutClass: "read_short",
 				ParamSchema: map[string]string{"lane_ref": "registry-id", "expect": "clean|dirty"},
 				Produces:    []string{"achieved_evidence", "evidence_integrity"},
+			},
+			"find-references": {
+				ID: "find-references", Rung: "E1", Class: "base", TimeoutClass: "read_short",
+				ParamSchema: map[string]string{"symbol": "identifier-token", "lane_ref": "registry-id", "expect": "count:0"},
+				Produces:    []string{"achieved_evidence"},
 			},
 			"run-suite": {
 				ID: "run-suite", Rung: "E2", Class: "suite", ExecutorRequired: true, TimeoutClass: "suite_bounded",
@@ -180,6 +187,9 @@ func (r *Registry) Entry(id string) (CheckEntry, bool) {
 
 func (r *Registry) Run(selection Selection) CheckVerdict {
 	entry, ok := r.entries[selection.CheckID]
+	if ok && entry.ID == "find-references" && r.env.Lanes[selection.Params["lane_ref"]] == "" {
+		return refusedVerdictWithDetail(selection, "lane-ungoverned")
+	}
 	if ok && entry.ID == "read-file" && strings.HasPrefix(selection.Params["expect"], "schema_ref:") {
 		if r.env.SchemaRefs[strings.TrimPrefix(selection.Params["expect"], "schema_ref:")] == "" {
 			return refusedVerdictWithDetail(selection, "schema-ref-unknown")
@@ -204,6 +214,18 @@ func (r *Registry) Run(selection Selection) CheckVerdict {
 		return r.runReadFile(selection)
 	case "git-status":
 		return r.runGitStatus(selection)
+	case "find-references":
+		result := r.executeFindReferences(selection)
+		switch result.kind {
+		case fsResultMachinery:
+			return CheckVerdict{CheckID: selection.CheckID, ClaimRef: selection.ClaimRef, Outcome: "unsafe", RungReached: "none", Predicate: Blocked, Timing: result.timing, FailingDetail: result.detail}
+		case fsResultDegraded:
+			return CheckVerdict{CheckID: selection.CheckID, ClaimRef: selection.ClaimRef, Outcome: "skipped", RungReached: "none", Predicate: Degraded, FailingDetail: result.detail}
+		case fsResultData:
+			return baseVerdict(selection, result.count == 0, "find-references-count-nonzero")
+		default:
+			return CheckVerdict{CheckID: selection.CheckID, ClaimRef: selection.ClaimRef, Outcome: "unsafe", RungReached: "none", Predicate: Blocked, FailingDetail: "check-machinery-find-references-io"}
+		}
 	case "run-suite", "run-suite-unbounded":
 		if r.env.Executor != nil {
 			return r.env.Executor.Spawn(entry, selection)
@@ -371,10 +393,24 @@ func (r *Registry) validParams(entry CheckEntry, params map[string]string) bool 
 		}
 	case "git-status":
 		return r.env.Lanes[params["lane_ref"]] != "" && (params["expect"] == "clean" || params["expect"] == "dirty")
+	case "find-references":
+		return r.env.Lanes[params["lane_ref"]] != "" && params["expect"] == "count:0" && validFindRefSymbol(params["symbol"])
 	case "run-suite", "run-suite-unbounded":
 		return r.env.NamedSuites[params["target"]] && (params["expect_green"] == "true" || params["expect_green"] == "false")
 	}
 	return false
+}
+
+func validFindRefSymbol(value string) bool {
+	if len(value) == 0 || len(value) > 128 || value[0] != '_' && (value[0] < 'a' || value[0] > 'z') && (value[0] < 'A' || value[0] > 'Z') {
+		return false
+	}
+	for i := 1; i < len(value); i++ {
+		if !findRefIdentifierByte(value[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 func validRelativePath(path string) bool {
