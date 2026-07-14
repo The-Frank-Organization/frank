@@ -194,20 +194,12 @@ func (h *Host) execute(selection observe.Selection, suite Suite, workdir string)
 	defer timer.Stop()
 	select {
 	case waitErr := <-waited:
-		verdict, preserve := h.finalizeRun(selection, pgid, waitErr, false, false, capture)
-		if preserve {
-			cleanup = false
-		}
-		return verdict
+		return h.finalizeRun(selection, pgid, waitErr, false, false, capture, &cleanup)
 	case <-timer.C:
 		if h.config.OnSoftExpiry == nil {
 			_ = syscall.Kill(-pgid, syscall.SIGKILL)
 			waitErr := <-waited
-			verdict, preserve := h.finalizeRun(selection, pgid, waitErr, true, false, capture)
-			if preserve {
-				cleanup = false
-			}
-			return verdict
+			return h.finalizeRun(selection, pgid, waitErr, true, false, capture, &cleanup)
 		}
 		hardCeiling := h.config.HardCeiling
 		if hardCeiling < suite.Timeout {
@@ -224,20 +216,12 @@ func (h *Host) execute(selection observe.Selection, suite Suite, workdir string)
 		select {
 		case waitErr := <-waited:
 			cancel()
-			verdict, preserve := h.finalizeRun(selection, pgid, waitErr, false, false, capture)
-			if preserve {
-				cleanup = false
-			}
-			return verdict
+			return h.finalizeRun(selection, pgid, waitErr, false, false, capture, &cleanup)
 		case picked := <-decision:
 			cancel()
 			select {
 			case waitErr := <-waited:
-				verdict, preserve := h.finalizeRun(selection, pgid, waitErr, false, false, capture)
-				if preserve {
-					cleanup = false
-				}
-				return verdict
+				return h.finalizeRun(selection, pgid, waitErr, false, false, capture, &cleanup)
 			default:
 			}
 			extended := picked.Action == ExpiryExtend
@@ -265,42 +249,31 @@ func (h *Host) execute(selection observe.Selection, suite Suite, workdir string)
 				_ = syscall.Kill(-pgid, syscall.SIGKILL)
 				waitErr = <-waited
 			}
-			verdict, preserve := h.finalizeRun(selection, pgid, waitErr, timedOut, extended, capture)
-			if preserve {
-				cleanup = false
-			}
-			return verdict
+			return h.finalizeRun(selection, pgid, waitErr, timedOut, extended, capture, &cleanup)
 		case <-expiryCtx.Done():
 			cancel()
 			select {
 			case waitErr := <-waited:
-				verdict, preserve := h.finalizeRun(selection, pgid, waitErr, false, false, capture)
-				if preserve {
-					cleanup = false
-				}
-				return verdict
+				return h.finalizeRun(selection, pgid, waitErr, false, false, capture, &cleanup)
 			default:
 			}
 			_ = syscall.Kill(-pgid, syscall.SIGKILL)
 			waitErr := <-waited
-			verdict, preserve := h.finalizeRun(selection, pgid, waitErr, true, false, capture)
-			if preserve {
-				cleanup = false
-			}
-			return verdict
+			return h.finalizeRun(selection, pgid, waitErr, true, false, capture, &cleanup)
 		}
 	}
 }
 
-func (h *Host) finalizeRun(selection observe.Selection, pgid int, waitErr error, timedOut, extended bool, capture *cappedCapture) (observe.CheckVerdict, bool) {
+func (h *Host) finalizeRun(selection observe.Selection, pgid int, waitErr error, timedOut, extended bool, capture *cappedCapture, cleanup *bool) observe.CheckVerdict {
 	if !h.config.GroupGone(pgid) {
 		_ = syscall.Kill(-pgid, syscall.SIGKILL)
 		if !h.waitGroupGone(pgid) {
-			return fault(selection, "executor-survivor"), true
+			*cleanup = false
+			return fault(selection, "executor-survivor")
 		}
 	}
 	if timedOut {
-		return faultWithTiming(selection, "executor-timeout", "timeout"), false
+		return faultWithTiming(selection, "executor-timeout", "timeout")
 	}
 
 	exitGreen := waitErr == nil || errors.Is(waitErr, exec.ErrWaitDelay)
@@ -320,7 +293,7 @@ func (h *Host) finalizeRun(selection observe.Selection, pgid int, waitErr error,
 	} else if capture.wasTruncated() {
 		verdict.FailingDetail = "output-truncated"
 	}
-	return verdict, false
+	return verdict
 }
 
 func fault(selection observe.Selection, detail string) observe.CheckVerdict {

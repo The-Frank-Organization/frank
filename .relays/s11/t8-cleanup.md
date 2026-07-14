@@ -132,3 +132,24 @@ go test -count=1 ./test/fixtures -run '^TestS10(ApprovalPrompter|ExpiryPrompter)
 Observed: GREEN; no prefix-slicing coupling remains.
 
 Between-item battery: `go test -count=1 ./... && go vet ./...` GREEN.
+
+## Item 8 — one executor cleanup owner
+
+Every completion branch now returns through `finalizeRun`, which alone decides
+whether the staged workdir is preserved after an unreaped process group. The
+seven repeated preserve-result branches are gone. `Spawn` and both refusal
+checks are untouched, as are the start/survivor/timeout fault tokens, the
+exit-vs-expect verdict logic, and every rung/timing byte.
+
+Characterization and targeted command:
+
+```text
+go test -count=1 ./test/fixtures -run '^TestS8FXEXE2TimeoutReapsGroupBeforeCleanup$' -v
+go test -count=1 ./test/fixtures -run '^TestS8Adversarial(ExecutorIsolationAndVerdictIPHIntegrated|TruncationMarkerDistinctFromFailureClasses)$' -v
+! rg -n 'verdict, preserve|if preserve' internal/executor/executor.go
+```
+
+Observed before and after: GREEN; survivor workdir preservation and confirmed-
+exit cleanup remain distinct, while the cleanup decision has one owner.
+
+Between-item battery: `go test -count=1 ./... && go vet ./...` GREEN.
