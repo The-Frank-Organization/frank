@@ -9,10 +9,10 @@
 | T3 verdict binding | conductor `Selection`, registry `CheckEntry`, executor verdict | implemented; full commit-point battery green |
 | T4 absence floor | T1 root health, T3 rows, m-7 `lane_vcs` owner bytes | implemented; m-7 bytes at `db9a166`; full battery green |
 | T5 attestation negative | system-owned FieldSpec admission | verified covered; test-only fixture |
-| T6 mixed rollup | T3 row output | pending verification |
+| T6 mixed rollup | T3 row output | verified: `authority_mixed` reaches decision-② `held` |
 | T7 bounce class | m-2 registry co-sign | closed |
 | T8 envelope key hygiene | m-1 and m-2 co-signs | closed |
-| T9 exit fixtures | T1 through T6 plus opened owner-gated tasks | pending |
+| T9 exit fixtures | T1 through T6 plus opened owner-gated tasks | implemented; consolidated runnable set + decision-⑤ pair green |
 
 ## Diff to license
 
@@ -42,5 +42,7 @@
 | `test/fixtures/s8_config_activation_test.go` | v3 dogfood genesis assertion | in |
 | `test/fixtures/s8_supply_test.go` | v3 duplicate-marker fixture | in |
 | `.relays/s9/t4-red-green.md` | T4 implementation evidence | in |
+| `test/fixtures/s9_exit_test.go` | T9 fixture-scoped decision-⑤ egress pair | in |
+| `.relays/s9/t9-red-green.md` | T9 consolidated exit-fixture evidence | in |
 
 No `internal/executor/executor.go` diff. No T7/T8 or blocked-ledger code.
