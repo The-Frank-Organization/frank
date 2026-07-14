@@ -280,6 +280,33 @@ func OwedOpenProjectionIntent(records []record.Record) Intent {
 	return Intent{Kind: IntentRender, Path: filepath.Join("owed", "OPEN.md"), Payload: []byte(b.String())}
 }
 
+// ProjectBucketB is the live, non-interrupting digest for records whose
+// committed gate_category belongs to the pinned operator-configured B set.
+// It is a saved query over immutable record tags: no mailbox is created and a
+// monotonic raise that rewrites the category to A cannot remain in this view.
+func (s *Store) ProjectBucketB(reg *fieldspec.Registry) ([]string, error) {
+	if reg == nil {
+		return nil, fmt.Errorf("bucket B registry required")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	records, err := s.recordsLocked()
+	if err != nil {
+		return nil, err
+	}
+	var relayIDs []string
+	for _, rec := range records {
+		if rec.Envelope.DeliveryState != record.Accepted {
+			continue
+		}
+		class, _ := reg.ClassifyGateCategory(rec.Headers["gate_category"], false)
+		if class == "B" {
+			relayIDs = append(relayIDs, rec.Envelope.RelayID)
+		}
+	}
+	return relayIDs, nil
+}
+
 func appendUnique(path string, payload []byte) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
