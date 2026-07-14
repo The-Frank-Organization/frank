@@ -14,6 +14,8 @@
 | T6 stale disposition | rejected `stale_choice_set` candidate + durable reissue intent + held `stale_schema` + new decision identity | implemented; both byte tokens, D query, no-wake, and operator outbox proven |
 | T6 crash replay | deterministic intent on stale candidate + recovery replay after `stale_reissue_after_held` | implemented; real-process crash replays same identity exactly once |
 | T6 cadence restart | old decision suppressed by held fault + new decision ID in resummon content key | implemented; same-seat/new-ID key separation fixture green |
+| T7 terminal/edge matrix | T1–T4/T6 bucket queries + obligation-derived A artifacts | registered; 14 positive/negative boundary rows green |
+| T7 ③ known-A NF | live submit validator + known-A floor + B saved query + A ODB | registered; rewrite/provenance/no-absorb behavior green |
 
 ## Diff to license
 
@@ -25,6 +27,7 @@
 | `.relays/s11/t3-red-green.md` | T3 sequence-honest RED/GREEN evidence | IN — token row `frank/.relays/s11/` |
 | `.relays/s11/t4-red-green.md` | T4 sequence-honest RED/GREEN evidence | IN — token row `frank/.relays/s11/` |
 | `.relays/s11/t6-red-green.md` | T6 sequence-honest RED/GREEN and crash-replay evidence | IN — token row `frank/.relays/s11/` |
+| `.relays/s11/t7-matrix.md` | T7 prerequisite RED lineage and consolidated matrix evidence | IN — token row `frank/.relays/s11/` |
 | `internal/migrate/migrate_test.go` | T6 alias-safety RED/GREEN | IN — token row `frank/internal/migrate/`, T6 only |
 | `test/fixtures/s11_8a_test.go` | T6 live-path, byte-token, no-wake, structural, and crash-replay fixtures | IN — token row `frank/test/fixtures/` |
 | `test/fixtures/f11_test.go` | T6 crashpoint registry live-site census adjacency | IN — token row `frank/test/fixtures/` |
@@ -40,6 +43,6 @@
 | `internal/engine/submit.go` | T3 system-authored acceptance-stage `failing_edge` writer | IN — token row `frank/internal/engine/` and named submit-side verdict classification seam |
 | `internal/engine/fsm.go` | T4 two missing labels and durable-state derivation | IN — token row `frank/internal/engine/` and named FSM seam |
 | `internal/store/projections.go` | T1 bucket-B, T2 bucket-C, and T3 author-facing bucket-D saved queries, including delayed T3 acceptance-edge token closure for `stale_choice_set` | IN — token row `frank/internal/store/projections.go`; read-side T1–T3 only |
-| `test/fixtures/s11_buckets_test.go` | T1 bucket-B behavior fixture; later T2/T3/T7 bucket matrix extension | IN — token row `frank/test/fixtures/` |
+| `test/fixtures/s11_buckets_test.go` | T1–T3 bucket fixtures + T7 14-row matrix and live ③ known-A NF | IN — token row `frank/test/fixtures/` |
 
 The table is updated before each task commit and reconciled to the live diff.

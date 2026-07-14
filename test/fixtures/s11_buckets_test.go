@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/jackli/frank/internal/engine"
@@ -158,6 +159,130 @@ func TestS11BucketDIsAuthorFacingAndEgressBlockedStaysA(t *testing.T) {
 	if formRejected.Envelope.DeliveryState != record.Rejected || formRejected.Headers["failing_edge"] != "form-validation" {
 		t.Fatalf("form rejection = %s/%q, want rejected/form-validation", formRejected.Envelope.DeliveryState, formRejected.Headers["failing_edge"])
 	}
+}
+
+func TestS11BucketTerminalAndFailingEdgeMatrix(t *testing.T) {
+	cases := []struct {
+		name  string
+		state string
+		edge  string
+		setup func(*record.Record)
+		wantA bool
+		wantB bool
+		wantC bool
+		wantD bool
+	}{
+		{name: "A accepted authority gate", state: record.Accepted, setup: func(rec *record.Record) {
+			rec.Headers["gate_category"] = "authz_security"
+		}, wantA: true},
+		{name: "A accepted egress block never D", state: record.Accepted, edge: "egress", setup: func(rec *record.Record) {
+			rec.Headers["gate_category"] = "authz_security"
+			rec.Headers["egress_scan_result"] = "blocked"
+		}, wantA: true},
+		{name: "A held fault never D", state: record.Held, edge: "stale_schema", wantA: true},
+		{name: "B accepted category", state: record.Accepted, setup: func(rec *record.Record) {
+			rec.Headers["gate_category"] = "routing"
+		}, wantB: true},
+		{name: "B category rejected at acceptance becomes D", state: record.Rejected, edge: "form-validation", setup: func(rec *record.Record) {
+			rec.Headers["gate_category"] = "routing"
+		}, wantD: true},
+		{name: "C accepted operator CC only", state: record.Accepted, setup: func(rec *record.Record) {
+			rec.Headers["TO"] = `["s11.implementer"]`
+			rec.Headers["CC"] = `["operator"]`
+		}, wantC: true},
+		{name: "C addressing rejected at acceptance becomes D", state: record.Rejected, edge: "lineage", setup: func(rec *record.Record) {
+			rec.Headers["TO"] = `["s11.implementer"]`
+			rec.Headers["CC"] = `["operator"]`
+		}, wantD: true},
+		{name: "D form validation", state: record.Rejected, edge: "form-validation", wantD: true},
+		{name: "D lineage", state: record.Rejected, edge: "lineage", wantD: true},
+		{name: "D observe predicate", state: record.Rejected, edge: "observe-predicate", wantD: true},
+		{name: "D declared versus observed", state: record.Rejected, edge: "declared-vs-observed", wantD: true},
+		{name: "D requires rejected terminal", state: record.Accepted, edge: "observe-predicate"},
+		{name: "held never falls through to D", state: record.Held, edge: "observe-predicate", wantA: true},
+		{name: "egress edge without accepted A stage is not D", state: record.Rejected, edge: "egress"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			pinned := initFixtureStore(t, root)
+			st, err := store.Open(root)
+			if err != nil {
+				t.Fatalf("Open: %v", err)
+			}
+			rec := s11BucketRecord("matrix-record", "")
+			rec.Envelope.DeliveryState = tc.state
+			rec.Headers["failing_edge"] = tc.edge
+			if tc.setup != nil {
+				tc.setup(&rec)
+			}
+			if _, err := st.Commit(rec, nil); err != nil {
+				t.Fatalf("Commit: %v", err)
+			}
+			if err := obligation.CompleteAuto(st); err != nil {
+				t.Fatalf("CompleteAuto: %v", err)
+			}
+
+			bucketB, err := st.ProjectBucketB(pinned.Registry)
+			if err != nil {
+				t.Fatalf("ProjectBucketB: %v", err)
+			}
+			bucketC, err := st.ProjectBucketC()
+			if err != nil {
+				t.Fatalf("ProjectBucketC: %v", err)
+			}
+			bucketD, err := st.ProjectBucketD(rec.Envelope.From)
+			if err != nil {
+				t.Fatalf("ProjectBucketD: %v", err)
+			}
+			if got := slices.Contains(bucketB, rec.Envelope.RelayID); got != tc.wantB {
+				t.Fatalf("bucket B membership = %v, want %v; %v", got, tc.wantB, bucketB)
+			}
+			if got := slices.Contains(bucketC, rec.Envelope.RelayID); got != tc.wantC {
+				t.Fatalf("bucket C membership = %v, want %v; %v", got, tc.wantC, bucketC)
+			}
+			if got := slices.Contains(bucketD, rec.Envelope.RelayID); got != tc.wantD {
+				t.Fatalf("bucket D membership = %v, want %v; %v", got, tc.wantD, bucketD)
+			}
+			hasA := s11HasBucketAArtifact(st, rec)
+			if hasA != tc.wantA {
+				t.Fatalf("bucket A derived artifact = %v, want %v", hasA, tc.wantA)
+			}
+		})
+	}
+}
+
+func TestS11KnownABPickIsRaisedRecordedAndNeverAbsorbed(t *testing.T) {
+	st, reg, meta := s5GateRaiseDeps(t)
+	rec := s5GateRaiseCandidate()
+	rec.Headers["gate_category"] = "routing"
+	committed := s5SubmitAndCommit(t, st, reg, meta, s5AFloorEnv(reg, "authz_security"), rec)
+	if committed.Envelope.DeliveryState != record.Accepted ||
+		committed.Headers["gate_category"] != "authz_security" ||
+		committed.Headers["gate_category_raised"] != "yes" ||
+		committed.Headers["gate_category_pick"] != "routing" {
+		t.Fatalf("known-A raise = %+v", committed)
+	}
+	if bucketB, err := st.ProjectBucketB(reg); err != nil || slices.Contains(bucketB, committed.Envelope.RelayID) {
+		t.Fatalf("known-A record silently absorbed in B: %v, %v", bucketB, err)
+	}
+	if err := obligation.CompleteAuto(st); err != nil {
+		t.Fatalf("CompleteAuto: %v", err)
+	}
+	if _, err := st.Read("odb-" + committed.Envelope.RelayID); err != nil {
+		t.Fatalf("known-A record did not reach A decision surface: %v", err)
+	}
+}
+
+func s11HasBucketAArtifact(st *store.Store, rec record.Record) bool {
+	if _, err := st.Read("odb-" + rec.Envelope.RelayID); err == nil {
+		return true
+	}
+	if _, err := st.Read("outbox-held-" + rec.Envelope.RelayID); err == nil {
+		return true
+	}
+	return false
 }
 
 func s11BucketRecord(relayID, category string) record.Record {
