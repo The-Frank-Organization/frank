@@ -27,6 +27,8 @@
 | T9 G4 no-response cadence | startup-pinned operator config -> production scheduler no-response timer | implemented; custom zero fires while answered-stalled remains at one hour |
 | T9 G4 answered-stalled cadence | startup-pinned operator config -> production scheduler answered-stalled timer | implemented; custom zero fires after rejected answer while no-response remains at one hour |
 | T9 no-auto-approve boundary | exact cadence object with duration fields only -> resummon commands | implemented; `auto_approve` is schema-rejected and no accepted resolution is emitted |
+| T5 elaborate-more fork | g2 reviewed ceiling returned to master | REPORT-AND-HOLD; acceptance OPEN — planner proposal only, no implementer review/master completion |
+| T10 re-prompt/claimless-held | dc design-cell return | REPORT-AND-HOLD; acceptance OPEN — no dc return exists |
 
 ## Diff to license
 
@@ -40,6 +42,8 @@
 | `.relays/s11/t6-red-green.md` | T6 sequence-honest RED/GREEN and crash-replay evidence | IN — token row `frank/.relays/s11/` |
 | `.relays/s11/t7-matrix.md` | T7 prerequisite RED lineage and consolidated matrix evidence | IN — token row `frank/.relays/s11/` |
 | `.relays/s11/t8-cleanup.md` | T8 per-item order, characterization, and battery evidence | IN — token row `frank/.relays/s11/` |
+| `.relays/s11/t9-red-green.md` | T9 sequence-honest RED/GREEN and production wiring evidence | IN — token row `frank/.relays/s11/` |
+| `.relays/s11/t11-exit.md` | T11 acceptance, gate-hold, label/mechanism, I-PH, and catch evidence | IN — token row `frank/.relays/s11/` |
 | `internal/engine/prompter.go` | T8 item 1 generic lifecycle; T8 item 7 shared raw digest | IN — token row `frank/internal/engine/`; item order 1 then 7 |
 | `internal/tables/tables.go` | T8 item 4 gate-resolution and approval-entry snapshot indexes | IN — token row `frank/internal/tables/`, item 4 only |
 | `internal/tables/tables_test.go` | T8 item 4 index clone/publish characterization | IN — token row `frank/internal/tables/`, item 4 only |
@@ -52,7 +56,7 @@
 | `test/fixtures/f11_test.go` | T6 crashpoint registry live-site census adjacency | IN — token row `frank/test/fixtures/` |
 | `internal/migrate/migrate.go` | T6 deep-clone before every migration step | IN — token row `frank/internal/migrate/`, T6 only |
 | `internal/engine/odb.go` | T6 frozen π guard; T8 item 3 adapter to the one ODB builder | IN — token row `frank/internal/engine/`, named ODB seam; item order T6 then T8.3 |
-| `internal/engine/submit.go` | T6 live verdict guard, typed stale candidate, deterministic durable reissue intent | IN — token row `frank/internal/engine/`, named verdict seam |
+| `internal/engine/submit.go` | T3 acceptance-edge writer; T6 live verdict guard, typed stale candidate, deterministic durable reissue intent | IN — token row `frank/internal/engine/`; named seam order T3 then T6 |
 | `internal/engine/resummon.go` | T6 suppression; T8 item 5 snapshot supply; T8 item 6 operator-record adapter; T9 cadence source | IN — token row `frank/internal/engine/`; item order T6 then T8.5 then T8.6 then T9 |
 | `internal/engine/resummon_test.go` | T6 cadence restart; T8 item 5 dedupe/scheduler snapshot characterization | IN — token row `frank/internal/engine/`, scheduler seam |
 | `cmd/frank/main.go` | T8 item 5 production live-table snapshot injection; T9 pinned cadence handoff | IN — composition-root-only seams; item order T8.5 then T9 |
@@ -62,7 +66,6 @@
 | `internal/crashpoint/crashpoint.go` | T6 stale reissue durability boundary | IN — token row `frank/internal/crashpoint/`, T6 only |
 | `internal/crashpoint/crashpoint_test.go` | T6 exact registered-crashpoint assertion adjacency | IN — token row `frank/internal/crashpoint/`, T6 only |
 | `test/fixtures/s11_fsm_test.go` | T4 seven-state branch fixture and fixture-scoped egress negative | IN — token row `frank/test/fixtures/` |
-| `internal/engine/submit.go` | T3 system-authored acceptance-stage `failing_edge` writer | IN — token row `frank/internal/engine/` and named submit-side verdict classification seam |
 | `internal/engine/fsm.go` | T4 two missing labels and durable-state derivation | IN — token row `frank/internal/engine/` and named FSM seam |
 | `internal/store/projections.go` | T1 bucket-B, T2 bucket-C, and T3 author-facing bucket-D saved queries, including delayed T3 acceptance-edge token closure for `stale_choice_set` | IN — token row `frank/internal/store/projections.go`; read-side T1–T3 only |
 | `test/fixtures/s11_buckets_test.go` | T1–T3 bucket fixtures + T7 14-row matrix and live ③ known-A NF | IN — token row `frank/test/fixtures/` |
