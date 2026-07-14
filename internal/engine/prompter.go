@@ -2,11 +2,18 @@ package engine
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"sync"
 
 	"github.com/jackli/frank/internal/intake"
 	"github.com/jackli/frank/internal/record"
 )
+
+func promptContentDigest(contentKey string) string {
+	sum := sha256.Sum256([]byte(contentKey))
+	return hex.EncodeToString(sum[:])
+}
 
 type promptPending[D any] struct {
 	done     chan struct{}

@@ -189,12 +189,11 @@ func ApprovalHandler(next Handler) Handler {
 }
 
 func ApprovalContentHash(input ApprovalPromptInput) string {
-	sum := sha256.Sum256([]byte(input.ContentKey))
-	return "approval:" + hex.EncodeToString(sum[:])
+	return "approval:" + promptContentDigest(input.ContentKey)
 }
 
 func ApprovalGateID(input ApprovalPromptInput) string {
-	return "approval-" + ApprovalContentHash(input)[len("approval:"):]
+	return "approval-" + promptContentDigest(input.ContentKey)
 }
 
 func approvalPromptInput(request observe.ApprovalRequest) ApprovalPromptInput {

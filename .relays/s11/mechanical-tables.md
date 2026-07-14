@@ -21,6 +21,7 @@
 | T8 item 4 snapshot lookups | one startup table view + gate/entry indexes + incremental resolution publish | implemented; no prompter `Store.Records()` scans; replay/live fixtures green |
 | T8 item 5 resummon snapshot supply | production live snapshot + local emitted-hash cache | implemented; per-emit build removed, dedupe output unchanged |
 | T8 item 6 system-to-operator builder | five post-item-3 operator-addressed sites -> one canonical envelope/address encoder | implemented; exact five-site census and surface fixtures green |
+| T8 item 7 hash/ID decoupling | shared raw prompt digest -> independently rendered hash and gate-ID prefixes | implemented; output-byte fixtures green, prefix slicing absent |
 
 ## Diff to license
 
@@ -34,11 +35,11 @@
 | `.relays/s11/t6-red-green.md` | T6 sequence-honest RED/GREEN and crash-replay evidence | IN — token row `frank/.relays/s11/` |
 | `.relays/s11/t7-matrix.md` | T7 prerequisite RED lineage and consolidated matrix evidence | IN — token row `frank/.relays/s11/` |
 | `.relays/s11/t8-cleanup.md` | T8 per-item order, characterization, and battery evidence | IN — token row `frank/.relays/s11/` |
-| `internal/engine/prompter.go` | T8 item 1 shared generic prompter lifecycle | IN — token row `frank/internal/engine/`, generic-prompter seam |
+| `internal/engine/prompter.go` | T8 item 1 generic lifecycle; T8 item 7 shared raw digest | IN — token row `frank/internal/engine/`; item order 1 then 7 |
 | `internal/tables/tables.go` | T8 item 4 gate-resolution and approval-entry snapshot indexes | IN — token row `frank/internal/tables/`, item 4 only |
 | `internal/tables/tables_test.go` | T8 item 4 index clone/publish characterization | IN — token row `frank/internal/tables/`, item 4 only |
-| `internal/engine/approval.go` | T8 items 1/4/6 generic lifecycle, snapshot lookup, operator-record adapter | IN — token row `frank/internal/engine/`; item order 1 then 4 then 6 |
-| `internal/engine/expiry.go` | T8 items 1/4/6 generic lifecycle, snapshot lookup, operator-record adapter | IN — token row `frank/internal/engine/`; item order 1 then 4 then 6 |
+| `internal/engine/approval.go` | T8 items 1/4/6/7 prompt lifecycle, snapshot, operator envelope, hash-ID split | IN — token row `frank/internal/engine/`; item order 1 then 4 then 6 then 7 |
+| `internal/engine/expiry.go` | T8 items 1/4/6/7 prompt lifecycle, snapshot, operator envelope, hash-ID split | IN — token row `frank/internal/engine/`; item order 1 then 4 then 6 then 7 |
 | `internal/migrate/migrate_test.go` | T6 alias-safety RED/GREEN | IN — token row `frank/internal/migrate/`, T6 only |
 | `test/fixtures/s11_8a_test.go` | T6 live-path, byte-token, no-wake, structural, and crash-replay fixtures | IN — token row `frank/test/fixtures/` |
 | `test/fixtures/f11_test.go` | T6 crashpoint registry live-site census adjacency | IN — token row `frank/test/fixtures/` |

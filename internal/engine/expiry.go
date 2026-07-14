@@ -191,12 +191,11 @@ func ExpiryHandler(next Handler) Handler {
 }
 
 func ExpiryContentHash(input ExpiryPromptInput) string {
-	sum := sha256.Sum256([]byte(input.ContentKey))
-	return "expiry:" + hex.EncodeToString(sum[:])
+	return "expiry:" + promptContentDigest(input.ContentKey)
 }
 
 func ExpiryGateID(input ExpiryPromptInput) string {
-	return "expiry-" + ExpiryContentHash(input)[len("expiry:"):]
+	return "expiry-" + promptContentDigest(input.ContentKey)
 }
 
 func expiryPromptInput(request observe.ExpiryRequest) ExpiryPromptInput {
