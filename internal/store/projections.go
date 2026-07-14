@@ -307,6 +307,45 @@ func (s *Store) ProjectBucketB(reg *fieldspec.Registry) ([]string, error) {
 	return relayIDs, nil
 }
 
+// ProjectBucketC is the low-priority FYI saved query. Only records that name
+// the operator on CC, and not on TO, belong here; delivery remains ordinary
+// mailbox delivery and creates no decision obligation.
+func (s *Store) ProjectBucketC() ([]string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	records, err := s.recordsLocked()
+	if err != nil {
+		return nil, err
+	}
+	var relayIDs []string
+	for _, rec := range records {
+		if rec.Envelope.DeliveryState != record.Accepted {
+			continue
+		}
+		to, cc, err := decodedHeaderRecipients(rec)
+		if err != nil {
+			return nil, err
+		}
+		if !hasAddressListHeader(rec, "TO") {
+			to = append(to, rec.Envelope.To)
+		}
+		if containsRecipient(to, "operator") || !containsRecipient(cc, "operator") {
+			continue
+		}
+		relayIDs = append(relayIDs, rec.Envelope.RelayID)
+	}
+	return relayIDs, nil
+}
+
+func containsRecipient(values []string, recipient string) bool {
+	for _, value := range values {
+		if strings.TrimSpace(value) == recipient {
+			return true
+		}
+	}
+	return false
+}
+
 func appendUnique(path string, payload []byte) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err

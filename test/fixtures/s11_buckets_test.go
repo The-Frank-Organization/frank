@@ -57,6 +57,50 @@ func TestS11BucketBIsLiveNonInterruptingAndRaiseOnly(t *testing.T) {
 	}
 }
 
+func TestS11BucketCIsOperatorCCFYIWithoutDecisionObligation(t *testing.T) {
+	root := t.TempDir()
+	initFixtureStore(t, root)
+	st, err := store.Open(root)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+
+	ccOnly := s11BucketRecord("bucket-c-cc-only", "")
+	ccOnly.Headers["TO"] = `["s11.implementer"]`
+	ccOnly.Headers["CC"] = `["operator"]`
+	if _, err := st.Commit(ccOnly, nil); err != nil {
+		t.Fatalf("commit CC-only record: %v", err)
+	}
+	operatorTo := s11BucketRecord("bucket-not-c-operator-to", "")
+	operatorTo.Envelope.To = "operator"
+	operatorTo.Headers["TO"] = `["operator"]`
+	operatorTo.Headers["CC"] = `["operator"]`
+	if _, err := st.Commit(operatorTo, nil); err != nil {
+		t.Fatalf("commit operator-TO record: %v", err)
+	}
+
+	got, err := st.ProjectBucketC()
+	if err != nil {
+		t.Fatalf("ProjectBucketC: %v", err)
+	}
+	if want := []string{ccOnly.Envelope.RelayID}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("bucket C = %v, want %v", got, want)
+	}
+	project, err := st.Project("operator")
+	if err != nil {
+		t.Fatalf("Project operator: %v", err)
+	}
+	if want := []string{ccOnly.Envelope.RelayID, operatorTo.Envelope.RelayID}; !reflect.DeepEqual(project, want) {
+		t.Fatalf("operator FYI projection = %v, want %v", project, want)
+	}
+	if err := obligation.CompleteAuto(st); err != nil {
+		t.Fatalf("CompleteAuto C: %v", err)
+	}
+	if _, err := st.Read("odb-" + ccOnly.Envelope.RelayID); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("CC-FYI created a decision obligation: %v", err)
+	}
+}
+
 func s11BucketRecord(relayID, category string) record.Record {
 	return record.Record{
 		Envelope: record.Envelope{
