@@ -23,6 +23,7 @@
 | T8 item 6 system-to-operator builder | five post-item-3 operator-addressed sites -> one canonical envelope/address encoder | implemented; exact five-site census and surface fixtures green |
 | T8 item 7 hash/ID decoupling | shared raw prompt digest -> independently rendered hash and gate-ID prefixes | implemented; output-byte fixtures green, prefix slicing absent |
 | T8 item 8 executor cleanup owner | all run-completion branches -> `finalizeRun` cleanup decision | implemented; survivor preservation and normal/timeout cleanup characterization green |
+| T8 item 9 genesis reverse ladder | ordered version-downgrade rows -> pinned v5 digest check | implemented; v8 source bytes, exact transformations, errors, and digest tripwire unchanged |
 
 ## Diff to license
 
@@ -42,6 +43,7 @@
 | `internal/engine/approval.go` | T8 items 1/4/6/7 prompt lifecycle, snapshot, operator envelope, hash-ID split | IN — token row `frank/internal/engine/`; item order 1 then 4 then 6 then 7 |
 | `internal/engine/expiry.go` | T8 items 1/4/6/7 prompt lifecycle, snapshot, operator envelope, hash-ID split | IN — token row `frank/internal/engine/`; item order 1 then 4 then 6 then 7 |
 | `internal/executor/executor.go` | T8 item 8 `finalizeRun` + preserve/cleanup call sites only | IN — explicit granted executor seam; `Spawn`, refusals, tokens, verdict logic, rung/timing untouched |
+| `internal/store/genesis.go` | T8 item 9 fieldspec genesis predecessor ladder only | IN — explicit `store/genesis.go` item-9 seam; store write path untouched |
 | `internal/migrate/migrate_test.go` | T6 alias-safety RED/GREEN | IN — token row `frank/internal/migrate/`, T6 only |
 | `test/fixtures/s11_8a_test.go` | T6 live-path, byte-token, no-wake, structural, and crash-replay fixtures | IN — token row `frank/test/fixtures/` |
 | `test/fixtures/f11_test.go` | T6 crashpoint registry live-site census adjacency | IN — token row `frank/test/fixtures/` |

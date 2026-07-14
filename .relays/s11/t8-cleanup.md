@@ -153,3 +153,24 @@ Observed before and after: GREEN; survivor workdir preservation and confirmed-
 exit cleanup remain distinct, while the cleanup decision has one owner.
 
 Between-item battery: `go test -count=1 ./... && go vet ./...` GREEN.
+
+## Item 9 — data-driven genesis predecessor ladder
+
+The fieldspec genesis integrity path still walks v8 → v7 → v6 → the pinned v5
+digest and preserves the current v8 source bytes. Its version-specific reverse
+transforms are now ordered table rows with the same exact-count guards, error
+tokens, replacements, final digest, and older-source return behavior. A future
+step grows the table rather than another conditional branch.
+
+Characterization and targeted command:
+
+```text
+go test -count=1 ./internal/store
+go test -count=1 ./test/fixtures -run '^TestS10FreshGenesis(IsBornAtV8WithoutPreV8Records|RejectsV8WithCorruptedLockedPredecessorByte)$' -v
+go test -count=1 ./test/fixtures -run '^TestS8RegistryChangeset' -v
+```
+
+Observed before and after: GREEN; current genesis bytes, the pinned predecessor
+tripwire, the corrupted-byte rejection, and the v7 exact changeset all hold.
+
+Between-item battery: `go test -count=1 ./... && go vet ./...` GREEN.

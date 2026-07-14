@@ -27,6 +27,55 @@ var (
 
 const genesisFieldspecV5SHA256 = "1ef6abab4d496b11017f57ca400e8296d63824994ffce8311e4533f70cc92485"
 
+type genesisDowngradeStep struct {
+	marker         string
+	exact          []string
+	replacements   [][2]string
+	mismatch       string
+	preserveSource bool
+}
+
+var fieldspecGenesisDowngrades = []genesisDowngradeStep{
+	{
+		marker: `"version": "s10-fieldspec-v8"`,
+		exact: []string{
+			`"version": "s10-fieldspec-v8"`,
+			`"record_kind": ["genesis", "owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint", "odb", "resummon_command"]`,
+		},
+		replacements: [][2]string{
+			{`"version": "s10-fieldspec-v8"`, `"version": "s8-fieldspec-v7"`},
+			{`"record_kind": ["genesis", "owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint", "odb", "resummon_command"]`, `"record_kind": ["genesis", "owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint"]`},
+		},
+		mismatch:       "fieldspec v8 predecessor delta mismatch",
+		preserveSource: true,
+	},
+	{
+		marker:   `"version": "s8-fieldspec-v7"`,
+		exact:    []string{"    " + executableClaimsV7Row + ",\n"},
+		mismatch: "fieldspec v7 claim row mismatch",
+		replacements: [][2]string{
+			{`"version": "s8-fieldspec-v7"`, `"version": "s8-fieldspec-v6"`},
+			{"    " + executableClaimsV7Row + ",\n", ""},
+		},
+	},
+	{
+		marker: `"version": "s8-fieldspec-v6"`,
+		exact: []string{
+			`"version": "s8-fieldspec-v6"`,
+			`"config_member": ["fieldspec", "engine", "catalog", "adoption"]`,
+			`"seat_scope": {"operator": ["fieldspec", "engine", "catalog", "adoption"]}`,
+			`"annotation": "non-gate-bearing records only; static required_when/visible_when REMOVED per Option B (s8 v6 review-driven amendment) - applicability = the m-5/m-6 producer/profile manifest at step-4.5 completeness, NOT a registry predicate; conductor-derived, never lane-authored (R2). suppliability guard = the s5-b (h) typed-REJECT validator rule (channel-keyed, envelope-asymmetry preserved); until it lands, dormancy is render-absence, not submit-rejection - no non-lane-writability claim."`,
+		},
+		replacements: [][2]string{
+			{`"version": "s8-fieldspec-v6"`, `"version": "s7a-fieldspec-v5"`},
+			{`"config_member": ["fieldspec", "engine", "catalog", "adoption"]`, `"config_member": ["fieldspec", "engine"]`},
+			{`"seat_scope": {"operator": ["fieldspec", "engine", "catalog", "adoption"]}`, `"seat_scope": {"operator": ["fieldspec", "engine"]}`},
+			{`"annotation": "non-gate-bearing records only; static required_when/visible_when REMOVED per Option B (s8 v6 review-driven amendment) - applicability = the m-5/m-6 producer/profile manifest at step-4.5 completeness, NOT a registry predicate; conductor-derived, never lane-authored (R2). suppliability guard = the s5-b (h) typed-REJECT validator rule (channel-keyed, envelope-asymmetry preserved); until it lands, dormancy is render-absence, not submit-rejection - no non-lane-writability claim."`, `"required_when": {"all_of": [{"layer_present": "observe"}]}, "visible_when": {"all_of": [{"layer_present": "observe"}]}, "annotation": "non-gate-bearing records only; Step-2+ semantics, annotation only. suppliability guard = the s5-b (h) typed-REJECT validator rule (channel-keyed, envelope-asymmetry preserved); until it lands, dormancy is render-absence, not submit-rejection - no non-lane-writability claim."`},
+		},
+		mismatch: "fieldspec genesis predecessor mismatch",
+	},
+}
+
 type ErrDigestMismatch struct {
 	Want string
 	Got  string
@@ -100,46 +149,30 @@ func genesisMemberBytes(name string, source []byte) ([]byte, error) {
 		return source, nil
 	}
 	predecessor := append([]byte(nil), source...)
-	isV8 := bytes.Contains(predecessor, []byte(`"version": "s10-fieldspec-v8"`))
-	if isV8 {
-		v8Marker := []byte(`"version": "s10-fieldspec-v8"`)
-		v8Kinds := []byte(`"record_kind": ["genesis", "owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint", "odb", "resummon_command"]`)
-		v7Kinds := []byte(`"record_kind": ["genesis", "owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint"]`)
-		if bytes.Count(predecessor, v8Marker) != 1 || bytes.Count(predecessor, v8Kinds) != 1 {
-			return nil, fmt.Errorf("fieldspec v8 predecessor delta mismatch")
+	applied, preserveSource := false, false
+	for _, step := range fieldspecGenesisDowngrades {
+		if !bytes.Contains(predecessor, []byte(step.marker)) {
+			continue
 		}
-		predecessor = bytes.Replace(predecessor, v8Marker, []byte(`"version": "s8-fieldspec-v7"`), 1)
-		predecessor = bytes.Replace(predecessor, v8Kinds, v7Kinds, 1)
-	}
-	if bytes.Contains(predecessor, []byte(`"version": "s8-fieldspec-v7"`)) {
-		claimRow := []byte("    " + executableClaimsV7Row + ",\n")
-		if bytes.Count(predecessor, claimRow) != 1 {
-			return nil, fmt.Errorf("fieldspec v7 claim row mismatch")
+		for _, exact := range step.exact {
+			if bytes.Count(predecessor, []byte(exact)) != 1 {
+				return nil, fmt.Errorf("%s", step.mismatch)
+			}
 		}
-		predecessor = bytes.Replace(predecessor, []byte(`"version": "s8-fieldspec-v7"`), []byte(`"version": "s8-fieldspec-v6"`), 1)
-		predecessor = bytes.Replace(predecessor, claimRow, nil, 1)
+		for _, replacement := range step.replacements {
+			predecessor = bytes.Replace(predecessor, []byte(replacement[0]), []byte(replacement[1]), 1)
+		}
+		applied = true
+		preserveSource = preserveSource || step.preserveSource
 	}
-	if !bytes.Contains(predecessor, []byte(`"version": "s8-fieldspec-v6"`)) {
+	if !applied {
 		return source, nil
-	}
-	replacements := [][2]string{
-		{`"version": "s8-fieldspec-v6"`, `"version": "s7a-fieldspec-v5"`},
-		{`"config_member": ["fieldspec", "engine", "catalog", "adoption"]`, `"config_member": ["fieldspec", "engine"]`},
-		{`"seat_scope": {"operator": ["fieldspec", "engine", "catalog", "adoption"]}`, `"seat_scope": {"operator": ["fieldspec", "engine"]}`},
-		{`"annotation": "non-gate-bearing records only; static required_when/visible_when REMOVED per Option B (s8 v6 review-driven amendment) - applicability = the m-5/m-6 producer/profile manifest at step-4.5 completeness, NOT a registry predicate; conductor-derived, never lane-authored (R2). suppliability guard = the s5-b (h) typed-REJECT validator rule (channel-keyed, envelope-asymmetry preserved); until it lands, dormancy is render-absence, not submit-rejection - no non-lane-writability claim."`, `"required_when": {"all_of": [{"layer_present": "observe"}]}, "visible_when": {"all_of": [{"layer_present": "observe"}]}, "annotation": "non-gate-bearing records only; Step-2+ semantics, annotation only. suppliability guard = the s5-b (h) typed-REJECT validator rule (channel-keyed, envelope-asymmetry preserved); until it lands, dormancy is render-absence, not submit-rejection - no non-lane-writability claim."`},
-	}
-	for _, replacement := range replacements {
-		old, next := []byte(replacement[0]), []byte(replacement[1])
-		if bytes.Count(predecessor, old) != 1 {
-			return nil, fmt.Errorf("fieldspec genesis predecessor mismatch")
-		}
-		predecessor = bytes.Replace(predecessor, old, next, 1)
 	}
 	sum := sha256.Sum256(predecessor)
 	if hex.EncodeToString(sum[:]) != genesisFieldspecV5SHA256 {
 		return nil, fmt.Errorf("fieldspec genesis predecessor hash mismatch")
 	}
-	if isV8 {
+	if preserveSource {
 		return source, nil
 	}
 	return predecessor, nil
