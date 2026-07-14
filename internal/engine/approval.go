@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackli/frank/internal/fieldspec"
 	"github.com/jackli/frank/internal/intake"
+	"github.com/jackli/frank/internal/obligation"
 	"github.com/jackli/frank/internal/observe"
 	"github.com/jackli/frank/internal/record"
 	"github.com/jackli/frank/internal/store"
@@ -173,23 +174,17 @@ func ApprovalHandler(next Handler) Handler {
 		if err != nil {
 			return record.Record{}, nil, err
 		}
-		to, err := fieldspec.EncodeAddressList([]string{"operator"})
-		if err != nil {
-			return record.Record{}, nil, err
-		}
-		return record.Record{
-			Envelope: record.Envelope{
-				RelayID: ApprovalGateID(input), From: "system", To: "operator", Role: "system",
-				DeliveryState: record.Accepted, SchemaVersion: 1,
-			},
+		rec, err := obligation.SystemOperatorRecord(obligation.SystemOperatorInput{
+			RelayID: ApprovalGateID(input), DeliveryState: record.Accepted, SchemaVersion: 1,
 			Headers: map[string]string{
 				"PHASE": "SITREP", "AUTHORITY": "report-only", "SUBJECT": "side-effecting check requires live approval",
-				"TO": to, "HUMAN_GATE_REQUIRED": "yes", "gate_category": "authz_security",
+				"HUMAN_GATE_REQUIRED": "yes", "gate_category": "authz_security",
 				"approval_entry_id": input.EntryID, "approval_claim_ref": input.ClaimRef,
 				"approval_seat": input.Seat, "choices": choices,
 			},
 			Body: string(cmd.Payload),
-		}, nil, nil
+		})
+		return rec, nil, err
 	}
 }
 

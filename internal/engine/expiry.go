@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackli/frank/internal/fieldspec"
 	"github.com/jackli/frank/internal/intake"
+	"github.com/jackli/frank/internal/obligation"
 	"github.com/jackli/frank/internal/observe"
 	"github.com/jackli/frank/internal/record"
 	"github.com/jackli/frank/internal/store"
@@ -175,23 +176,17 @@ func ExpiryHandler(next Handler) Handler {
 		if err != nil {
 			return record.Record{}, nil, err
 		}
-		to, err := fieldspec.EncodeAddressList([]string{"operator"})
-		if err != nil {
-			return record.Record{}, nil, err
-		}
-		return record.Record{
-			Envelope: record.Envelope{
-				RelayID: ExpiryGateID(input), From: "system", To: "operator", Role: "system",
-				DeliveryState: record.Accepted, SchemaVersion: 1,
-			},
+		rec, err := obligation.SystemOperatorRecord(obligation.SystemOperatorInput{
+			RelayID: ExpiryGateID(input), DeliveryState: record.Accepted, SchemaVersion: 1,
 			Headers: map[string]string{
 				"PHASE": "SITREP", "AUTHORITY": "report-only", "SUBJECT": "long-running check requires disposition",
-				"TO": to, "HUMAN_GATE_REQUIRED": "yes", "gate_category": "authz_security",
+				"HUMAN_GATE_REQUIRED": "yes", "gate_category": "authz_security",
 				"expiry_check_id": input.CheckID, "expiry_claim_ref": input.ClaimRef,
 				"expiry_seat": input.Seat, "choices": choices,
 			},
 			Body: string(cmd.Payload),
-		}, nil, nil
+		})
+		return rec, nil, err
 	}
 }
 

@@ -30,6 +30,28 @@ Observed: GREEN.
 
 Between-item battery: `go test -count=1 ./... && go vet ./...` GREEN.
 
+## Item 6 — shared system-to-operator record builder
+
+Fresh post-item-3 census before editing found five operator-addressed builders:
+approval, expiry, resummon, the consolidated ODB builder, and T6's held
+`stale_schema` signal. The old separate `engine/odb.go` builder site had folded
+into obligation at item 3; the T6 held signal is also operator-addressed, so the
+verified post-item-3 count remained five without absorbing any non-operator
+record. All five now call `obligation.SystemOperatorRecord`, the sole encoder
+of the canonical TO list and `{From:system, To:operator, Role:system}` envelope.
+
+Targeted command:
+
+```text
+go test -count=1 ./internal/engine ./internal/obligation
+go test -count=1 ./test/fixtures -run '^TestS(9OwnerDecisionBrief|10(Approval|Expiry|ProductionScheduler|ODB|Park)|11StaleChoice)' -v
+test "$(rg -n 'SystemOperatorRecord\(SystemOperatorInput|obligation\.SystemOperatorRecord\(obligation\.SystemOperatorInput' internal/engine internal/obligation | wc -l | tr -d ' ')" = 5
+```
+
+Observed: GREEN; one address-list encoder and exactly five governed call sites.
+
+Between-item battery: `go test -count=1 ./... && go vet ./...` GREEN.
+
 ## Item 5 — drop per-emit tables.Build
 
 The scheduler constructor now requires a table-snapshot supplier; production

@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jackli/frank/internal/fieldspec"
 	"github.com/jackli/frank/internal/intake"
+	"github.com/jackli/frank/internal/obligation"
 	"github.com/jackli/frank/internal/record"
 	"github.com/jackli/frank/internal/store"
 	"github.com/jackli/frank/internal/tables"
@@ -280,23 +280,17 @@ func ResummonHandler(next Handler) Handler {
 		if cmd.ContentHash != ResummonContentHash(input) {
 			return record.Record{}, nil, fmt.Errorf("resummon content hash mismatch")
 		}
-		to, err := fieldspec.EncodeAddressList([]string{"operator"})
-		if err != nil {
-			return record.Record{}, nil, err
-		}
-		return record.Record{
-			Envelope: record.Envelope{
-				From: "system", To: "operator", Role: "system", DeliveryState: record.Accepted, SchemaVersion: 1,
-			},
+		rec, err := obligation.SystemOperatorRecord(obligation.SystemOperatorInput{
+			DeliveryState: record.Accepted, SchemaVersion: 1,
 			Headers: map[string]string{
 				"PHASE":       "SITREP",
 				"SUBJECT":     GateResummonDue,
-				"TO":          to,
 				"record_kind": "resummon_command",
 				"subject_ref": input.DecisionID,
 			},
 			Body: string(cmd.Payload),
-		}, nil, nil
+		})
+		return rec, nil, err
 	}
 }
 

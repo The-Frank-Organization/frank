@@ -55,6 +55,40 @@ type ODBRenderInput struct {
 	IncludeDispatchField bool
 }
 
+type SystemOperatorInput struct {
+	RelayID       string
+	DispatchID    string
+	DeliveryState string
+	SchemaVersion int
+	Headers       map[string]string
+	Body          string
+}
+
+func SystemOperatorRecord(input SystemOperatorInput) (record.Record, error) {
+	to, err := fieldspec.EncodeAddressList([]string{"operator"})
+	if err != nil {
+		return record.Record{}, err
+	}
+	headers := cloneStrings(input.Headers)
+	if headers == nil {
+		headers = map[string]string{}
+	}
+	headers["TO"] = to
+	schemaVersion := input.SchemaVersion
+	if schemaVersion == 0 {
+		schemaVersion = 1
+	}
+	return record.Record{
+		Envelope: record.Envelope{
+			RelayID: input.RelayID, DispatchID: input.DispatchID,
+			From: "system", To: "operator", Role: "system",
+			DeliveryState: input.DeliveryState, SchemaVersion: schemaVersion,
+		},
+		Headers: headers,
+		Body:    input.Body,
+	}, nil
+}
+
 func RenderODB(input ODBRenderInput) (record.Record, error) {
 	required := map[string]string{
 		"subject_ref":           input.SubjectRef,
@@ -97,13 +131,8 @@ func RenderODB(input ODBRenderInput) (record.Record, error) {
 	if err != nil {
 		return record.Record{}, fmt.Errorf("ODB choices: %w", err)
 	}
-	to, err := fieldspec.EncodeAddressList([]string{"operator"})
-	if err != nil {
-		return record.Record{}, fmt.Errorf("ODB TO: %w", err)
-	}
 	headers := map[string]string{
 		"SUBJECT":               "Owner Decision Brief: " + input.SubjectRef,
-		"TO":                    to,
 		"record_kind":           "odb",
 		"subject_ref":           input.SubjectRef,
 		"plain_language_change": input.PlainLanguageChange,
@@ -126,18 +155,14 @@ func RenderODB(input ODBRenderInput) (record.Record, error) {
 	if input.ModelName != "" {
 		headers["model_name"] = input.ModelName
 	}
-	schemaVersion := input.SchemaVersion
-	if schemaVersion == 0 {
-		schemaVersion = 1
+	rec, err := SystemOperatorRecord(SystemOperatorInput{
+		RelayID: "odb-" + input.SubjectRef, DispatchID: input.DispatchID,
+		DeliveryState: record.Accepted, SchemaVersion: input.SchemaVersion, Headers: headers,
+	})
+	if err != nil {
+		return record.Record{}, fmt.Errorf("ODB TO: %w", err)
 	}
-	return record.Record{
-		Envelope: record.Envelope{
-			RelayID: "odb-" + input.SubjectRef, DispatchID: input.DispatchID,
-			From: "system", To: "operator", Role: "system",
-			DeliveryState: record.Accepted, SchemaVersion: schemaVersion,
-		},
-		Headers: headers,
-	}, nil
+	return rec, nil
 }
 
 type Engine struct {
@@ -271,21 +296,18 @@ func completeStaleChoiceReissue(st *store.Store, t *tables.T, stale record.Recor
 	heldID := "held-stale-schema-" + intent.SourceGate
 	held, heldExists := t.ByRelay[heldID]
 	if !heldExists {
-		to, err := fieldspec.EncodeAddressList([]string{"operator"})
-		if err != nil {
-			return err
-		}
-		held = record.Record{
-			Envelope: record.Envelope{
-				RelayID: heldID, DispatchID: source.Envelope.DispatchID,
-				From: "system", To: "operator", Role: "system",
-				DeliveryState: record.Held, SchemaVersion: intent.TargetSchemaVersion,
-			},
+		var err error
+		held, err = SystemOperatorRecord(SystemOperatorInput{
+			RelayID: heldID, DispatchID: source.Envelope.DispatchID,
+			DeliveryState: record.Held, SchemaVersion: intent.TargetSchemaVersion,
 			Headers: map[string]string{
 				"PHASE": "SITREP", "SUBJECT": "stale schema requires replacement decision",
-				"TO": to, "failing_edge": "stale_schema", "subject_ref": intent.SourceGate,
+				"failing_edge": "stale_schema", "subject_ref": intent.SourceGate,
 			},
 			Body: "stale_schema",
+		})
+		if err != nil {
+			return err
 		}
 		if _, err := st.Commit(held, nil); err != nil {
 			return err

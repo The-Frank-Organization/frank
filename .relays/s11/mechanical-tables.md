@@ -20,6 +20,7 @@
 | T8 item 3 one ODB builder | public engine adapter + obligation gate adapter -> `obligation.RenderODB` | implemented; public, derived, structural, and reissue ODB fixtures green |
 | T8 item 4 snapshot lookups | one startup table view + gate/entry indexes + incremental resolution publish | implemented; no prompter `Store.Records()` scans; replay/live fixtures green |
 | T8 item 5 resummon snapshot supply | production live snapshot + local emitted-hash cache | implemented; per-emit build removed, dedupe output unchanged |
+| T8 item 6 system-to-operator builder | five post-item-3 operator-addressed sites -> one canonical envelope/address encoder | implemented; exact five-site census and surface fixtures green |
 
 ## Diff to license
 
@@ -36,18 +37,18 @@
 | `internal/engine/prompter.go` | T8 item 1 shared generic prompter lifecycle | IN — token row `frank/internal/engine/`, generic-prompter seam |
 | `internal/tables/tables.go` | T8 item 4 gate-resolution and approval-entry snapshot indexes | IN — token row `frank/internal/tables/`, item 4 only |
 | `internal/tables/tables_test.go` | T8 item 4 index clone/publish characterization | IN — token row `frank/internal/tables/`, item 4 only |
-| `internal/engine/approval.go` | T8 item 1 adapter; T8 item 4 snapshot-backed approval lookups | IN — token row `frank/internal/engine/`; item order 1 then 4 |
-| `internal/engine/expiry.go` | T8 item 1 adapter; T8 item 4 snapshot-backed expiry lookups | IN — token row `frank/internal/engine/`; item order 1 then 4 |
+| `internal/engine/approval.go` | T8 items 1/4/6 generic lifecycle, snapshot lookup, operator-record adapter | IN — token row `frank/internal/engine/`; item order 1 then 4 then 6 |
+| `internal/engine/expiry.go` | T8 items 1/4/6 generic lifecycle, snapshot lookup, operator-record adapter | IN — token row `frank/internal/engine/`; item order 1 then 4 then 6 |
 | `internal/migrate/migrate_test.go` | T6 alias-safety RED/GREEN | IN — token row `frank/internal/migrate/`, T6 only |
 | `test/fixtures/s11_8a_test.go` | T6 live-path, byte-token, no-wake, structural, and crash-replay fixtures | IN — token row `frank/test/fixtures/` |
 | `test/fixtures/f11_test.go` | T6 crashpoint registry live-site census adjacency | IN — token row `frank/test/fixtures/` |
 | `internal/migrate/migrate.go` | T6 deep-clone before every migration step | IN — token row `frank/internal/migrate/`, T6 only |
 | `internal/engine/odb.go` | T6 frozen π guard; T8 item 3 adapter to the one ODB builder | IN — token row `frank/internal/engine/`, named ODB seam; item order T6 then T8.3 |
 | `internal/engine/submit.go` | T6 live verdict guard, typed stale candidate, deterministic durable reissue intent | IN — token row `frank/internal/engine/`, named verdict seam |
-| `internal/engine/resummon.go` | T6 superseded-decision suppression; T8 item 5 per-emit build removal + snapshot supply | IN — token row `frank/internal/engine/`, scheduler seam; item order T6 then T8.5 |
+| `internal/engine/resummon.go` | T6 suppression; T8 item 5 snapshot supply; T8 item 6 operator-record adapter | IN — token row `frank/internal/engine/`; item order T6 then T8.5 then T8.6 |
 | `internal/engine/resummon_test.go` | T6 cadence restart; T8 item 5 dedupe/scheduler snapshot characterization | IN — token row `frank/internal/engine/`, scheduler seam |
 | `cmd/frank/main.go` | T8 item 5 production live-table snapshot injection | IN — token row `frank/cmd/frank/main.go`, composition-root-only item-5 seam |
-| `internal/obligation/obligation.go` | T6 durable stale-intent consumer; T8 item 3 single ODB builder | IN — token row `frank/internal/obligation/`, ODB/envelope consumption seam; item order T6 then T8.3 |
+| `internal/obligation/obligation.go` | T6 stale consumer; T8 item 3 ODB builder; T8 item 6 canonical system-to-operator builder | IN — token row `frank/internal/obligation/`; item order T6 then T8.3 then T8.6 |
 | `internal/crashpoint/crashpoint.go` | T6 stale reissue durability boundary | IN — token row `frank/internal/crashpoint/`, T6 only |
 | `internal/crashpoint/crashpoint_test.go` | T6 exact registered-crashpoint assertion adjacency | IN — token row `frank/internal/crashpoint/`, T6 only |
 | `test/fixtures/s11_fsm_test.go` | T4 seven-state branch fixture and fixture-scoped egress negative | IN — token row `frank/test/fixtures/` |
