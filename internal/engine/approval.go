@@ -13,6 +13,7 @@ import (
 	"github.com/jackli/frank/internal/observe"
 	"github.com/jackli/frank/internal/record"
 	"github.com/jackli/frank/internal/store"
+	"github.com/jackli/frank/internal/tables"
 )
 
 type ApprovalPromptInput struct {
@@ -23,8 +24,9 @@ type ApprovalPromptInput struct {
 }
 
 type ApprovalPrompter struct {
-	store *store.Store
-	core  *genericPrompter[observe.ApprovalDecision]
+	store  *store.Store
+	core   *genericPrompter[observe.ApprovalDecision]
+	tables *tables.Live
 }
 
 type ApprovalRouter struct {
@@ -59,9 +61,14 @@ func NewApprovalPrompter(st *store.Store, submitter resummonSubmitter) (*Approva
 	if submitter == nil {
 		return nil, fmt.Errorf("approval submitter required")
 	}
+	tab, err := tables.Build(st)
+	if err != nil {
+		return nil, err
+	}
 	return &ApprovalPrompter{
-		store: st,
-		core:  newGenericPrompter(submitter, "emit-side-effect-approval", observe.ApprovalDecision{Scope: observe.ApprovalDenied}),
+		store:  st,
+		core:   newGenericPrompter(submitter, "emit-side-effect-approval", observe.ApprovalDecision{Scope: observe.ApprovalDenied}),
+		tables: tables.NewLive(tab),
 	}, nil
 }
 
@@ -93,16 +100,13 @@ func (p *ApprovalPrompter) Apply(resolution record.Record) error {
 	if !ok {
 		return nil
 	}
+	p.recordResolution(gate, resolution)
 	p.core.resolve(gateID, decision)
 	return nil
 }
 
 func (p *ApprovalPrompter) existingDecision(gateID string) (observe.ApprovalDecision, bool) {
-	records, err := p.store.Records()
-	if err != nil {
-		return observe.ApprovalDecision{}, false
-	}
-	for _, rec := range records {
+	for _, rec := range p.tables.Snapshot().VerdictsByGate[gateID] {
 		if rec.Envelope.DeliveryState != record.Accepted || rec.Envelope.From != "operator" || rec.Headers["resolves_gate"] != gateID {
 			continue
 		}
@@ -114,27 +118,30 @@ func (p *ApprovalPrompter) existingDecision(gateID string) (observe.ApprovalDeci
 }
 
 func (p *ApprovalPrompter) entryAllowed(entryID string) bool {
-	records, err := p.store.Records()
-	if err != nil {
-		return false
-	}
-	gates := make(map[string]record.Record)
-	for _, rec := range records {
-		if rec.Headers["approval_entry_id"] != "" {
-			gates[rec.Envelope.RelayID] = rec
-		}
-	}
-	for _, rec := range records {
-		gate := gates[rec.Headers["resolves_gate"]]
-		if gate.Headers["approval_entry_id"] != entryID || rec.Envelope.From != "operator" || rec.Envelope.DeliveryState != record.Accepted {
-			continue
-		}
-		decision, ok := approvalDecisionFromRecord(rec)
-		if ok && decision.Allowed && decision.Scope == observe.ApprovalForEntry {
-			return true
+	tab := p.tables.Snapshot()
+	for _, gate := range tab.ApprovalGates[entryID] {
+		for _, rec := range tab.VerdictsByGate[gate.Envelope.RelayID] {
+			if rec.Envelope.From != "operator" || rec.Envelope.DeliveryState != record.Accepted {
+				continue
+			}
+			decision, ok := approvalDecisionFromRecord(rec)
+			if ok && decision.Allowed && decision.Scope == observe.ApprovalForEntry {
+				return true
+			}
 		}
 	}
 	return false
+}
+
+func (p *ApprovalPrompter) recordResolution(gate, resolution record.Record) {
+	tab := p.tables.Snapshot()
+	if _, ok := tab.ByRelay[gate.Envelope.RelayID]; !ok {
+		tab.OnCommit(gate)
+	}
+	if _, ok := tab.ByRelay[resolution.Envelope.RelayID]; !ok {
+		tab.OnCommit(resolution)
+	}
+	p.tables.Publish(tab)
 }
 
 func ApprovalHandler(next Handler) Handler {

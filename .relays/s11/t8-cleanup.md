@@ -30,6 +30,26 @@ Observed: GREEN.
 
 Between-item battery: `go test -count=1 ./... && go vet ./...` GREEN.
 
+## Item 4 — prompter lookups from table snapshots
+
+Approval and expiry prompters now build one startup `tables.Live` view and use
+the `VerdictsByGate` / `ApprovalGates` indexes for replay and entry-scope
+lookups. Live operator resolutions increment that view after the committed gate
+is verified. The prior per-lookup `Store.Records()` disk scans are gone; gate
+identity verification still uses the single immutable `Store.Read(gateID)`.
+
+Targeted command:
+
+```text
+go test -count=1 ./internal/tables ./internal/engine
+go test -count=1 ./test/fixtures -run '^TestS10(ApprovalPrompter|ExpiryPrompter)' -v
+```
+
+Observed: GREEN; the snapshot clone test also proves both new indexes survive
+publish without mutating an older snapshot.
+
+Between-item battery: `go test -count=1 ./... && go vet ./...` GREEN.
+
 ## Item 3 — one ODB builder
 
 `obligation.RenderODB` is now the single record builder. The public

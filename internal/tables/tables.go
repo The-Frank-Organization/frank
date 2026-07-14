@@ -17,6 +17,8 @@ type T struct {
 	AcceptedParents map[string]string
 	Grants          map[string][]record.Record
 	Verdicts        map[string][]record.Record
+	VerdictsByGate  map[string][]record.Record
+	ApprovalGates   map[string][]record.Record
 	Locks           map[string][]record.Record
 	MergeGates      map[string][]record.Record
 	Waivers         []record.Record
@@ -39,6 +41,8 @@ func New() *T {
 		AcceptedParents: map[string]string{},
 		Grants:          map[string][]record.Record{},
 		Verdicts:        map[string][]record.Record{},
+		VerdictsByGate:  map[string][]record.Record{},
+		ApprovalGates:   map[string][]record.Record{},
 		Locks:           map[string][]record.Record{},
 		MergeGates:      map[string][]record.Record{},
 		Lifecycle:       map[string]Lifecycle{},
@@ -96,6 +100,8 @@ func (t *T) Clone() *T {
 	out.AcceptedParents = cloneStringMap(t.AcceptedParents)
 	out.Grants = cloneRecordSliceMap(t.Grants)
 	out.Verdicts = cloneRecordSliceMap(t.Verdicts)
+	out.VerdictsByGate = cloneRecordSliceMap(t.VerdictsByGate)
+	out.ApprovalGates = cloneRecordSliceMap(t.ApprovalGates)
 	out.Locks = cloneRecordSliceMap(t.Locks)
 	out.MergeGates = cloneRecordSliceMap(t.MergeGates)
 	out.Waivers = cloneRecords(t.Waivers)
@@ -196,6 +202,12 @@ func (t *T) OnCommit(rec record.Record) {
 	}
 	if rec.Headers["resolves_gate"] != "" || rec.Headers["DESIGN_REVIEW_VERDICT"] != "" {
 		t.Verdicts[rec.Envelope.DispatchID] = append(t.Verdicts[rec.Envelope.DispatchID], rec)
+	}
+	if gateID := rec.Headers["resolves_gate"]; gateID != "" {
+		t.VerdictsByGate[gateID] = append(t.VerdictsByGate[gateID], rec)
+	}
+	if entryID := rec.Headers["approval_entry_id"]; entryID != "" {
+		t.ApprovalGates[entryID] = append(t.ApprovalGates[entryID], rec)
 	}
 	if rec.Headers["DESIGN_LOCK_ID"] != "" || rec.Headers["DESIGN_DOC_ID"] != "" {
 		t.Locks[rec.Envelope.DispatchID] = append(t.Locks[rec.Envelope.DispatchID], rec)

@@ -13,6 +13,7 @@ import (
 	"github.com/jackli/frank/internal/observe"
 	"github.com/jackli/frank/internal/record"
 	"github.com/jackli/frank/internal/store"
+	"github.com/jackli/frank/internal/tables"
 )
 
 type ExpiryPromptInput struct {
@@ -25,8 +26,9 @@ type ExpiryPromptInput struct {
 }
 
 type ExpiryPrompter struct {
-	store *store.Store
-	core  *genericPrompter[observe.ExpiryDecision]
+	store  *store.Store
+	core   *genericPrompter[observe.ExpiryDecision]
+	tables *tables.Live
 }
 
 type ExpiryRouter struct {
@@ -69,9 +71,14 @@ func NewExpiryPrompter(st *store.Store, submitter resummonSubmitter) (*ExpiryPro
 	if submitter == nil {
 		return nil, fmt.Errorf("expiry submitter required")
 	}
+	tab, err := tables.Build(st)
+	if err != nil {
+		return nil, err
+	}
 	return &ExpiryPrompter{
-		store: st,
-		core:  newGenericPrompter(submitter, "emit-executor-expiry", observe.ExpiryDecision{Action: observe.ExpiryKill}),
+		store:  st,
+		core:   newGenericPrompter(submitter, "emit-executor-expiry", observe.ExpiryDecision{Action: observe.ExpiryKill}),
+		tables: tables.NewLive(tab),
 	}, nil
 }
 
@@ -88,11 +95,7 @@ func (p *ExpiryPrompter) Prompt(ctx context.Context, request observe.ExpiryReque
 }
 
 func (p *ExpiryPrompter) existingDecision(gateID string) (observe.ExpiryDecision, bool) {
-	records, err := p.store.Records()
-	if err != nil {
-		return observe.ExpiryDecision{}, false
-	}
-	for _, rec := range records {
+	for _, rec := range p.tables.Snapshot().VerdictsByGate[gateID] {
 		if rec.Envelope.DeliveryState != record.Accepted || rec.Envelope.From != "operator" || rec.Headers["resolves_gate"] != gateID {
 			continue
 		}
@@ -128,8 +131,20 @@ func (p *ExpiryPrompter) Apply(resolution record.Record) error {
 	if action != observe.ExpiryKill && action != observe.ExpiryExtend {
 		return nil
 	}
+	p.recordResolution(gate, resolution)
 	p.core.resolve(gateID, observe.ExpiryDecision{Action: action})
 	return nil
+}
+
+func (p *ExpiryPrompter) recordResolution(gate, resolution record.Record) {
+	tab := p.tables.Snapshot()
+	if _, ok := tab.ByRelay[gate.Envelope.RelayID]; !ok {
+		tab.OnCommit(gate)
+	}
+	if _, ok := tab.ByRelay[resolution.Envelope.RelayID]; !ok {
+		tab.OnCommit(resolution)
+	}
+	p.tables.Publish(tab)
 }
 
 func ExpiryHandler(next Handler) Handler {

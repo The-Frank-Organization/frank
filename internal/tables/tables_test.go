@@ -44,7 +44,7 @@ func TestLiveSnapshotIsImmutableAcrossPublish(t *testing.T) {
 	initial := tables.New()
 	initial.OnCommit(record.Record{
 		Envelope: record.Envelope{RelayID: "r1", DispatchID: "d1", DeliveryState: record.Accepted, SchemaVersion: 1},
-		Headers:  map[string]string{"PHASE": "SITREP"},
+		Headers:  map[string]string{"PHASE": "SITREP", "approval_entry_id": "check-1"},
 	})
 	live := tables.NewLive(initial)
 
@@ -52,7 +52,7 @@ func TestLiveSnapshotIsImmutableAcrossPublish(t *testing.T) {
 	next := snapshot.Clone()
 	next.OnCommit(record.Record{
 		Envelope: record.Envelope{RelayID: "r2", DispatchID: "d1", DeliveryState: record.Accepted, SchemaVersion: 1},
-		Headers:  map[string]string{"PHASE": "SITREP"},
+		Headers:  map[string]string{"PHASE": "SITREP", "resolves_gate": "r1"},
 	})
 	live.Publish(next)
 
@@ -62,6 +62,12 @@ func TestLiveSnapshotIsImmutableAcrossPublish(t *testing.T) {
 	current := live.Snapshot()
 	if _, ok := current.ByRelay["r2"]; !ok {
 		t.Fatalf("current snapshot missing published record")
+	}
+	if got := current.ApprovalGates["check-1"]; len(got) != 1 || got[0].Envelope.RelayID != "r1" {
+		t.Fatalf("approval gate index = %+v", got)
+	}
+	if got := current.VerdictsByGate["r1"]; len(got) != 1 || got[0].Envelope.RelayID != "r2" {
+		t.Fatalf("gate verdict index = %+v", got)
 	}
 }
 
