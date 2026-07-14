@@ -101,22 +101,17 @@ type RegistryEnv struct {
 	// ReadFileStageHook is an injected blocking seam for proving that the
 	// read-file control path detaches every filesystem-operation stage.
 	ReadFileStageHook func(ReadFileStage)
+	// FSStageHook is the generalized injected seam shared by every detachable
+	// descriptor-rooted filesystem operation.
+	FSStageHook func(FSStage)
 }
 
 type Registry struct {
-	entries      map[string]CheckEntry
-	env          RegistryEnv
-	readFileMu   sync.Mutex
-	readFileLane map[string]readFileLaneState
+	entries map[string]CheckEntry
+	env     RegistryEnv
+	fsMu    sync.Mutex
+	fsLane  map[string]fsLaneState
 }
-
-type readFileLaneState uint8
-
-const (
-	readFileLaneIdle readFileLaneState = iota
-	readFileLaneActive
-	readFileLaneBreakerOpen
-)
 
 func NewRegistry(env RegistryEnv) *Registry {
 	gitExecutable := env.GitExecutable
@@ -144,8 +139,9 @@ func NewRegistry(env RegistryEnv) *Registry {
 			Context:              approvalContext,
 			OnSideEffectApproval: env.OnSideEffectApproval,
 			ReadFileStageHook:    env.ReadFileStageHook,
+			FSStageHook:          env.FSStageHook,
 		},
-		readFileLane: make(map[string]readFileLaneState),
+		fsLane: make(map[string]fsLaneState),
 		entries: map[string]CheckEntry{
 			"read-file": {
 				ID: "read-file", Rung: "E1", Class: "base", TimeoutClass: "read_short",
