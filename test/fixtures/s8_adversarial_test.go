@@ -79,9 +79,12 @@ done
 	if err := json.Unmarshal([]byte(result.ObservedFields["executable_claim_results"]), &rows); err != nil {
 		t.Fatalf("decode conductor-produced result row: %v", err)
 	}
-	wantRow := map[string]string{"check_id": "run-suite", "claim_ref": "isolation-probe", "outcome": "pass"}
+	wantRow := map[string]string{
+		"check_id": "run-suite", "claim_ref": "isolation-probe", "outcome": "pass",
+		"rung_reached": "E2", "signal_class": "none", "integrity": "observed",
+	}
 	if len(rows) != 1 || len(rows[0]) != len(wantRow) {
-		t.Fatalf("conductor-produced result rows = %#v, want one exact three-column row", rows)
+		t.Fatalf("conductor-produced result rows = %#v, want one exact thickened row", rows)
 	}
 	for key, want := range wantRow {
 		if got := rows[0][key]; got != want {

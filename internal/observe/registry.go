@@ -186,56 +186,70 @@ func (r *Registry) Entry(id string) (CheckEntry, bool) {
 }
 
 func (r *Registry) Run(selection Selection) CheckVerdict {
+	return r.runBound(selection).Verdict
+}
+
+func (r *Registry) runBound(selection Selection) boundVerdict {
 	entry, ok := r.entries[selection.CheckID]
 	if ok && entry.ID == "find-references" && r.env.Lanes[selection.Params["lane_ref"]] == "" {
-		return refusedVerdictWithDetail(selection, "lane-ungoverned")
+		return boundVerdict{Verdict: refusedVerdictWithDetail(selection, "lane-ungoverned"), Origin: originConductorConfig, Entry: entry, Selected: selection}
 	}
 	if ok && entry.ID == "read-file" && strings.HasPrefix(selection.Params["expect"], "schema_ref:") {
 		if r.env.SchemaRefs[strings.TrimPrefix(selection.Params["expect"], "schema_ref:")] == "" {
-			return refusedVerdictWithDetail(selection, "schema-ref-unknown")
+			return boundVerdict{Verdict: refusedVerdictWithDetail(selection, "schema-ref-unknown"), Origin: originConductorConfig, Entry: entry, Selected: selection}
 		}
 	}
 	if !ok || !r.validParams(entry, selection.Params) {
-		return refusedVerdict(selection)
+		return boundVerdict{Verdict: refusedVerdict(selection), Origin: originConductorPolicy, Entry: entry, Selected: selection}
 	}
 	if entry.Class == "side_effecting" {
 		if r.env.OnSideEffectApproval == nil {
-			return refusedVerdictWithDetail(selection, "side-effecting-unapproved")
+			return boundVerdict{Verdict: refusedVerdictWithDetail(selection, "side-effecting-unapproved"), Origin: originConductorPolicy, Entry: entry, Selected: selection}
 		}
 		decision := r.env.OnSideEffectApproval(r.env.Context, ApprovalRequest{Selection: selection})
 		if !decision.Allowed || decision.Scope != ApprovalOnce && decision.Scope != ApprovalForEntry {
-			return refusedVerdictWithDetail(selection, "side-effecting-unapproved")
+			return boundVerdict{Verdict: refusedVerdictWithDetail(selection, "side-effecting-unapproved"), Origin: originConductorPolicy, Entry: entry, Selected: selection}
 		}
 		// Approval deliberately lifts only the prompt gate; real side-effecting execution remains a registered carry.
-		return refusedVerdictWithDetail(selection, "side-effecting-execution-refused")
+		return boundVerdict{Verdict: refusedVerdictWithDetail(selection, "side-effecting-execution-refused"), Origin: originConductorPolicy, Entry: entry, Selected: selection}
 	}
 	switch selection.CheckID {
 	case "read-file":
-		return r.runReadFile(selection)
+		verdict := r.runReadFile(selection)
+		origin := originBaseCheck
+		if strings.HasPrefix(verdict.FailingDetail, "check-machinery-") {
+			origin = originConductorMachinery
+		}
+		return boundVerdict{Verdict: verdict, Origin: origin, Entry: entry, Selected: selection}
 	case "git-status":
-		return r.runGitStatus(selection)
+		verdict := r.runGitStatus(selection)
+		origin := originBaseCheck
+		if strings.HasPrefix(verdict.FailingDetail, "check-machinery-") {
+			origin = originConductorMachinery
+		}
+		return boundVerdict{Verdict: verdict, Origin: origin, Entry: entry, Selected: selection}
 	case "find-references":
 		result := r.executeFindReferences(selection)
 		switch result.kind {
 		case fsResultMachinery:
-			return CheckVerdict{CheckID: selection.CheckID, ClaimRef: selection.ClaimRef, Outcome: "unsafe", RungReached: "none", Predicate: Blocked, Timing: result.timing, FailingDetail: result.detail}
+			return boundVerdict{Verdict: CheckVerdict{CheckID: selection.CheckID, ClaimRef: selection.ClaimRef, Outcome: "unsafe", RungReached: "none", Predicate: Blocked, Timing: result.timing, FailingDetail: result.detail}, Origin: originConductorMachinery, Entry: entry, Selected: selection}
 		case fsResultDegraded:
-			return CheckVerdict{CheckID: selection.CheckID, ClaimRef: selection.ClaimRef, Outcome: "skipped", RungReached: "none", Predicate: Degraded, FailingDetail: result.detail}
+			return boundVerdict{Verdict: CheckVerdict{CheckID: selection.CheckID, ClaimRef: selection.ClaimRef, Outcome: "skipped", RungReached: "none", Predicate: Degraded, FailingDetail: result.detail}, Origin: originBaseCheck, Entry: entry, Selected: selection}
 		case fsResultData:
-			return baseVerdict(selection, result.count == 0, "find-references-count-nonzero")
+			return boundVerdict{Verdict: baseVerdict(selection, result.count == 0, "find-references-count-nonzero"), Origin: originBaseCheck, Entry: entry, Selected: selection}
 		default:
-			return CheckVerdict{CheckID: selection.CheckID, ClaimRef: selection.ClaimRef, Outcome: "unsafe", RungReached: "none", Predicate: Blocked, FailingDetail: "check-machinery-find-references-io"}
+			return boundVerdict{Verdict: CheckVerdict{CheckID: selection.CheckID, ClaimRef: selection.ClaimRef, Outcome: "unsafe", RungReached: "none", Predicate: Blocked, FailingDetail: "check-machinery-find-references-io"}, Origin: originConductorMachinery, Entry: entry, Selected: selection}
 		}
 	case "run-suite", "run-suite-unbounded":
 		if r.env.Executor != nil {
-			return r.env.Executor.Spawn(entry, selection)
+			return boundVerdict{Verdict: r.env.Executor.Spawn(entry, selection), Origin: originExecutor, Entry: entry, Selected: selection}
 		}
 		fallthrough
 	default:
-		return CheckVerdict{
+		return boundVerdict{Verdict: CheckVerdict{
 			CheckID: selection.CheckID, ClaimRef: selection.ClaimRef,
-			Outcome: "unsafe", Predicate: Blocked, FailingDetail: "executor-required",
-		}
+			Outcome: "unsafe", Predicate: Blocked, FailingDetail: "check-machinery-executor-required",
+		}, Origin: originConductorMachinery, Entry: entry, Selected: selection}
 	}
 }
 
@@ -247,14 +261,15 @@ func (r *Registry) Evaluator(selection Selection) func(Candidate) PredicateResul
 			sum := sha256.Sum256(data)
 			bound.CandidateDigest = hex.EncodeToString(sum[:])
 		}
-		verdict := r.Run(bound)
-		id := verdict.ClaimRef
+		validated := validateBoundVerdict(r.runBound(bound))
+		verdict := validated.Verdict
+		id := bound.ClaimRef
 		if id == "" {
-			id = verdict.CheckID
+			id = bound.CheckID
 		}
 		return PredicateResult{
-			ID: id, Predicate: verdict.Predicate, MachineryFault: machineryFaultDetail(verdict.FailingDetail),
-			Verdicts: []CheckVerdict{verdict},
+			ID: id, Predicate: verdict.Predicate, MachineryFault: validated.MachineryFault,
+			Verdicts: []CheckVerdict{verdict}, claimBindings: map[string]claimBinding{id: {RungReached: verdict.RungReached, SignalClass: validated.SignalClass, Integrity: validated.Integrity}},
 		}
 	}
 }
@@ -306,11 +321,14 @@ func (r *Registry) EvaluateClaims(raw string, candidate Candidate) PredicateResu
 	if len(selections) == 0 {
 		return PredicateResult{ID: "observe-unavailable", Predicate: Blocked}
 	}
-	result := PredicateResult{ID: "executable-claims", Predicate: Pass}
+	result := PredicateResult{ID: "executable-claims", Predicate: Pass, claimBindings: map[string]claimBinding{}}
 	var firstFail, firstMachinery, firstNoVantage string
 	for _, selection := range selections {
 		row := r.Evaluator(selection)(candidate)
 		result.Verdicts = append(result.Verdicts, row.Verdicts...)
+		for claimRef, binding := range row.claimBindings {
+			result.claimBindings[claimRef] = binding
+		}
 		switch {
 		case row.Predicate == Fail && firstFail == "":
 			firstFail = row.ID
@@ -362,10 +380,6 @@ func symbolicClaimRef(value string) string {
 		return value
 	}
 	return "executable_claims"
-}
-
-func machineryFaultDetail(detail string) bool {
-	return strings.HasPrefix(detail, "executor-") || strings.HasPrefix(detail, "check-machinery-")
 }
 
 func (r *Registry) validParams(entry CheckEntry, params map[string]string) bool {

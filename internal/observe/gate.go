@@ -32,6 +32,7 @@ type PredicateResult struct {
 	FailureClass   string
 	ObservedFields map[string]string
 	Verdicts       []CheckVerdict
+	claimBindings  map[string]claimBinding
 }
 
 type Env struct {
@@ -193,11 +194,17 @@ func baseStamps(cand record.Record, result PredicateResult) map[string]string {
 		integrityFields = map[string]string{}
 		observed, selfReported := false, false
 		for _, verdict := range result.Verdicts {
-			claimRows = append(claimRows, map[string]string{
+			row := map[string]string{
 				"claim_ref": verdict.ClaimRef,
 				"check_id":  verdict.CheckID,
 				"outcome":   verdict.Outcome,
-			})
+			}
+			if binding, ok := result.claimBindings[verdict.ClaimRef]; ok {
+				row["rung_reached"] = binding.RungReached
+				row["signal_class"] = binding.SignalClass
+				row["integrity"] = binding.Integrity
+			}
+			claimRows = append(claimRows, row)
 			if verdict.Outcome == "pass" && evidenceRank(verdict.RungReached) > evidenceRank(achieved) {
 				achieved = verdict.RungReached
 			}

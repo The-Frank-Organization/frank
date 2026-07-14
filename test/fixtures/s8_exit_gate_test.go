@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -320,7 +321,7 @@ func TestS8ProductionDogfoodRejectsFalseDoneAndNamesPredicate(t *testing.T) {
 	if err := json.Unmarshal(suiteRead, &suiteEnvelope); err != nil {
 		t.Fatalf("decode production suite read: %v", err)
 	}
-	wantResult := `[{"check_id":"run-suite","claim_ref":"dogfood-battery-green","outcome":"pass"}]`
+	wantResult := `[{"check_id":"run-suite","claim_ref":"dogfood-battery-green","integrity":"observed","outcome":"pass","rung_reached":"E2","signal_class":"none"}]`
 	if suiteEnvelope.Record.Headers["executable_claim_results"] != wantResult {
 		t.Fatalf("production suite results = %q, want %q", suiteEnvelope.Record.Headers["executable_claim_results"], wantResult)
 	}
@@ -359,7 +360,7 @@ func TestS8ProductionDogfoodRejectsFalseDoneAndNamesPredicate(t *testing.T) {
 	if err := json.Unmarshal(falseSuiteRead, &falseSuiteEnvelope); err != nil {
 		t.Fatalf("decode production false suite read: %v", err)
 	}
-	wantFalseResult := `[{"check_id":"run-suite","claim_ref":"dogfood-battery-false-done","outcome":"fail"}]`
+	wantFalseResult := `[{"check_id":"run-suite","claim_ref":"dogfood-battery-false-done","integrity":"observed","outcome":"fail","rung_reached":"none","signal_class":"none"}]`
 	if falseSuiteEnvelope.Record.Headers["executable_claim_results"] != wantFalseResult {
 		t.Fatalf("production false suite results = %q, want %q", falseSuiteEnvelope.Record.Headers["executable_claim_results"], wantFalseResult)
 	}
@@ -590,16 +591,20 @@ func TestS8ClaimlessAbsenceFloor(t *testing.T) {
 }
 
 func TestS8ExecutableClaimAggregationPrecedence(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "not-regular"), 0o700); err != nil {
+		t.Fatalf("mkdir refusal fixture: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "undecodable.txt"), []byte{0xff}, 0o600); err != nil {
+		t.Fatalf("write no-vantage fixture: %v", err)
+	}
 	exec := &s8ClaimExecutor{verdicts: map[string]observe.CheckVerdict{
-		"pass":      {Outcome: "pass", RungReached: "E2", Predicate: observe.Pass},
-		"unsafe":    {Outcome: "unsafe", RungReached: "none", Predicate: observe.Blocked, FailingDetail: "policy-refused"},
-		"machinery": {Outcome: "unsafe", RungReached: "none", Predicate: observe.Blocked, FailingDetail: "executor-timeout"},
-		"fail":      {Outcome: "fail", RungReached: "none", Predicate: observe.Fail, FailingDetail: "suite-exit-mismatch"},
-		"no-vantage": {Outcome: "skipped", RungReached: "none", Predicate: observe.Blocked,
-			FailingDetail: "observation-unavailable"},
+		"pass":      {Outcome: "pass", RungReached: "E2", Predicate: observe.Pass, Timing: "under-timeout"},
+		"machinery": {Outcome: "unsafe", RungReached: "none", Predicate: observe.Blocked, Timing: "timeout", FailingDetail: "executor-timeout"},
+		"fail":      {Outcome: "fail", RungReached: "none", Predicate: observe.Fail, Timing: "under-timeout", FailingDetail: "suite-exit-mismatch"},
 	}}
-	named := map[string]bool{"pass": true, "unsafe": true, "machinery": true, "fail": true, "no-vantage": true}
-	reg := observe.NewRegistry(observe.RegistryEnv{NamedSuites: named, Executor: exec})
+	named := map[string]bool{"pass": true, "machinery": true, "fail": true}
+	reg := observe.NewRegistry(observe.RegistryEnv{NamedSuites: named, Executor: exec, Lanes: map[string]string{"repo": root}})
 	for _, tc := range []struct {
 		name      string
 		targets   []string
@@ -619,10 +624,19 @@ func TestS8ExecutableClaimAggregationPrecedence(t *testing.T) {
 			exec.calls = nil
 			rows := make([]map[string]string, 0, len(tc.targets))
 			for i, target := range tc.targets {
-				rows = append(rows, map[string]string{
-					"claim_ref": fmt.Sprintf("claim-%d", i), "check_id": "run-suite",
-					"params": s8ClaimParams(t, map[string]string{"target": target, "expect_green": "true"}),
-				})
+				row := map[string]string{"claim_ref": fmt.Sprintf("claim-%d", i)}
+				switch target {
+				case "unsafe":
+					row["check_id"] = "read-file"
+					row["params"] = s8ClaimParams(t, map[string]string{"lane_ref": "repo", "path": "not-regular", "expect": "line:x"})
+				case "no-vantage":
+					row["check_id"] = "find-references"
+					row["params"] = s8ClaimParams(t, map[string]string{"lane_ref": "repo", "symbol": "absent_symbol", "expect": "count:0"})
+				default:
+					row["check_id"] = "run-suite"
+					row["params"] = s8ClaimParams(t, map[string]string{"target": target, "expect_green": "true"})
+				}
+				rows = append(rows, row)
 			}
 			raw := s8Claims(t, rows...)
 			cand := record.Record{Headers: map[string]string{"authority_class": tc.authority, "EVIDENCE_TARGET": "E2"}}
@@ -633,8 +647,14 @@ func TestS8ExecutableClaimAggregationPrecedence(t *testing.T) {
 			if terminal != tc.terminal || result.FailureClass != tc.class || result.Escalate != tc.escalate || result.ObservedFields["record_integrity"] != tc.integrity {
 				t.Fatalf("terminal = %s, result = %#v", terminal, result)
 			}
-			if len(exec.calls) != len(tc.targets) {
-				t.Fatalf("executor calls = %v, want all %v", exec.calls, tc.targets)
+			wantCalls := make([]string, 0, len(tc.targets))
+			for _, target := range tc.targets {
+				if target != "unsafe" && target != "no-vantage" {
+					wantCalls = append(wantCalls, target)
+				}
+			}
+			if !reflect.DeepEqual(exec.calls, wantCalls) {
+				t.Fatalf("executor calls = %v, want %v", exec.calls, wantCalls)
 			}
 		})
 	}
