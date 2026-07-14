@@ -18,31 +18,37 @@
 
 | Path | Task/seam | License |
 |---|---|---|
-| `internal/observe/fs_worker.go` | T1 shared worker | in |
-| `internal/observe/fs_worker_test.go` | T1 RED/GREEN fixtures | in |
-| `internal/observe/read_file_worker.go` | T1 extraction, read-file byte semantics preserved | in |
-| `internal/observe/registry.go` | T1 shared worker state and hook only | in |
-| `.relays/s9/` | evidence capture | in |
-| `internal/observe/fs_worker.go` | T2 descriptor-rooted scanner operation | in |
-| `internal/observe/registry.go` | T2 entry, params, dispatch and verdict mapping | in |
-| `internal/observe/registry_test.go` | T2 RED/GREEN fixtures | in |
-| `test/fixtures/s8_suppliability_guard_test.go` | T5 lane-forgery negative + conductor default fixture | in |
-| `.relays/s9/t5-verification.md` | T5 verification evidence | in |
-| `internal/observe/verdict_binding.go` | T3 origin envelope + total validator + signal derivation | in |
-| `internal/observe/verdict_binding_test.go` | T3 RED/GREEN matrix, rev13 refusal row, machinery boundary | in |
-| `internal/observe/gate.go` | T3 thickened system-owned claim rows | in |
-| `internal/observe/registry.go` | T3 binding pass before `PredicateResult` | in |
-| `test/fixtures/s8_adversarial_test.go` | T3 six-column row regression | in |
-| `test/fixtures/s8_exit_gate_test.go` | T3 valid-origin aggregation + dogfood row regression | in |
-| `.relays/s9/t3-red-green.md` | T3 implementation evidence | in |
-| `internal/observe/checks_base.go` | T4 total input table + worker-root-health consumption | in |
-| `internal/observe/checks_base_test.go` | T4 opaque/nil/git/config/serialization fixtures | in |
-| `internal/config/lane_vcs_test.go` | T4 FX-VCS load/transition/ceiling fixtures | in |
-| `test/fixtures/s8_adoption_test.go` | dedicated v2 residency/adoption path after v3 dogfood move | in |
-| `test/fixtures/s8_config_activation_test.go` | v3 dogfood genesis assertion | in |
-| `test/fixtures/s8_supply_test.go` | v3 duplicate-marker fixture | in |
-| `.relays/s9/t4-red-green.md` | T4 implementation evidence | in |
-| `test/fixtures/s9_exit_test.go` | T9 fixture-scoped decision-⑤ egress pair | in |
-| `.relays/s9/t9-red-green.md` | T9 consolidated exit-fixture evidence | in |
+| `.relays/s9/mechanical-tables.md` | cross-task consumption and diff-license evidence, including MF-1 fold | IN — token row `frank/.relays/s9/` |
+| `.relays/s9/t1-red-green.md` | T1 RED/GREEN evidence | IN — token row `frank/.relays/s9/` |
+| `.relays/s9/t2-red-green.md` | T2 RED/GREEN evidence | IN — token row `frank/.relays/s9/` |
+| `.relays/s9/t3-red-green.md` | T3 RED/GREEN and rev13 guide-byte evidence | IN — token row `frank/.relays/s9/` |
+| `.relays/s9/t4-red-green.md` | T4 owner-byte and RED/GREEN evidence | IN — token row `frank/.relays/s9/` |
+| `.relays/s9/t5-verification.md` | T5 verification-first evidence | IN — token row `frank/.relays/s9/` |
+| `.relays/s9/t9-red-green.md` | T9 consolidated runnable-set and decision-⑤ evidence | IN — token row `frank/.relays/s9/` |
+| `cmd/frank/main.go` | T4 m-7 E9 runtime handoff carried verbatim in `db9a166` | IN — named `main.go` seam |
+| `internal/config/config.go` | T4 m-7 E1-E8 `lane_vcs` owner bytes carried verbatim in `db9a166` | IN — named `config.go` seam |
+| `internal/config/lane_vcs_test.go` | T4 FX-VCS load/transition/ceiling fixture matrix in `1b87261` | **OUT — escalated to master under `s9-build-escalate-fence`** |
+| `internal/observe/checks_base.go` | T4 total input table, governed-none branch, worker root-health consumption | IN — token row `frank/internal/observe/` |
+| `internal/observe/checks_base_test.go` | T4 opaque/nil/git/config/serialization fixtures | IN — token row `frank/internal/observe/` |
+| `internal/observe/fs_worker.go` | T1 shared detachable worker plus T2 descriptor-rooted scan operation | IN — token row `frank/internal/observe/` |
+| `internal/observe/fs_worker_test.go` | T1 detach/breaker/component-swap fixtures | IN — token row `frank/internal/observe/` |
+| `internal/observe/gate.go` | T3 thickened system-owned claim rows | IN — token row `frank/internal/observe/` |
+| `internal/observe/read_file_worker.go` | T1 extraction with read-file semantics preserved | IN — token row `frank/internal/observe/` |
+| `internal/observe/registry.go` | T1 worker hook, T2 registry/dispatch, T3 binding pass, T4 cloned `LaneVCS` consumer | IN — token row `frank/internal/observe/` |
+| `internal/observe/registry_test.go` | T2 complete and fail-closed scan matrix | IN — token row `frank/internal/observe/` |
+| `internal/observe/verdict_binding.go` | T3 conductor-origin envelope, total tuple validator, redaction, signal derivation | IN — token row `frank/internal/observe/` |
+| `internal/observe/verdict_binding_test.go` | T3 adversarial matrix and rev13 base-refusal boundary | IN — token row `frank/internal/observe/` |
+| `test/fixtures/s2setup_test.go` | T4 m-7 E10 v3 dogfood descriptor plus derived v2 residency helper | IN — token row `frank/test/fixtures/` |
+| `test/fixtures/s8_adoption_test.go` | T4 dedicated v2 residency/adoption path | IN — token row `frank/test/fixtures/` |
+| `test/fixtures/s8_adversarial_test.go` | T3 six-column row and truncated-pass regression | IN — token row `frank/test/fixtures/` |
+| `test/fixtures/s8_config_activation_test.go` | T4 v3 dogfood genesis assertion | IN — token row `frank/test/fixtures/` |
+| `test/fixtures/s8_exit_gate_test.go` | T3 valid-origin aggregation and dogfood row regression | IN — token row `frank/test/fixtures/` |
+| `test/fixtures/s8_suppliability_guard_test.go` | T5 lane-forgery negative and conductor default | IN — token row `frank/test/fixtures/` |
+| `test/fixtures/s8_supply_test.go` | T4 v3 duplicate-marker fixture | IN — token row `frank/test/fixtures/` |
+| `test/fixtures/s9_exit_test.go` | T9 fixture-scoped decision-⑤ egress pair | IN — token row `frank/test/fixtures/` |
+| `test/invariants/store_recovery_test.go` | T4 m-7 E10 invariant-test descriptor lines carried in `db9a166` | **OUT — escalated to master under `s9-build-escalate-fence`** |
 
-No `internal/executor/executor.go` diff. No T7/T8 or blocked-ledger code.
+The table above is path-total for `git diff --name-only 39474d0..76179ec`.
+The two OUT rows await master's named-row ruling; their substantive owner-byte
+fidelity is separately confirmed and does not convert them to IN. No
+`internal/executor/executor.go` diff. No T7/T8 or blocked-ledger code.
