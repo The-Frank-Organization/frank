@@ -24,6 +24,9 @@
 | T8 item 7 hash/ID decoupling | shared raw prompt digest -> independently rendered hash and gate-ID prefixes | implemented; output-byte fixtures green, prefix slicing absent |
 | T8 item 8 executor cleanup owner | all run-completion branches -> `finalizeRun` cleanup decision | implemented; survivor preservation and normal/timeout cleanup characterization green |
 | T8 item 9 genesis reverse ladder | ordered version-downgrade rows -> pinned v5 digest check | implemented; v8 source bytes, exact transformations, errors, and digest tripwire unchanged |
+| T9 G4 no-response cadence | startup-pinned operator config -> production scheduler no-response timer | implemented; custom zero fires while answered-stalled remains at one hour |
+| T9 G4 answered-stalled cadence | startup-pinned operator config -> production scheduler answered-stalled timer | implemented; custom zero fires after rejected answer while no-response remains at one hour |
+| T9 no-auto-approve boundary | exact cadence object with duration fields only -> resummon commands | implemented; `auto_approve` is schema-rejected and no accepted resolution is emitted |
 
 ## Diff to license
 
@@ -50,9 +53,11 @@
 | `internal/migrate/migrate.go` | T6 deep-clone before every migration step | IN — token row `frank/internal/migrate/`, T6 only |
 | `internal/engine/odb.go` | T6 frozen π guard; T8 item 3 adapter to the one ODB builder | IN — token row `frank/internal/engine/`, named ODB seam; item order T6 then T8.3 |
 | `internal/engine/submit.go` | T6 live verdict guard, typed stale candidate, deterministic durable reissue intent | IN — token row `frank/internal/engine/`, named verdict seam |
-| `internal/engine/resummon.go` | T6 suppression; T8 item 5 snapshot supply; T8 item 6 operator-record adapter | IN — token row `frank/internal/engine/`; item order T6 then T8.5 then T8.6 |
+| `internal/engine/resummon.go` | T6 suppression; T8 item 5 snapshot supply; T8 item 6 operator-record adapter; T9 cadence source | IN — token row `frank/internal/engine/`; item order T6 then T8.5 then T8.6 then T9 |
 | `internal/engine/resummon_test.go` | T6 cadence restart; T8 item 5 dedupe/scheduler snapshot characterization | IN — token row `frank/internal/engine/`, scheduler seam |
-| `cmd/frank/main.go` | T8 item 5 production live-table snapshot injection | IN — token row `frank/cmd/frank/main.go`, composition-root-only item-5 seam |
+| `cmd/frank/main.go` | T8 item 5 production live-table snapshot injection; T9 pinned cadence handoff | IN — composition-root-only seams; item order T8.5 then T9 |
+| `internal/config/config.go` | T9 exact G4 cadence object, validation, and shipped defaults | IN — token row `frank/internal/config/config.go`, G4 cadence loci only |
+| `test/fixtures/s11_cadence_test.go` | T9 RED/GREEN production wiring and no-auto-approve boundary | IN — token row `frank/test/fixtures/`, T9 only |
 | `internal/obligation/obligation.go` | T6 stale consumer; T8 item 3 ODB builder; T8 item 6 canonical system-to-operator builder | IN — token row `frank/internal/obligation/`; item order T6 then T8.3 then T8.6 |
 | `internal/crashpoint/crashpoint.go` | T6 stale reissue durability boundary | IN — token row `frank/internal/crashpoint/`, T6 only |
 | `internal/crashpoint/crashpoint_test.go` | T6 exact registered-crashpoint assertion adjacency | IN — token row `frank/internal/crashpoint/`, T6 only |

@@ -30,13 +30,19 @@ type Pinned struct {
 }
 
 type EngineConfig struct {
-	Version            int             `json:"version,omitempty"`
-	GCEnabled          bool            `json:"gc_enabled"`
-	SegmentRotateBytes int64           `json:"segment_rotate_bytes"`
-	MaxFrameBytes      int             `json:"max_frame_bytes,omitempty"`
-	PresentLayers      map[string]bool `json:"present_layers,omitempty"`
-	Detector           json.RawMessage `json:"detector,omitempty"`
-	Supply             *Supply         `json:"supply,omitempty"`
+	Version            int                    `json:"version,omitempty"`
+	GCEnabled          bool                   `json:"gc_enabled"`
+	SegmentRotateBytes int64                  `json:"segment_rotate_bytes"`
+	MaxFrameBytes      int                    `json:"max_frame_bytes,omitempty"`
+	PresentLayers      map[string]bool        `json:"present_layers,omitempty"`
+	Detector           json.RawMessage        `json:"detector,omitempty"`
+	Supply             *Supply                `json:"supply,omitempty"`
+	ResummonCadence    *ResummonCadenceConfig `json:"resummon_cadence,omitempty"`
+}
+
+type ResummonCadenceConfig struct {
+	NoResponseSeconds         int64 `json:"no_response_seconds"`
+	AnsweredButStalledSeconds int64 `json:"answered_but_stalled_seconds"`
 }
 
 type Supply struct {
@@ -143,6 +149,17 @@ func (c EngineConfig) FrameBytes() int {
 		return c.MaxFrameBytes
 	}
 	return 1 << 20
+}
+
+// ResummonCadenceDelays resolves the operator-configured G4 timers. Absence
+// retains the shipped one-hour defaults; a present zero is an explicit
+// immediate cadence, not a verdict or approval policy.
+func (c EngineConfig) ResummonCadenceDelays() (time.Duration, time.Duration) {
+	if c.ResummonCadence == nil {
+		return time.Hour, time.Hour
+	}
+	return time.Duration(c.ResummonCadence.NoResponseSeconds) * time.Second,
+		time.Duration(c.ResummonCadence.AnsweredButStalledSeconds) * time.Second
 }
 
 // PresentLayers returns the immutable-by-convention predicate context for one
@@ -638,6 +655,9 @@ func validateEngineSchema(data []byte) (int, error) {
 		allowed["version"] = "number"
 		allowed["present_layers"] = "layers"
 		allowed["supply"] = "object"
+		if version == 3 {
+			allowed["resummon_cadence"] = "object"
+		}
 	}
 	for key, value := range raw {
 		kind, ok := allowed[key]
@@ -664,7 +684,27 @@ func validateEngineSchema(data []byte) (int, error) {
 			return 0, ErrConfigVersionTransition
 		}
 	}
+	if cadence, present := raw["resummon_cadence"]; present {
+		if version != 3 || !validResummonCadenceShape(cadence) {
+			return 0, ErrConfigVersionTransition
+		}
+	}
 	return version, nil
+}
+
+func validResummonCadenceShape(value any) bool {
+	raw, ok := value.(map[string]any)
+	if !ok || !exactKeys(raw, "no_response_seconds", "answered_but_stalled_seconds") {
+		return false
+	}
+	const maxSeconds = int64(^uint64(0)>>1) / int64(time.Second)
+	for _, key := range []string{"no_response_seconds", "answered_but_stalled_seconds"} {
+		seconds, ok := raw[key].(float64)
+		if !ok || seconds < 0 || seconds > float64(maxSeconds) || seconds != float64(int64(seconds)) {
+			return false
+		}
+	}
+	return true
 }
 
 func validSupplyShape(raw map[string]any, version int) bool {

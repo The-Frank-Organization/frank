@@ -274,6 +274,10 @@ func run(ctx context.Context, cfg config) error {
 	var loop *engine.Loop
 	var writer *intake.Writer[engine.Outcome]
 	var resummonScheduler *engine.ResummonScheduler
+	noResponseDelay, answeredStalledDelay := pinned.Engine.ResummonCadenceDelays()
+	resummonCadence := engine.ResummonCadence{
+		NoResponse: noResponseDelay, AnsweredStalled: answeredStalledDelay,
+	}
 	if result.Ready != nil {
 		loop = engine.New(st, engine.ApprovalHandler(engine.ExpiryHandler(engine.ResummonHandler(handler))), result.Ready)
 		loop.ServiceWhileBlocked = true
@@ -290,7 +294,7 @@ func run(ctx context.Context, cfg config) error {
 			loop.Tables = tab
 			liveTables.Publish(tab)
 			if resummonScheduler != nil {
-				return resummonScheduler.ArmParked(ctx, engine.DefaultResummonCadence)
+				return resummonScheduler.ArmParked(ctx, resummonCadence)
 			}
 			return nil
 		}
@@ -319,7 +323,7 @@ func run(ctx context.Context, cfg config) error {
 		loop.AfterApprovalResolution = approvalPrompter.Apply
 		go loop.Run(ctx)
 		go writer.Run(ctx, loop.In)
-		if err := resummonScheduler.ArmParked(ctx, engine.DefaultResummonCadence); err != nil {
+		if err := resummonScheduler.ArmParked(ctx, resummonCadence); err != nil {
 			return err
 		}
 	}

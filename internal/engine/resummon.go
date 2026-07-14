@@ -42,11 +42,6 @@ type ResummonCadence struct {
 	AnsweredStalled time.Duration
 }
 
-var DefaultResummonCadence = ResummonCadence{
-	NoResponse:      time.Hour,
-	AnsweredStalled: time.Hour,
-}
-
 type resummonSubmitter interface {
 	Submit(context.Context, intake.Cmd) (<-chan Outcome, string, error)
 }
