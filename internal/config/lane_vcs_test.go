@@ -75,8 +75,8 @@ func TestLaneVCSV2ResidencyAndTransitions(t *testing.T) {
 	}
 }
 
-func TestLaneVCSReaderCeilingRefusesV4BeforeSupply(t *testing.T) {
-	doc := []byte(`{"version":4,"gc_enabled":false,"segment_rotate_bytes":4194304,"present_layers":{"observe":false},"supply":"deliberately-garbage"}`)
+func TestLaneVCSReaderCeilingRefusesV5BeforeSupply(t *testing.T) {
+	doc := []byte(`{"version":5,"gc_enabled":false,"segment_rotate_bytes":4194304,"present_layers":{"observe":false},"supply":"deliberately-garbage"}`)
 	_, err := loadLaneVCSDoc(t, doc)
 	if !errors.Is(err, config.ErrConfigLoad) || !strings.Contains(err.Error(), "engine-marker") {
 		t.Fatalf("err=%v, want phase-0 engine-marker ErrConfigLoad", err)

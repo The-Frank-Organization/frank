@@ -278,7 +278,7 @@ func ValidateMemberTransition(member string, current, candidate []byte) error {
 		if err != nil {
 			return ErrConfigVersionTransition
 		}
-		if candidateVersion == currentVersion || candidateVersion == currentVersion+1 && candidateVersion <= 3 {
+		if candidateVersion == currentVersion || candidateVersion == currentVersion+1 && candidateVersion <= 4 {
 			return nil
 		}
 		return ErrConfigVersionTransition
@@ -328,7 +328,7 @@ func preflightMemberMarkers(loaded map[string][]byte) error {
 	}
 	if data, ok := loaded["engine"]; ok {
 		_, present, err := rawIntMarker(data)
-		if err != nil || present && ValidateEngineReaderMarker(data, 3) != nil || !present && loaded["catalog"] != nil {
+		if err != nil || present && ValidateEngineReaderMarker(data, 4) != nil || !present && loaded["catalog"] != nil {
 			return fmt.Errorf("%w: engine-marker", ErrConfigLoad)
 		}
 	}
@@ -639,7 +639,7 @@ func validateEngineSchema(data []byte) (int, error) {
 		return 0, err
 	}
 	version, err := engineVersion(data)
-	if err != nil || version < 0 || version > 3 {
+	if err != nil || version < 0 || version > 4 {
 		return 0, ErrConfigVersionTransition
 	}
 	allowed := map[string]string{
@@ -651,11 +651,11 @@ func validateEngineSchema(data []byte) (int, error) {
 	if version == 1 {
 		allowed["version"] = "number"
 		allowed["present_layers"] = "layers"
-	} else if version == 2 || version == 3 {
+	} else if version == 2 || version == 3 || version == 4 {
 		allowed["version"] = "number"
 		allowed["present_layers"] = "layers"
 		allowed["supply"] = "object"
-		if version == 3 {
+		if version == 4 {
 			allowed["resummon_cadence"] = "object"
 		}
 	}
@@ -685,7 +685,7 @@ func validateEngineSchema(data []byte) (int, error) {
 		}
 	}
 	if cadence, present := raw["resummon_cadence"]; present {
-		if version != 3 || !validResummonCadenceShape(cadence) {
+		if version != 4 || !validResummonCadenceShape(cadence) {
 			return 0, ErrConfigVersionTransition
 		}
 	}

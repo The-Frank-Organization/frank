@@ -24,9 +24,10 @@
 | T8 item 7 hash/ID decoupling | shared raw prompt digest -> independently rendered hash and gate-ID prefixes | implemented; output-byte fixtures green, prefix slicing absent |
 | T8 item 8 executor cleanup owner | all run-completion branches -> `finalizeRun` cleanup decision | implemented; survivor preservation and normal/timeout cleanup characterization green |
 | T8 item 9 genesis reverse ladder | ordered version-downgrade rows -> pinned v5 digest check | implemented; v8 source bytes, exact transformations, errors, and digest tripwire unchanged |
-| T9 G4 no-response cadence | startup-pinned operator config -> production scheduler no-response timer | implemented; custom zero fires while answered-stalled remains at one hour |
-| T9 G4 answered-stalled cadence | startup-pinned operator config -> production scheduler answered-stalled timer | implemented; custom zero fires after rejected answer while no-response remains at one hour |
-| T9 no-auto-approve boundary | exact cadence object with duration fields only -> resummon commands | implemented; `auto_approve` is schema-rejected and no accepted resolution is emitted |
+| T9 G4 no-response cadence | startup-pinned engine-v4 operator config -> production scheduler no-response timer | implemented; custom zero fires while answered-stalled remains at one hour |
+| T9 G4 answered-stalled cadence | startup-pinned engine-v4 operator config -> production scheduler answered-stalled timer | implemented; custom zero fires after rejected answer while no-response remains at one hour |
+| T9 config version home | engine v4 descriptor = v3 set plus optional `resummon_cadence`; v3 restored; v3→v4 adjacent hop | implemented under master ruling + m-7 owner spec; rollback/skip/v5 ceiling fixtures green |
+| T9 no-auto-approve boundary | exact v4 cadence object with duration fields only -> resummon commands | implemented; `auto_approve` is schema-rejected and no accepted resolution is emitted |
 | T5 elaborate-more fork | g2 reviewed ceiling returned to master | REPORT-AND-HOLD; acceptance OPEN — planner proposal only, no implementer review/master completion |
 | T10 re-prompt/claimless-held | dc design-cell return | REPORT-AND-HOLD; acceptance OPEN — no dc return exists |
 
@@ -36,6 +37,7 @@
 |---|---|---|
 | `.relays/s11/mechanical-tables.md` | cross-task consumption and diff-license evidence | IN — token row `frank/.relays/s11/` |
 | `.relays/s11/fold-optionals-red-green.md` | optional findings 1/2 RED, focused GREEN, and targeted package/fixture evidence | IN — review-fold FOLD_SCOPE row `frank/.relays/s11/fold-optionals-red-green.md` |
+| `.relays/s11/fold-v4-red-green.md` | master-ruled v4 re-home RED/GREEN, deviation hold, and corrected-scope evidence | IN — corrected review-fold FOLD_SCOPE row `frank/.relays/s11/fold-v4-red-green.md` |
 | `.relays/s11/t1-red-green.md` | T1 sequence-honest RED/GREEN evidence | IN — token row `frank/.relays/s11/` |
 | `.relays/s11/t2-red-green.md` | T2 sequence-honest RED/GREEN evidence | IN — token row `frank/.relays/s11/` |
 | `.relays/s11/t3-red-green.md` | T3 sequence-honest RED/GREEN evidence | IN — token row `frank/.relays/s11/` |
@@ -61,8 +63,9 @@
 | `internal/engine/resummon.go` | T6 suppression; T8 item 5 snapshot supply; T8 item 6 operator-record adapter; T9 cadence source; optional finding 2 testable G4 input construction | IN — token row `frank/internal/engine/` plus review-fold FOLD_SCOPE; item order T6 then T8.5 then T8.6 then T9 |
 | `internal/engine/resummon_test.go` | T6 cadence restart; T8 item 5 dedupe/scheduler snapshot characterization; optional finding 2 replacement-slot assertion | IN — token row `frank/internal/engine/` plus review-fold FOLD_SCOPE, scheduler seam |
 | `cmd/frank/main.go` | T8 item 5 production live-table snapshot injection; T9 pinned cadence handoff | IN — composition-root-only seams; item order T8.5 then T9 |
-| `internal/config/config.go` | T9 exact G4 cadence object, validation, and shipped defaults | IN — token row `frank/internal/config/config.go`, G4 cadence loci only |
-| `test/fixtures/s11_cadence_test.go` | T9 RED/GREEN production wiring and no-auto-approve boundary | IN — token row `frank/test/fixtures/`, T9 only |
+| `internal/config/config.go` | T9 exact G4 cadence object, validation, shipped defaults, and master-ruled engine-v4 version home | IN — token row plus corrected review-fold FOLD_SCOPE; m-7 F1–F5 only |
+| `internal/config/lane_vcs_test.go` | T9 v5 reader-ceiling fixture re-pin after v4 activation | IN — corrected review-fold fence-union row; exact test rename + marker 4→5 only |
+| `test/fixtures/s11_cadence_test.go` | T9 RED/GREEN production wiring, engine-v4 descriptor/transition contract, and no-auto-approve boundary | IN — token row plus corrected review-fold FOLD_SCOPE, T9 only |
 | `internal/obligation/obligation.go` | T6 stale consumer; T8 item 3 ODB builder; T8 item 6 canonical system-to-operator builder | IN — token row `frank/internal/obligation/`; item order T6 then T8.3 then T8.6 |
 | `internal/crashpoint/crashpoint.go` | T6 stale reissue durability boundary | IN — token row `frank/internal/crashpoint/`, T6 only |
 | `internal/crashpoint/crashpoint_test.go` | T6 exact registered-crashpoint assertion adjacency | IN — token row `frank/internal/crashpoint/`, T6 only |
