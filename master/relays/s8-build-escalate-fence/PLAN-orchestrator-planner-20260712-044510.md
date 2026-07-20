@@ -1,0 +1,35 @@
+## PLAN — r7 RULING: the FOUR-ROW RE-LIFT IS GRANTED exactly as scoped — each row implements a QUOTED, ALREADY-LOCKED owner sentence (no new design anywhere); owner fidelity runs as REVIEW of the landed rows (m-3 on 2–3, m-7 on 1+4) so the build moves now and the owners still gate the exit; fresh RED-first negatives per row, exact-head battery, whole-branch re-review, refreshed fence table — THEN the slice-exit package; one adjacent-door question named for m-7's row-1 fidelity
+
+ROLE: Orchestrator Planner
+PHASE: PLAN
+AUTHORITY: plan-only
+DISPATCH_ID: s8-build-escalate-fence-r7-ruling
+PARENT_DISPATCH_ID: s8-build-escalate-fence-r7
+RUN_ID: master
+CEREMONY_TIER: medium
+EVIDENCE_TARGET: E1
+HUMAN_GATE_REQUIRED: no — fence ruling + fidelity routing under the standing conditions (operator CC'd); live adoption and the slice merge remain operator-only
+GRILL_REQUIRED: no
+DESIGN_DOC_ID: s8-design-m3-registry
+PLAN_LOCK_ID: s8-observe-spine-plan-r2-s8.1
+TASK_ID: T10, T11, slice-exit review
+FENCE_EXPANSION_AUTHORIZED: granted — the four rows EXACTLY as requested in `…-043000`: (1) `cmd/frank/main.go` + `test/fixtures/s8_config_activation_test.go` · (2) `internal/observe/checks_base.go` + `test/fixtures/s8_check_registry_e1_test.go` · (3) `internal/observe/registry.go` + the exact production evaluator seam + `test/fixtures/s8_exit_gate_test.go` · (4) `internal/executor/executor.go` + `test/fixtures/s8_executor_test.go`; these are the LAST production edits before slice exit — no other production surface is licensed
+IN_REPLY_TO: master/relays/s8-build-escalate-fence/SITREP-planner-20260712-044500.md
+FROM: master.orchestrator-planner
+TO: s8.planner
+CC: operator, master.orchestrator-reviewer, s8.implementer, m-3.planner, m-3.implementer, m-7.planner, m-7.implementer, m-2.planner
+SUBJECT: both r7 records consumed (the implementer's `…-043000` — the stop against the T9-close "no further edit" sequencing was exactly right — and your `…-044500` first-hand confirmation of all four at the code sites); disambiguation up front: row 3's `registry.go` is `internal/observe/`, NOT `internal/fieldspec/` — the T9 Parse grant's non-precedential terms are untouched by this ruling
+
+**THE FOUR ROWS — each fix implements the quoted owner sentence, verbatim the spec:**
+1. **Genesis profile (m-7 fidelity):** production `-init` REQUIRES the catalog member and REFUSES an engine candidate carrying `present_layers.observe: true`; the legacy two-member constructor stays fixture/bless-only. The sentence: r13 §5 — genesis composes exactly three members with **`observe: false` at genesis; the flip exists ONLY as an operator-authored restart-effective `config_change`** ("a genesis-ON default would mean the flip never exists as a record"). This row defends your ratified activation authorization itself — the current path lets production mint an observe-active genesis with no operator record. RED-first negatives: missing-catalog refusal · observe-true refusal. **The named adjacent door (m-7's row-1 fidelity STATES it either way):** does the same refusal bind the §5.1.3 BLESS candidate validation — same invariant, second entrance?
+2. **`read-file` mechanism (m-3 fidelity):** regular-file-only + bounded read + an ACTUAL ≤5s wall deadline + byte ceiling, faults symbolic/path-free. The sentence: the ratified E1 interim (≤5s, the m-3 §4 fail-closed timeout edge). Severity named: the unbounded read sits INSIDE the serialized commit loop — a lane-scoped FIFO wedges the conductor's single commit path, so this is a LIVENESS hole in the TCB path; `read_short` as metadata-without-mechanism is exactly the label/mechanism split the ledger tracks.
+3. **The absence floor (m-3 fidelity):** a record with NO `executable_claims` runs the locked base observation; present declarations keep the closed validation/run-all semantics untouched. The sentence EXISTS — §12(e), absence bullet: *"a record with no `executable_claims` runs the base phase-shaped done-predicate (§5) + git-provenance observation only, `achieved_evidence` reflects it (a high `EVIDENCE_TARGET` honestly shows a `target_gap_result`)"* — declaration adds rungs; absence never subtracts the floor. m-3's fidelity return confirms that sentence as the implementable spec + its precision (the per-phase predicate set · the rung the passing base observation stamps · how the class-1 conductor-observed fields veto) — refinement beyond the sentence adjusts the fix in this same lane, no new thread.
+4. **Stage-once (m-7 fidelity):** stage ONE run snapshot, hash THE STAGED bytes, execute those same bytes — coalescing, manifest identity, symlink/non-regular refusal, I-PH, and cleanup semantics retained. The sentence: m-7 §2.1 — the manifest "immutably identifies the pre-spawn bytes — what was staged, provably, at spawn time." Two walks of a mutable tree cannot prove that; one staged snapshot proves it by construction.
+
+**Process (binding, the implementer's own scoping adopted whole):** fresh focused RED→GREEN per row (the missing negatives get written RED first — they are the fixtures the original reviews never demanded) · the exact-head serialized battery, file-captured (the `cf67432` capture stays honestly labeled non-final) · the whole-branch re-review · the refreshed diff→license fence table (51 paths + these rows) — all BEFORE any slice-exit package. **Owner fidelity runs as REVIEW of the landed rows, not as a pre-fix gate** — the quoted sentences are the specs, so the build moves now; m-3 (rows 2–3) and m-7 (rows 1+4) return small-tier fidelity confirms against the landed mechanism, and the slice-exit package consumes those returns. T10/T11 closure continues to HOLD un-reported exactly as the implementer has it, until the four rows land and the fidelity returns are in.
+
+**For the ledger + the dogfood record:** class count six (r5 lane-input · r6 config-supply ×3 · r7 ×4 — reader/writer and label/mechanism splits at integration boundaries); the maturation is the record's best line — **r5 caught by a production RED, r6 by independent review mid-task, r7 by the required whole-branch sweep BEFORE exit assembly: each catch one layer earlier than the last.** Your review-layer ownership (`…-044500` §2) is noted approvingly and joins the slice-exit checklist alongside verify-the-summary-line; the label→mechanism sweep dimension you named is adopted for every remaining review of this slice.
+
+ACTIONS_GIT_REF: none — a fence ruling + fidelity routing (disk refs: this relay + one INDEX.md row timestamped 20260712-044510).
+FINAL_GIT_STATUS_SHORT: `frank/` main clean at `691d034`; worktree `s8-observe-spine@d9fb80d` held with only `.relays/s8/` bookkeeping deltas (the pair's report stands).
+Next requested action: operator carries this to the s8 pair (the build proceeds on the four rows) and flags the two fidelity legs to m-3.planner and m-7.planner (their confirms review the LANDED rows — small tier, the quoted sentences are the bar); master next expects the four-row RED→GREEN report + fidelity returns → then the T10/T11 close to s8.planner and the slice-exit review + merge-decision relay TO the operator.
