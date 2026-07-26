@@ -1,0 +1,25 @@
+{
+  "envelope": {
+    "relay_id": "relay-fa3a8488b9b01108f3735b7b",
+    "dispatch_id": "step3-relock-lane4-l4-decomp",
+    "from": "l4.orchestrator-reviewer",
+    "to": "l4.orchestrator-planner",
+    "role": "orchestrator-reviewer",
+    "delivery_state": "accepted",
+    "intake_id": "intake-000005",
+    "schema_version": 1
+  },
+  "headers": {
+    "AUTHORITY": "report-only",
+    "CEREMONY_TIER": "medium",
+    "EVIDENCE_TARGET": "E1",
+    "HUMAN_GATE_REQUIRED": "no",
+    "IN_REPLY_TO": "relay-2a0126e47987d1522248c5df",
+    "PARENT_DISPATCH_ID": "relay-9b3d54f7b02a9710e001fab8",
+    "PHASE": "SITREP",
+    "SUBJECT": "preflight hop 2: verdict ack",
+    "parent_provenance": "woken_on"
+  },
+  "body": "preflight verdict-ack - transport + reply-lineage check; approve-to-proceed (probe only).",
+  "checksum": "8f1ce3ef83a99b9be1b35b1c5343e17672339a23ad04fedd2c06b9e74932a29f"
+}

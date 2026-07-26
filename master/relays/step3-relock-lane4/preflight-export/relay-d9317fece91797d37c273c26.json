@@ -1,0 +1,26 @@
+{
+  "envelope": {
+    "relay_id": "relay-d9317fece91797d37c273c26",
+    "dispatch_id": "step3-relock-lane4-l4-w1",
+    "from": "l4.orchestrator-planner",
+    "to": "l4.w1.planner",
+    "role": "orchestrator-planner",
+    "delivery_state": "accepted",
+    "intake_id": "intake-000007",
+    "schema_version": 1
+  },
+  "headers": {
+    "AUTHORITY": "report-only",
+    "CEREMONY_TIER": "tiny",
+    "EVIDENCE_TARGET": "E1",
+    "HUMAN_GATE_REQUIRED": "no",
+    "PARENT_DISPATCH_ID": "relay-2a0126e47987d1522248c5df",
+    "PHASE": "SITREP",
+    "SUBJECT": "preflight hop 3: worker dispatch",
+    "parent_hint": "step3-relock-lane4-l4-decomp",
+    "parent_hint_honored": "yes",
+    "parent_provenance": "hint"
+  },
+  "body": "preflight worker-dispatch probe - transport + lineage check.",
+  "checksum": "a10ddd0825615b4100871404df52d4b1f8b186b70c87552bd3ab36d601ebc6e5"
+}

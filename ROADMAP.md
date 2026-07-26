@@ -175,12 +175,125 @@ m-9↔m-10 reciprocal): m-1 `7c8b09a6…` · m-2 `83d8e63e…` · m-3 r4 `009df6
 m-10 r36 `0240e874…` · m-8 r12 `4b670a79…` · m-9 r19 `2a96a07b…`.
 Six close-review rounds (F70–F84, every finding folded owner-real); the F59 authorize→consume→execute guard
 closed at the three-identity/two-derivation-point form with both ratified negatives constructible.
-**Now open: the stage-4 (m-9 full worker) + stage-5 (m-10 control plane) DESIGNs + grills → the stage-6
-Master+VP interface-lock → the T4 build.** Record: `master/RECONCILE.md` §stages-1–3-close.
+**2026-07-21 — §7 stages 4–5 DESIGNED, the stage-6 interface-lock RE-SCOPED + operator-RATIFIED.** The stage-4
+(m-9 full worker `cb7ff970…`) + stage-5 (m-10 control plane `6fd1d655…`) designs completed and both stage-6
+lock halves closed on exact bytes (master r4 `5b36c64c…` + VP APPROVE `2c1b1437…`) — then, **before ratifying**,
+a **stage-5.1 third-party review** (`master/STAGE-5.1-EXTERNAL-REVIEW-2026-07-21.md` `b4e79f3b…`) faulted the
+milestone CLAIM + lock SCOPE (strong governance kernel, not yet honestly a coding-agent MVP: ungoverned bash /
+no exact-effect binding / context lost on worker replacement / plumbing-only exit test). The operator chose to
+keep the "frank harness MVP" label and pull scope up. Master HELD the all-artifact lock and authored a **bounded
+stage-6 re-scope amendment** — `master/STEP-3-STAGE6-AMENDMENT.md`, driven through **twelve VP decomposition-review
+rounds** to **rev12 `1125b0a06697826751786bd82968354f0789f3bc98e6e9a5e8dbdb298f40e183`**, **VP-APPROVED** (r12,
+`step3-arch-packet/…-163600`) and **operator-RATIFIED in-session 2026-07-21** (`…-165500`, agent-authored +
+operator-cited per §8b). The re-scope: **sandbox FORGONE** for the MVP (ambient bash; **H-12 promoted to a HARD
+pre-external-use blocker** — no untrusted/external/security-sensitive/multi-tenant use until a real sandbox
+lands) · bash claim narrowed to invocation-context · a **six governance-property exit gate** (Governance ·
+Durability · Crash-honesty · Injection-**visibility** · Handoff · Operability) + an **objective overhead budget**
+(F59 p95≤250ms · relay≤1s · journal-commit≤100ms · per-turn wall-clock p50≤20% PASS/20–100% HOLD/>100% FAIL)
+replacing any benchmark score · **utility DEMONSTRATED not gated** (public dogfood CRM+bivpak + honestly-labeled
+agent-as-operator SWE-bench, no threshold) · **durable session-state + resume BUILT** (a worker-owned crash-safe
+session-content log with a two-time-scoped trust invariant — content trusted only under settlement evidence AND
+current-prefix presence, else `content_lost`/degrade, never fabricated; outcomes stay m-10-canonical) · the
+interface lock re-cut into a **hashable Tier-HARD bundle** (`bundle_sha256`, stable under soft edits — **later
+superseded 2026-07-27 by the plain byte-bound interface-lock RECORD `master/STEP-3-INTERFACE-LOCK.md` `cbd1893c…`**,
+per the operator's MVP-minimality call; see the 2026-07-27 milestone below) + the pair
+order made an **acyclic DAG**. The held joint lock `b7e1f0ef…` is SUPERSEDED (replaced by a later shorter
+re-lock). **Decoupling (D5): real-work / dogfood start is ⊥ the exit gate** — CRM/bivpak may begin in parallel.
+Record: `master/STEP-3-STAGE6-AMENDMENT.md` + `master/relays/step3-arch-packet/` (twelve r1–r12 rounds; ratify
+`…-165500`) + `master/RECONCILE.md` §stages-1–3-close.
+**Now open — the ratified §11 sequence (separately-gated lanes):** (1) the **m-7 broker study FIRST** (+H-24 if
+cross-epoch completion survives) → (2) the **interface DAG legs** under the F73 ladder + join records for the
+two-sided seams → (3) **author the interface-lock RECORD** `master/STEP-3-INTERFACE-LOCK.md` (**item A** — the
+bundle mechanism of step 3 was superseded 2026-07-27; the exit-fixtures freeze moved to lane 4) → (4) **lane 4** =
+the **Master+VP re-lock over the record's external SHA** + author/content-address the exit-fixture inputs → freeze
+`STEP-3-EXIT-FIXTURES.json` → lock → (5) **T4** (behind the re-lock + H-16/H-26). Ratification issued NO lock/PLAN/T4/cred/provider/
+release/E3/merge/deploy.
+**2026-07-25 — §11 lane status.** **Lane 1 (m-7 broker study) DONE 2026-07-21**: pair-approved rev8
+`64f9136e…` additive over m-7 r11 `9331ea88…`, **DETERMINATION: simpler rule set — cross-epoch completion
+NOT retained ⇒ NO H-24**; m-9/m-10 F73 confirmations + a co-signed two-sided §D join record landed
+(`master/relays/step3-relock-broker-confirm/`). **Lane 2 (interface DAG legs) CONVERGED this session** — the
+producer wave across every owner is pair-approved byte-bound: m-1 env/redaction `d34a7c47…` · m-2 §5-E
+component `c3a8cd61…` + `relay.submit` cell `5ec7a3d2…` · m-3 lane-2 E0/E3 delta **r19 `92e08d09…`** (an
+HONEST PARTIAL — T1–T8 live; **N910** — the per-attempt DATA-P non-emission loss cut — ruled a **documented
+MVP limit**, disclosed via m-10's `UNKNOWN_PROVIDER_OUTCOME` → `uncertain` surface, not a defect; the r7-mirror
+question **deferred to v3**, both dispositions accepted by m-3 as consistent with r19 with no byte change
+owed, `master/relays/step3-relock-dag-m3/SITREP-planner-20260725-113000.md`) · m-8 B/E producer r5 `c0b7b488…`
++ 2a/2b discriminator **r7 `734e44b7…`** · m-9 lane-2 delta **r12 `04422965…`** (the three §5-E-delegated
+recipes — `compaction_template`=A3 attempt-kind-total, `policy_messages`=B1 Step-3 constant `[]`, both
+DELEGATED to m-9 under VP classification F73 `4c254307…`, no operator gate — `master/relays/step3-relock-dag-m9/RECONCILE-planner-20260724-033000.md`) ·
+m-10 B/E carriage **rev3 `cd17db32…`** pair-approved (a further producer delta at rev14 `b96a1511…` is live
+but NOT yet pair-approved). **Item A / Lane 4 / Lane 5 NOT STARTED** *(as of 2026-07-25 — SUPERSEDED by the 2026-07-27 milestone below: lane 2
+closed, item A ratified + authored as the record-lock, in VP+F73 review).*
+**The current live gate — the §D-settlement amendment**: `master/STEP-3-STAGE6-SETTLEMENT-AMENDMENT.md`
+**rev4 `1fa71cb8…`**, bound as one packet with the pair-approved m-2 `relay.submit` resource cell
+`5ec7a3d2…`. VP-APPROVED zero findings 2026-07-25 (`master/relays/step3-relock-settlement-amend/RECONCILE-orchestrator-reviewer-20260725-160000.md`)
+and **OPERATOR-RATIFIED 2026-07-25 (recorded §8b at `step3-relock-settlement-amend/RECONCILE-orchestrator-planner-20260725-170000`; four corrections in force, propagation matrix open)** (no downstream action
+precedes this gate). Four corrections carried: (1) the D-4 Gate-2 honest relabel; (2) a run-wide parked-set
+restore + `MAX_PARKED_ROWS_PER_RUN=512` + a new terminal `parked_unknown_capacity_exceeded`; (3) the
+`relay.submit` `canonical_resource` cell; (4) the `turn_failed` zero-attempt explicit supersession. On
+ratification: the propagation matrix (fresh pair-reviewed m-9 + m-10 successors; m-2 unchanged) → the §D
+two-sided join → then Item A → Lane 4 → Lane 5 (T4).
+**H-12 stands throughout as a HARD pre-external-use blocker** (the MVP forgoes the sandbox): external /
+untrusted / multi-tenant use PROHIBITED until a real sandbox lands, independent of where the §11 sequence sits.
+
+**2026-07-27 — Lane 2 CLOSED; item A RATIFIED + AUTHORED.** The interface DAG (lane 2) **closed** over 9 settled
+owner bases + 5 joins (close `master/relays/step3-relock-settlement-amend/RECONCILE-orchestrator-planner-20260726-160000.md`);
+the §D-settlement amendment ratified. **Item A's mechanism was simplified**: after 10 VP REVISE-NARROW rounds, the
+machine-checkable interface **bundle** (`bundle_sha256` / extractor / markers / soft-stability fixture) was replaced —
+on the operator's MVP-minimality call — by a plain byte-bound **interface-lock record**. The item-A simplification
+amendment `master/STEP-3-ITEM-A-SIMPLIFICATION-AMENDMENT.md` **rev7 `3443f73d…`** is **VP-APPROVED + OPERATOR-RATIFIED
+2026-07-27** (ratify `step3-relock-item-a/RECONCILE-orchestrator-planner-20260727-130000.md`); the r3 recipe
+`06e6956e…` is WITHDRAWN; owners RELEASED. Master then **authored item A** — `master/STEP-3-INTERFACE-LOCK.md`
+(external SHA `cbd1893c…`): the closed byte-bound manifest of 38 files / 42 semantic rows (owner bases · frozen finals · governing
+amendments+ratify relays · joins · carried-source lineage) + 5 typed precedence edges + whole-file invalidation +
+external (no-self-hash) binding. **VP + F73 accepted the record at record/F73 grain** (`step3-relock-item-a/DESIGN-REVIEW-orchestrator-reviewer-20260727-170000.md`, over the corrected-record transmittal `…/DESIGN-orchestrator-planner-20260727-160000.md`); the source-fold correction is `…/RECONCILE-orchestrator-planner-20260727-180000.md`. **Item A is CLOSED** at interface-lock `cbd1893c…` (VP + F73 final approve `step3-relock-item-a/DESIGN-REVIEW-orchestrator-reviewer-20260727-210000.md`; fresh rehash 38/38 distinct, zero mismatch). **Next: lane 4** (Master+VP re-lock over `cbd1893c…` + author fixture inputs → freeze
+`STEP-3-EXIT-FIXTURES.json` → lock) → **lane 5 (T4).** H-12 unchanged.
 **Deferred to Step 4+** (moved out of MVP scope): the **permission/authority system** (m-5 config-derived ceiling
 + `config_generation` freshness + per-role permissions) · a **hard sandbox + irreversibility gating** (H-12) ·
 the **per-model tool manifest / extensible registry / model carousel** · second-provider portability + **routing
 execution** + justified-deviation · benchmark · **native governed agent-spawn** · first-class steer/interrupt.
+
+**Session versioning — git-like, own implementation** *(added 2026-07-26, operator-originated)*. The Step-3
+re-scope removed hash-chaining from the durable session log, and the reason it had to go is the reason this
+carry exists: chaining treats change as **corruption**, version control treats change as **history** — the
+same cryptographic property (one value naming a whole history state) with the opposite stance toward
+editing, and frank needs the second, because editing sessions is a requirement rather than an attack. Two
+drivers, both operator-supplied: **repairability** — a session can become unresumable through no fault of
+the user (precedent: malformed thinking blocks rendering Claude Code sessions unopenable, recovered by
+hand-editing the file), and a session that cannot be repaired is a data-loss event; and **third-party
+rewriting** — `bivpak` packs a session, rewrites paths inside its history and reopens it on another machine,
+which under chaining is indistinguishable from forgery. The access pattern is genuinely a version-control
+workload: append-dominant, with occasional rollback, fork, sparse repair edits and tail deletion for
+recovery. **Direction:** a content-addressed object store plus a commit chain built for this purpose — no
+index, no worktree, no checkout — composed with in-log **supersession records** for sanctioned tool-driven
+edits (never mutate history, file a supersession: the discipline the relay store already lives by), and
+honest labelling underneath both so hand-repair always works, since a file frank cannot parse is a file it
+cannot append its own repair record to. Repo-per-session is rejected for operational sprawl; one shared
+store is rejected because git-style write contention funnels every commit through a single writer and one
+slow session stalls the rest. **git is explicitly NOT a dependency:** either clean-room against git's
+documented on-disk format (loose objects, zlib framing, blob/tree/commit) or fork/vendor a minimal subset
+with attribution — noting git is **GPLv2**, so copying its source would make frank GPLv2 and collide with
+releasing publicly under a license of our choosing, whereas implementing the documented format does not;
+loose objects plus a commit chain is bounded work against a stable spec, and **packfiles** are where the
+cost lives and where session-sized data very likely never needs to go. Pre-reads before any design lock on
+this carry (2026-07-26 sweep, PRIOR-ART.md §2d): codex `rollout_lineage` (`05f000263b` — forks over a frozen
+source-history prefix, child-owned records) + its per-thread single-writer locks (`5c94796dc9`), and
+OpenRath (arXiv 2606.19409, session as a branchable/replayable value) — the field shipped this direction
+within days of the operator choosing it, which validates the direction and supplies the port sources.
+**Status — PENDING, not binding.** Decision 5 (operator, 2026-07-26) requires that external session edits be
+permitted, honestly labelled, and not by themselves a bar to resume — a session that cannot be repaired is a
+data-loss event. The **exact MVP trust/reconciliation mechanism is undesigned**: how an edited prefix is
+detected and labelled; whether edited provider/tool content is trusted, untrusted-but-model-visible, or
+degraded; how it reconciles with the immutable settlement snapshot and prior receipt identity; which
+disposition and first action result; and whether a sanctioned edit rebases or supersedes durable evidence.
+That is owed from m-9 + m-10 (joined by m-3 for the observable consequence, reviewed at the m-1
+at-rest/provenance boundary), then VP review, operator ratification, and an additive supersession — **no
+Step-3 contract moves before then.** In particular this carry does NOT assert that any specific comparison
+becomes non-gating, and does NOT touch `receipt_conflict`, which stays frozen unless the owner derivation
+proves it implicated (VP LANE4-ESC1-VP3-F2/F4: 'label, never gate' cannot silently promote edited bytes as
+prior provider/tool truth across the frozen evidence-AND-current-presence invariant). The
+forward-compatibility observation stands on its own: an append-only line-oriented journal imports into a
+content-addressed store cleanly, which the removed chained log would not have.
 
 **Step 4+ — Ship the harness (the product arc, Steps 4–6)** *(re-cut 2026-07-15 — "MVP at Step 3, then ship at Step 4+")*
 Goal: build the proven MVP spine out into a shippable standalone app. **Step 4 opens the shipping arc** and
@@ -252,6 +365,6 @@ this needs no speculation today.
    (m-4-governed, m-2-shaped); connector/worker selection + invocation state are app-side.
 
 ## How this maps to cycles
-Each step = one or more design→build cycles. **We are in Step-3 DESIGN (2026-07-15) — the app-shell MVP (see the Architecture reframe above).** *(The rest of this sentence is Step-0 origin history:)* Designing Step 1's foundations
+Each step = one or more design→build cycles. **We are in Step-3 DESIGN — the app-shell MVP (see the Architecture reframe above); as of 2026-07-25 the §11 stage-6 re-lock is running — Lane 1 (broker study) CLOSED, Lane 2 (interface DAG) CONVERGED, and the §D-settlement amendment RATIFIED 2026-07-25 — its propagation matrix (m-9 + m-10 folds) now open (see the 2026-07-25 §11 lane-status entry above).** *(The rest of this sentence is Step-0 origin history:)* Designing Step 1's foundations
 *with its consumers bound* (the Cross-cutting "designed-early" rule) **is** `C1_PRODUCT_SCOPE = B` (conductor
 + runtime seams) — so the roadmap lands there, now with the consumer-review dependency made explicit.
