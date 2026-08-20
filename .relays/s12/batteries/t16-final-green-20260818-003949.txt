@@ -1,0 +1,124 @@
+=== RUN   TestH16NudgeRemainsMechanicalOnCompleteAcceptedStateOnly
+--- PASS: TestH16NudgeRemainsMechanicalOnCompleteAcceptedStateOnly (0.00s)
+=== RUN   TestH16StateOnlyConsumersFailClosedOnNonComplete
+--- PASS: TestH16StateOnlyConsumersFailClosedOnNonComplete (0.00s)
+=== RUN   TestH16NativeAndMCPForwardBothOutcomeDimensionsByteTransparently
+--- PASS: TestH16NativeAndMCPForwardBothOutcomeDimensionsByteTransparently (0.23s)
+=== RUN   TestH16ConsumerCensusRemainsStateOnlyAndHealNudgeDropped
+--- PASS: TestH16ConsumerCensusRemainsStateOnlyAndHealNudgeDropped (0.00s)
+=== RUN   TestH16LoopStampsAndBlindReplayAdvancesToTerminalIdempotently
+--- PASS: TestH16LoopStampsAndBlindReplayAdvancesToTerminalIdempotently (0.07s)
+=== RUN   TestH16MintMarkerCommitFailureNeverEntersEffectAndCallerReplayHeals
+--- PASS: TestH16MintMarkerCommitFailureNeverEntersEffectAndCallerReplayHeals (0.07s)
+=== RUN   TestH16MintDurableMarkerWithoutEvidenceResumesOnlyForCaller
+--- PASS: TestH16MintDurableMarkerWithoutEvidenceResumesOnlyForCaller (0.07s)
+=== RUN   TestH16PendingOutcomeFailsClosedForLegacyStateOnlyDecode
+--- PASS: TestH16PendingOutcomeFailsClosedForLegacyStateOnlyDecode (0.02s)
+=== RUN   TestH16OutcomeSplitCompleteEmittersCarryBothDimensions
+=== RUN   TestH16OutcomeSplitCompleteEmittersCarryBothDimensions/committed_accepted
+=== RUN   TestH16OutcomeSplitCompleteEmittersCarryBothDimensions/precommit_rejected
+--- PASS: TestH16OutcomeSplitCompleteEmittersCarryBothDimensions (0.03s)
+    --- PASS: TestH16OutcomeSplitCompleteEmittersCarryBothDimensions/committed_accepted (0.03s)
+    --- PASS: TestH16OutcomeSplitCompleteEmittersCarryBothDimensions/precommit_rejected (0.00s)
+PASS
+ok  	github.com/jackli/frank/test/fixtures	0.975s
+=== RUN   TestLawIntakeOutcomeOneToOne
+--- PASS: TestLawIntakeOutcomeOneToOne (0.17s)
+=== RUN   TestLawDerivedOnlyActivation
+--- PASS: TestLawDerivedOnlyActivation (0.06s)
+=== RUN   TestLawSoleGovernedWriter
+--- PASS: TestLawSoleGovernedWriter (0.04s)
+=== RUN   TestLawPathHygiene
+=== RUN   TestLawPathHygiene/planted_leak_is_rejected_inside_mint_reply
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/binding
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/catalog-config
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/conductor-lock
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/engine-config
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/fieldspec-registry
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/journal
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/mailboxes
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/outbox
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/projections
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/quarantine
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/records
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/staging
+=== RUN   TestLawPathHygiene/mint_carve-outs_are_operator-channel_only
+=== RUN   TestLawPathHygiene/unregistered_family_is_rejected
+=== RUN   TestLawPathHygiene/unregistered_sink_pattern_is_rejected
+--- PASS: TestLawPathHygiene (0.62s)
+    --- PASS: TestLawPathHygiene/planted_leak_is_rejected_inside_mint_reply (0.00s)
+    --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/binding (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/catalog-config (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/conductor-lock (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/engine-config (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/fieldspec-registry (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/journal (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/mailboxes (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/outbox (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/projections (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/quarantine (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/records (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/staging (0.00s)
+    --- PASS: TestLawPathHygiene/mint_carve-outs_are_operator-channel_only (0.00s)
+    --- PASS: TestLawPathHygiene/unregistered_family_is_rejected (0.00s)
+    --- PASS: TestLawPathHygiene/unregistered_sink_pattern_is_rejected (0.00s)
+=== RUN   TestLawCanonicalWins
+--- PASS: TestLawCanonicalWins (0.07s)
+=== RUN   TestLawOnePivotPerMutation
+=== RUN   TestLawOnePivotPerMutation/exactly_one_canonical_rename
+=== RUN   TestLawOnePivotPerMutation/crash_before_pivot_is_absent
+=== RUN   TestLawOnePivotPerMutation/crash_after_pivot_is_present
+--- PASS: TestLawOnePivotPerMutation (0.07s)
+    --- PASS: TestLawOnePivotPerMutation/exactly_one_canonical_rename (0.04s)
+    --- PASS: TestLawOnePivotPerMutation/crash_before_pivot_is_absent (0.02s)
+    --- PASS: TestLawOnePivotPerMutation/crash_after_pivot_is_present (0.02s)
+=== RUN   TestLawRebuildBeforeOpen
+--- PASS: TestLawRebuildBeforeOpen (0.10s)
+=== RUN   TestLawTerminalEnumByteExact
+--- PASS: TestLawTerminalEnumByteExact (0.03s)
+=== RUN   TestLawThreeVerbSurface
+--- PASS: TestLawThreeVerbSurface (0.00s)
+=== RUN   TestLawR2NoModelPredicate
+=== RUN   TestLawR2NoModelPredicate/synthetic_required_when
+=== RUN   TestLawR2NoModelPredicate/synthetic_visible_when
+=== RUN   TestLawR2NoModelPredicate/synthetic_any-row_required_when
+=== RUN   TestLawR2NoModelPredicate/synthetic_any-row_visible_when
+--- PASS: TestLawR2NoModelPredicate (0.00s)
+    --- PASS: TestLawR2NoModelPredicate/synthetic_required_when (0.00s)
+    --- PASS: TestLawR2NoModelPredicate/synthetic_visible_when (0.00s)
+    --- PASS: TestLawR2NoModelPredicate/synthetic_any-row_required_when (0.00s)
+    --- PASS: TestLawR2NoModelPredicate/synthetic_any-row_visible_when (0.00s)
+PASS
+ok  	github.com/jackli/frank/test/invariants	1.645s
+?   	github.com/jackli/frank/cmd/frank	[no test files]
+ok  	github.com/jackli/frank/cmd/frank-mcp	0.362s
+ok  	github.com/jackli/frank/internal/bounce	0.558s
+ok  	github.com/jackli/frank/internal/channel	1.135s
+ok  	github.com/jackli/frank/internal/config	1.058s
+ok  	github.com/jackli/frank/internal/crashpoint	1.482s
+?   	github.com/jackli/frank/internal/derived	[no test files]
+ok  	github.com/jackli/frank/internal/egress	1.288s
+ok  	github.com/jackli/frank/internal/engine	5.318s
+?   	github.com/jackli/frank/internal/executor	[no test files]
+ok  	github.com/jackli/frank/internal/fieldspec	2.000s
+ok  	github.com/jackli/frank/internal/fsio	2.258s
+ok  	github.com/jackli/frank/internal/gate	3.681s
+ok  	github.com/jackli/frank/internal/gc	3.965s
+ok  	github.com/jackli/frank/internal/intake	7.133s
+ok  	github.com/jackli/frank/internal/lineage	3.428s
+ok  	github.com/jackli/frank/internal/migrate	3.721s
+ok  	github.com/jackli/frank/internal/obligation	4.943s
+ok  	github.com/jackli/frank/internal/observe	7.128s
+ok  	github.com/jackli/frank/internal/record	3.885s
+ok  	github.com/jackli/frank/internal/recover	6.442s
+ok  	github.com/jackli/frank/internal/seat	3.952s
+ok  	github.com/jackli/frank/internal/store	6.367s
+ok  	github.com/jackli/frank/internal/tables	4.233s
+ok  	github.com/jackli/frank/test/fixtures	171.686s
+ok  	github.com/jackli/frank/test/invariants	6.390s
+ok  	github.com/jackli/frank/test/replay	2.495s
+ok  	github.com/jackli/frank/test/replay/dogfood	2.535s
+ok  	github.com/jackli/frank/test/replay/zeroloss	3.790s
+?   	github.com/jackli/frank/test/seatproc	[no test files]

@@ -1,0 +1,15 @@
+COMMAND: go test ./test/fixtures -run '^TestH16(ClassG|ProcessQuarantine|PreServe|Nudge)' -count=1 -v
+# github.com/jackli/frank/test/fixtures_test [github.com/jackli/frank/test/fixtures.test]
+test/fixtures/h16_classg_test.go:25:7: loop.ClassGGC undefined (type *engine.Loop has no field or method ClassGGC)
+test/fixtures/h16_classg_test.go:40:10: loop.ClassGDirty undefined (type *engine.Loop has no field or method ClassGDirty)
+test/fixtures/h16_classg_test.go:40:39: loop.Tables.ClassGDirty undefined (type *tables.T has no field or method ClassGDirty)
+test/fixtures/h16_classg_test.go:41:85: loop.ClassGDirty undefined (type *engine.Loop has no field or method ClassGDirty)
+test/fixtures/h16_classg_test.go:41:112: loop.Tables.ClassGDirty undefined (type *tables.T has no field or method ClassGDirty)
+test/fixtures/h16_classg_test.go:53:10: loop.ClassGCompleteAuto undefined (type *engine.Loop has no field or method ClassGCompleteAuto)
+test/fixtures/h16_classg_test.go:64:10: loop.ClassGGC undefined (type *engine.Loop has no field or method ClassGGC)
+test/fixtures/h16_classg_test.go:75:10: loop.ClassGBuildTables undefined (type *engine.Loop has no field or method ClassGBuildTables)
+test/fixtures/h16_classg_test.go:86:10: loop.ClassGArmScheduler undefined (type *engine.Loop has no field or method ClassGArmScheduler)
+test/fixtures/h16_classg_test.go:103:13: loop.ClassGDirty undefined (type *engine.Loop has no field or method ClassGDirty)
+test/fixtures/h16_classg_test.go:103:13: too many errors
+FAIL	github.com/jackli/frank/test/fixtures [build failed]
+FAIL

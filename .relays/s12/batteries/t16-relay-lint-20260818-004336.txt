@@ -1,0 +1,13 @@
+OK master/relays/boot/master-boot-s12-implementer/SITREP-orchestrator-planner-20260817-184804.md
+OK master/relays/boot/master-boot-s12-implementer/SITREP-orchestrator-planner-20260817-200854.md
+OK frank/.relays/s12/s12-build/PLAN-planner-20260817-211202.md
+OK frank/.relays/s12/s12-build/PLAN-REVIEW-implementer-20260817-212251.md
+OK frank/.relays/s12/s12-build/SITREP-planner-20260817-213142.md
+OK frank/.relays/s12/s12-build/IMPL-planner-20260817-214612.md
+EXACT_RC=0
+ERROR frank/.relays/s12: s12-build/PLAN-planner-20260817-191828.md: DESIGN_LOCK_ID 'h16-outcome-split-design @ sha256 e09fab09cdcc2a6025fd42f06b02e573a3e091542f9eb44cebe42a7fa5ff7de9' has no earlier same-owner DESIGN relay carrying matching DESIGN_DOC_ID
+ERROR frank/.relays/s12: s12-build/PLAN-planner-20260817-191828.md: PLAN_SHA256: no artifact resolves for stem 'PL-s12-build-plan-20260817' under plans/ at any probe root
+OK frank/.relays/s12/s12-build/IMPL-planner-20260817-214612.md
+ROUTED_RC=1 (operator-waived by 194914)
+OK frank/.relays/s12/INDEX.md
+INDEX_RC=0

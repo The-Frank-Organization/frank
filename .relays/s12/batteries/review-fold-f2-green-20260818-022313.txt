@@ -1,0 +1,11 @@
+STARTED_AT=2026-08-18T02:23:13-0700
+SOURCE_BRANCH=s12-h16-fix
+SOURCE_HEAD=8ca99650019f2ddd12d47237e1abb32fbd5895e8
+COMMAND=go test ./test/fixtures -run '^TestH16DirtyClassGBlocksBlindClassDUntilSuccessfulPass$' -count=1 -v
+CONTENTION=focused verification; no full-suite quiet-window claim
+=== RUN   TestH16DirtyClassGBlocksBlindClassDUntilSuccessfulPass
+--- PASS: TestH16DirtyClassGBlocksBlindClassDUntilSuccessfulPass (0.07s)
+PASS
+ok  	github.com/jackli/frank/test/fixtures	0.513s
+EXIT_STATUS=0
+FINISHED_AT=2026-08-18T02:23:14-0700

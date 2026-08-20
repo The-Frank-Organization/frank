@@ -1,0 +1,26 @@
+DIAGNOSIS=s12 m-3 flake-2 executor mechanism
+STARTING_HEAD=8ca99650019f2ddd12d47237e1abb32fbd5895e8
+HISTORICAL_CAPTURE=frank/.relays/s12/batteries/planner-verify-full-rerun-uncontended-20260818-031506.txt
+HISTORICAL_OBSERVATION=TestS8AdversarialExecutorIsolationAndVerdictIPHIntegrated rejected after 1.74s at the live 1.731s sentinel; public result named isolation-probe and observe-machinery-fault but redacted the executor detail
+
+INSTRUMENTATION=test-only capture of Registry.EvaluateClaims(...).Verdicts in the existing failure message; execution path unchanged
+BOUNDED_LOAD_COMMAND=go test ./... -count=1
+BOUNDED_LOAD_RESULT=PASS; the flake did not recur naturally, so no raw failing verdict was emitted
+SATURATION_CALIBRATION_COMMAND=prebuilt fixtures binary, 180 bounded CPU competitors, nice -n 20, exact adversarial test only
+SATURATION_CALIBRATION_RESULT=PASS in 0.25s; load level remained below the live 1.731s deadline
+
+CONTROLLED_BOUNDARY_COMMAND=go test ./test/fixtures -run '^TestS8AdversarialExecutorIsolationAndVerdictIPHIntegrated$' -count=1 -v
+CONTROLLED_BOUNDARY_ONLY_TEST_EDIT=temporary timeoutSentinel=100ms, below the observed loaded runtime; removed immediately after diagnosis
+CONTROLLED_BOUNDARY_EXIT_STATUS=1 (expected diagnostic RED)
+CONTROLLED_BOUNDARY_ELAPSED=0.11s
+RAW_VERDICT=CheckID:"run-suite" ClaimRef:"isolation-probe" Outcome:"unsafe" RungReached:"none" Predicate:"blocked" Timing:"timeout" FailingDetail:"executor-timeout"
+PUBLIC_SHAPE=terminal:"rejected" FailingPredicate:"isolation-probe" FailureClass:"observe-machinery-fault"
+CONFIRMED_MECHANISM=executor-timeout: timeoutSentinel doubled as the live subprocess deadline; crossing it reproduces the exact historical public machinery-fault shape, and the historical 1.74s elapsed sits on the former 1.731s boundary
+BLOCK_BRANCH=not triggered; an executor-* detail was confirmed and no gate write-allowlist or product-side race was observed
+
+FINAL_REMEDY=timeoutSentinel=17311ms (17.311s), still unique and still present via timeoutSentinel.String() in the forbidden-leak assertion; raw verdict capture retained for future failures
+FINAL_REMEDY_TARGETED_COMMAND=go test ./test/fixtures -run '^(TestS12DogfoodNestedOuterOnlyContract|TestS8AdversarialExecutorIsolationAndVerdictIPHIntegrated)$' -count=1 -v
+FINAL_REMEDY_TARGETED_RESULT=PASS; adversarial probe 0.23s
+FINAL_TIP=1ac14a019f4122a7e43a7f2d17c465ba331e1985
+PRODUCT_BYTES_CHANGED=no
+POLICY_VALUES_CHANGED=no; internal/executor/executor.go 120s cap and exit-gate 150s context unchanged

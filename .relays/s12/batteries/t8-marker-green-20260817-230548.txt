@@ -1,0 +1,17 @@
+=== RUN   TestH16MintMarkerCommitFailureNeverEntersEffectAndCallerReplayHeals
+--- PASS: TestH16MintMarkerCommitFailureNeverEntersEffectAndCallerReplayHeals (0.07s)
+=== RUN   TestH16MintDurableMarkerWithoutEvidenceResumesOnlyForCaller
+--- PASS: TestH16MintDurableMarkerWithoutEvidenceResumesOnlyForCaller (0.07s)
+=== RUN   TestH16MintRealizedBeforeAdvanceIsFailedUndeliveredAndNeverReruns
+--- PASS: TestH16MintRealizedBeforeAdvanceIsFailedUndeliveredAndNeverReruns (0.05s)
+=== RUN   TestH16MintTerminalReplyCarriesExtrasOnceAndReplayDoesNot
+--- PASS: TestH16MintTerminalReplyCarriesExtrasOnceAndReplayDoesNot (0.08s)
+=== RUN   TestH16EarlierClassGFailureAndUnrelatedCommandNeverMint
+--- PASS: TestH16EarlierClassGFailureAndUnrelatedCommandNeverMint (0.10s)
+PASS
+ok  	github.com/jackli/frank/test/fixtures	0.887s
+--- FAIL: TestLawPathHygiene (0.56s)
+    path_hygiene_test.go:188: AST sink census: seat-mint-outcome-extras site count = 20, catalog pins 11
+FAIL
+FAIL	github.com/jackli/frank/test/invariants	1.492s
+FAIL

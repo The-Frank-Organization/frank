@@ -1,0 +1,240 @@
+COMMAND: focused Task 4 H-16 registry/version/genesis/presence battery
+=== RUN   TestH16PresencePinnedRejectsPresentEmptySystemHeader
+--- PASS: TestH16PresencePinnedRejectsPresentEmptySystemHeader (0.00s)
+=== RUN   TestH16PresencePinnedSharedImpactPopulation
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/parent_hint_honored
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/parent_provenance
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/routing_ref_honored
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/gate_category_raised
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/delivery_state
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/failing_edge
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/hook_contract
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/mint_predecessor
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/admin_provenance
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/achieved_evidence
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/target_gap_result
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/evidence_integrity
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/record_integrity
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/executable_claim_results
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/egress_scan_result
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/degradation_notes
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/attestation_source
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/authority_class
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/deviated_observed
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/bucket_binding_observed
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/surface_intent
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/slot_in
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/seat_archetype
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/authority_ceiling
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/capability_prior_snapshot
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/template_ref
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/outcome_feedback_ref
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/subject_ref
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/decision_deadline
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/on_timeout
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/completed_proof
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/away_bridge_eligible
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/model_name
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/gate_category_pick
+--- PASS: TestH16PresencePinnedSharedImpactPopulation (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/parent_hint_honored (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/parent_provenance (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/routing_ref_honored (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/gate_category_raised (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/delivery_state (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/failing_edge (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/hook_contract (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/mint_predecessor (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/admin_provenance (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/achieved_evidence (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/target_gap_result (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/evidence_integrity (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/record_integrity (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/executable_claim_results (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/egress_scan_result (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/degradation_notes (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/attestation_source (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/authority_class (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/deviated_observed (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/bucket_binding_observed (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/surface_intent (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/slot_in (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/seat_archetype (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/authority_ceiling (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/capability_prior_snapshot (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/template_ref (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/outcome_feedback_ref (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/subject_ref (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/decision_deadline (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/on_timeout (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/completed_proof (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/away_bridge_eligible (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/model_name (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/gate_category_pick (0.00s)
+=== RUN   TestH16PresencePinnedEnvelopeRowsRemainOutsideHeaderPopulation
+=== RUN   TestH16PresencePinnedEnvelopeRowsRemainOutsideHeaderPopulation/FROM
+=== RUN   TestH16PresencePinnedEnvelopeRowsRemainOutsideHeaderPopulation/ROLE
+=== RUN   TestH16PresencePinnedEnvelopeRowsRemainOutsideHeaderPopulation/relay_id
+--- PASS: TestH16PresencePinnedEnvelopeRowsRemainOutsideHeaderPopulation (0.00s)
+    --- PASS: TestH16PresencePinnedEnvelopeRowsRemainOutsideHeaderPopulation/FROM (0.00s)
+    --- PASS: TestH16PresencePinnedEnvelopeRowsRemainOutsideHeaderPopulation/ROLE (0.00s)
+    --- PASS: TestH16PresencePinnedEnvelopeRowsRemainOutsideHeaderPopulation/relay_id (0.00s)
+=== RUN   TestH16PresencePinnedObservationProducerRetainsEmptyDegradationNotes
+--- PASS: TestH16PresencePinnedObservationProducerRetainsEmptyDegradationNotes (0.00s)
+=== RUN   TestH16RegistryRowsAndRuledRecordKinds
+--- PASS: TestH16RegistryRowsAndRuledRecordKinds (0.00s)
+=== RUN   TestH16FieldspecV9ReaderAndForwardTransition
+--- PASS: TestH16FieldspecV9ReaderAndForwardTransition (0.00s)
+=== RUN   TestH16FreshGenesisIsBornAtV9AndPinsDigest
+--- PASS: TestH16FreshGenesisIsBornAtV9AndPinsDigest (0.04s)
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/parent_hint_honored
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/parent_provenance
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/routing_ref_honored
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/gate_category_raised
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/delivery_state
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/failing_edge
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/hook_contract
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/mint_predecessor
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/admin_provenance
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/achieved_evidence
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/target_gap_result
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/evidence_integrity
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/record_integrity
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/executable_claim_results
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/egress_scan_result
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/degradation_notes
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/attestation_source
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/authority_class
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/deviated_observed
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/bucket_binding_observed
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/surface_intent
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/slot_in
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/seat_archetype
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/authority_ceiling
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/capability_prior_snapshot
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/template_ref
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/outcome_feedback_ref
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/subject_ref
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/decision_deadline
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/on_timeout
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/completed_proof
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/away_bridge_eligible
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/model_name
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/gate_category_pick
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/hook_contract#01
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/mint_predecessor#01
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/admin_provenance#01
+--- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/parent_hint_honored (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/parent_provenance (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/routing_ref_honored (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/gate_category_raised (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/delivery_state (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/failing_edge (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/hook_contract (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/mint_predecessor (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/admin_provenance (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/achieved_evidence (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/target_gap_result (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/evidence_integrity (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/record_integrity (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/executable_claim_results (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/egress_scan_result (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/degradation_notes (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/attestation_source (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/authority_class (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/deviated_observed (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/bucket_binding_observed (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/surface_intent (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/slot_in (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/seat_archetype (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/authority_ceiling (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/capability_prior_snapshot (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/template_ref (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/outcome_feedback_ref (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/subject_ref (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/decision_deadline (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/on_timeout (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/completed_proof (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/away_bridge_eligible (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/model_name (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/gate_category_pick (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/hook_contract#01 (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/mint_predecessor#01 (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/admin_provenance#01 (0.00s)
+PASS
+ok  	github.com/jackli/frank/test/fixtures	0.484s
+COMMAND: pinned historical S8/S10 fieldspec controls
+=== RUN   TestS10ExitLeg3FreshV8GateWakesExactlyOnceAfterLocalReobserve
+--- PASS: TestS10ExitLeg3FreshV8GateWakesExactlyOnceAfterLocalReobserve (0.22s)
+=== RUN   TestS10V7ReaderRefusesV8MarkerBeforeContent
+--- PASS: TestS10V7ReaderRefusesV8MarkerBeforeContent (0.00s)
+=== RUN   TestS10FreshGenesisIsBornAtV8WithoutPreV8Records
+--- PASS: TestS10FreshGenesisIsBornAtV8WithoutPreV8Records (0.04s)
+=== RUN   TestS10FreshGenesisRejectsV8WithCorruptedLockedPredecessorByte
+--- PASS: TestS10FreshGenesisRejectsV8WithCorruptedLockedPredecessorByte (0.02s)
+=== RUN   TestS8V6ReaderRefusesV7MarkerBeforeContent
+--- PASS: TestS8V6ReaderRefusesV7MarkerBeforeContent (0.00s)
+=== RUN   TestS8RegistryChangesetIsExactV7OptionB
+--- PASS: TestS8RegistryChangesetIsExactV7OptionB (0.00s)
+=== RUN   TestS8FXSUP3MemberTransitionRefusesDuplicateMarkers
+=== RUN   TestS8FXSUP3MemberTransitionRefusesDuplicateMarkers/engine
+=== RUN   TestS8FXSUP3MemberTransitionRefusesDuplicateMarkers/fieldspec
+=== RUN   TestS8FXSUP3MemberTransitionRefusesDuplicateMarkers/catalog
+--- PASS: TestS8FXSUP3MemberTransitionRefusesDuplicateMarkers (0.00s)
+    --- PASS: TestS8FXSUP3MemberTransitionRefusesDuplicateMarkers/engine (0.00s)
+    --- PASS: TestS8FXSUP3MemberTransitionRefusesDuplicateMarkers/fieldspec (0.00s)
+    --- PASS: TestS8FXSUP3MemberTransitionRefusesDuplicateMarkers/catalog (0.00s)
+PASS
+ok  	github.com/jackli/frank/test/fixtures	0.748s
+COMMAND: go test ./test/invariants -count=1 (run 1/10)
+ok  	github.com/jackli/frank/test/invariants	1.390s
+COMMAND: go test ./test/invariants -count=1 (run 2/10)
+ok  	github.com/jackli/frank/test/invariants	1.275s
+COMMAND: go test ./test/invariants -count=1 (run 3/10)
+ok  	github.com/jackli/frank/test/invariants	1.292s
+COMMAND: go test ./test/invariants -count=1 (run 4/10)
+ok  	github.com/jackli/frank/test/invariants	1.316s
+COMMAND: go test ./test/invariants -count=1 (run 5/10)
+ok  	github.com/jackli/frank/test/invariants	1.288s
+COMMAND: go test ./test/invariants -count=1 (run 6/10)
+ok  	github.com/jackli/frank/test/invariants	1.301s
+COMMAND: go test ./test/invariants -count=1 (run 7/10)
+ok  	github.com/jackli/frank/test/invariants	1.330s
+COMMAND: go test ./test/invariants -count=1 (run 8/10)
+ok  	github.com/jackli/frank/test/invariants	1.331s
+COMMAND: go test ./test/invariants -count=1 (run 9/10)
+ok  	github.com/jackli/frank/test/invariants	1.348s
+COMMAND: go test ./test/invariants -count=1 (run 10/10)
+ok  	github.com/jackli/frank/test/invariants	1.327s
+COMMAND: go test ./... -count=1
+?   	github.com/jackli/frank/cmd/frank	[no test files]
+ok  	github.com/jackli/frank/cmd/frank-mcp	0.302s
+ok  	github.com/jackli/frank/internal/bounce	0.419s
+ok  	github.com/jackli/frank/internal/channel	0.952s
+ok  	github.com/jackli/frank/internal/config	1.008s
+ok  	github.com/jackli/frank/internal/crashpoint	1.184s
+ok  	github.com/jackli/frank/internal/egress	0.824s
+ok  	github.com/jackli/frank/internal/engine	6.216s
+?   	github.com/jackli/frank/internal/executor	[no test files]
+ok  	github.com/jackli/frank/internal/fieldspec	1.927s
+ok  	github.com/jackli/frank/internal/fsio	1.695s
+ok  	github.com/jackli/frank/internal/gate	3.686s
+ok  	github.com/jackli/frank/internal/gc	3.634s
+ok  	github.com/jackli/frank/internal/intake	7.668s
+ok  	github.com/jackli/frank/internal/lineage	2.939s
+ok  	github.com/jackli/frank/internal/migrate	3.200s
+ok  	github.com/jackli/frank/internal/obligation	3.832s
+ok  	github.com/jackli/frank/internal/observe	5.830s
+ok  	github.com/jackli/frank/internal/record	3.130s
+ok  	github.com/jackli/frank/internal/recover	6.178s
+ok  	github.com/jackli/frank/internal/seat	3.124s
+ok  	github.com/jackli/frank/internal/store	6.320s
+ok  	github.com/jackli/frank/internal/tables	3.651s
+ok  	github.com/jackli/frank/test/fixtures	140.784s
+ok  	github.com/jackli/frank/test/invariants	6.200s
+ok  	github.com/jackli/frank/test/replay	1.858s
+ok  	github.com/jackli/frank/test/replay/dogfood	1.776s
+ok  	github.com/jackli/frank/test/replay/zeroloss	3.392s
+?   	github.com/jackli/frank/test/seatproc	[no test files]

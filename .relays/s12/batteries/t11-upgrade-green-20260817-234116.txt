@@ -1,0 +1,58 @@
+=== RUN   TestH16UpgradeAnchorOnlyWithCompleteRawRedo
+=== RUN   TestH16UpgradeAnchorOnlyWithCompleteRawRedo/complete
+=== RUN   TestH16UpgradeAnchorOnlyWithCompleteRawRedo/absent
+=== RUN   TestH16UpgradeAnchorOnlyWithCompleteRawRedo/partial_latest
+=== RUN   TestH16UpgradeAnchorOnlyWithCompleteRawRedo/partial_older
+=== RUN   TestH16UpgradeAnchorOnlyWithCompleteRawRedo/duplicate
+=== RUN   TestH16UpgradeAnchorOnlyWithCompleteRawRedo/segment_gap
+--- PASS: TestH16UpgradeAnchorOnlyWithCompleteRawRedo (1.21s)
+    --- PASS: TestH16UpgradeAnchorOnlyWithCompleteRawRedo/complete (0.46s)
+    --- PASS: TestH16UpgradeAnchorOnlyWithCompleteRawRedo/absent (0.14s)
+    --- PASS: TestH16UpgradeAnchorOnlyWithCompleteRawRedo/partial_latest (0.14s)
+    --- PASS: TestH16UpgradeAnchorOnlyWithCompleteRawRedo/partial_older (0.14s)
+    --- PASS: TestH16UpgradeAnchorOnlyWithCompleteRawRedo/duplicate (0.16s)
+    --- PASS: TestH16UpgradeAnchorOnlyWithCompleteRawRedo/segment_gap (0.16s)
+=== RUN   TestH16RawRedoMalformedAndTornRules
+--- PASS: TestH16RawRedoMalformedAndTornRules (0.05s)
+PASS
+ok  	github.com/jackli/frank/test/fixtures	1.738s
+ok  	github.com/jackli/frank/test/invariants	1.373s
+ok  	github.com/jackli/frank/test/invariants	1.367s
+ok  	github.com/jackli/frank/test/invariants	1.397s
+ok  	github.com/jackli/frank/test/invariants	1.417s
+ok  	github.com/jackli/frank/test/invariants	1.430s
+ok  	github.com/jackli/frank/test/invariants	1.451s
+ok  	github.com/jackli/frank/test/invariants	1.435s
+ok  	github.com/jackli/frank/test/invariants	1.434s
+ok  	github.com/jackli/frank/test/invariants	1.444s
+ok  	github.com/jackli/frank/test/invariants	1.438s
+?   	github.com/jackli/frank/cmd/frank	[no test files]
+ok  	github.com/jackli/frank/cmd/frank-mcp	0.345s
+ok  	github.com/jackli/frank/internal/bounce	0.455s
+ok  	github.com/jackli/frank/internal/channel	1.185s
+ok  	github.com/jackli/frank/internal/config	0.639s
+ok  	github.com/jackli/frank/internal/crashpoint	1.034s
+?   	github.com/jackli/frank/internal/derived	[no test files]
+ok  	github.com/jackli/frank/internal/egress	1.430s
+ok  	github.com/jackli/frank/internal/engine	6.560s
+?   	github.com/jackli/frank/internal/executor	[no test files]
+ok  	github.com/jackli/frank/internal/fieldspec	2.067s
+ok  	github.com/jackli/frank/internal/fsio	1.591s
+ok  	github.com/jackli/frank/internal/gate	2.991s
+ok  	github.com/jackli/frank/internal/gc	3.158s
+ok  	github.com/jackli/frank/internal/intake	7.498s
+ok  	github.com/jackli/frank/internal/lineage	2.727s
+ok  	github.com/jackli/frank/internal/migrate	2.939s
+ok  	github.com/jackli/frank/internal/obligation	4.292s
+ok  	github.com/jackli/frank/internal/observe	6.137s
+ok  	github.com/jackli/frank/internal/record	3.148s
+ok  	github.com/jackli/frank/internal/recover	6.623s
+ok  	github.com/jackli/frank/internal/seat	3.134s
+ok  	github.com/jackli/frank/internal/store	6.322s
+ok  	github.com/jackli/frank/internal/tables	3.213s
+ok  	github.com/jackli/frank/test/fixtures	156.979s
+ok  	github.com/jackli/frank/test/invariants	6.163s
+ok  	github.com/jackli/frank/test/replay	2.046s
+ok  	github.com/jackli/frank/test/replay/dogfood	2.039s
+ok  	github.com/jackli/frank/test/replay/zeroloss	3.793s
+?   	github.com/jackli/frank/test/seatproc	[no test files]

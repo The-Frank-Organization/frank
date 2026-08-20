@@ -1,0 +1,32 @@
+TASK: s12 Task 1 R-INIT-UNLOCKED GREEN
+CAPTURED_AT_LOCAL: 2026-08-17T21:58:11-0700
+WORKTREE: /Users/jack/Programming/harness-s12-h16-fix
+
+FOCUSED COMMAND: go test ./test/fixtures/ -run '^TestInitLock' -v
+FOCUSED EXIT: 0
+FOCUSED OUTPUT:
+  === RUN   TestInitLockRefusesHeldRootBeforeAnyInitWrite
+  --- PASS: TestInitLockRefusesHeldRootBeforeAnyInitWrite (0.25s)
+  === RUN   TestInitLockConcurrentDoubleInitKeepsOneCompleteWinner
+  --- PASS: TestInitLockConcurrentDoubleInitKeepsOneCompleteWinner (0.18s)
+  === RUN   TestInitLockDifferingConfigRaceKeepsWinnerInternallyConsistent
+  --- PASS: TestInitLockDifferingConfigRaceKeepsWinnerInternallyConsistent (0.17s)
+  === RUN   TestInitLockSymlinkAliasRefusesHeldRoot
+  --- PASS: TestInitLockSymlinkAliasRefusesHeldRoot (0.01s)
+  PASS
+  ok  github.com/jackli/frank/test/fixtures 1.171s
+
+INVARIANT COMMAND: go test ./test/invariants -v
+INVARIANT EXIT: 0
+INVARIANT RESULT: all ten TestLaw* INV-CATALOG laws PASS; package ok in 1.313s.
+
+FULL COMMAND: go test ./...
+FULL EXIT: 0
+FULL RESULT:
+- all cmd/internal packages PASS or report no test files
+- github.com/jackli/frank/test/fixtures PASS in 133.958s
+- github.com/jackli/frank/test/invariants PASS in 2.106s
+- replay, dogfood, and zeroloss packages PASS
+
+IMPLEMENTATION: cmd/frank/main.go now acquires store.AcquireRoot as the first operation in the -init branch and holds it through return. store.Init remains unchanged.
+TASK_1_RESULT: PASS E2

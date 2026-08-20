@@ -1,0 +1,525 @@
+?   	github.com/jackli/frank/internal/derived	[no test files]
+=== RUN   TestCommitRevalidationSweepsSnapshotDependentRecordKinds
+=== RUN   TestCommitRevalidationSweepsSnapshotDependentRecordKinds/owed_disposition
+=== RUN   TestCommitRevalidationSweepsSnapshotDependentRecordKinds/waiver_retraction
+=== RUN   TestCommitRevalidationSweepsSnapshotDependentRecordKinds/seat_remint_remains_latest-wins
+=== RUN   TestCommitRevalidationSweepsSnapshotDependentRecordKinds/config_is_reread
+=== RUN   TestCommitRevalidationSweepsSnapshotDependentRecordKinds/mint_chain_anchor_rejects_a_chain_resolved_after_handler_snapshot
+--- PASS: TestCommitRevalidationSweepsSnapshotDependentRecordKinds (0.10s)
+    --- PASS: TestCommitRevalidationSweepsSnapshotDependentRecordKinds/owed_disposition (0.02s)
+    --- PASS: TestCommitRevalidationSweepsSnapshotDependentRecordKinds/waiver_retraction (0.02s)
+    --- PASS: TestCommitRevalidationSweepsSnapshotDependentRecordKinds/seat_remint_remains_latest-wins (0.01s)
+    --- PASS: TestCommitRevalidationSweepsSnapshotDependentRecordKinds/config_is_reread (0.03s)
+    --- PASS: TestCommitRevalidationSweepsSnapshotDependentRecordKinds/mint_chain_anchor_rejects_a_chain_resolved_after_handler_snapshot (0.02s)
+PASS
+ok  	github.com/jackli/frank/internal/engine	0.538s
+=== RUN   TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall
+=== RUN   TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/hook_contract/non-empty
+=== RUN   TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/hook_contract/present-empty
+=== RUN   TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/mint_predecessor/non-empty
+=== RUN   TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/mint_predecessor/present-empty
+=== RUN   TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/admin_provenance/non-empty
+=== RUN   TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/admin_provenance/present-empty
+=== RUN   TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/phase-and-tier-mismatch-cannot-bypass-system-owned-gate
+--- PASS: TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall (0.00s)
+    --- PASS: TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/hook_contract/non-empty (0.00s)
+    --- PASS: TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/hook_contract/present-empty (0.00s)
+    --- PASS: TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/mint_predecessor/non-empty (0.00s)
+    --- PASS: TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/mint_predecessor/present-empty (0.00s)
+    --- PASS: TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/admin_provenance/non-empty (0.00s)
+    --- PASS: TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/admin_provenance/present-empty (0.00s)
+    --- PASS: TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/phase-and-tier-mismatch-cannot-bypass-system-owned-gate (0.00s)
+=== RUN   TestPhaseSwitchDriftLoop
+--- PASS: TestPhaseSwitchDriftLoop (0.02s)
+PASS
+ok  	github.com/jackli/frank/cmd/frank-mcp	0.259s
+=== RUN   TestH16CeremonyRetryCreatesDistinctCanonicalRotationEachTime
+--- PASS: TestH16CeremonyRetryCreatesDistinctCanonicalRotationEachTime (0.65s)
+=== RUN   TestH16CeremonyRetryInterruptedPivotResumesOrdinaryMarkerMachinery
+--- PASS: TestH16CeremonyRetryInterruptedPivotResumesOrdinaryMarkerMachinery (0.39s)
+=== RUN   TestH16CeremonyRetryScopeIsCanonicalAndFailClosed
+=== RUN   TestH16CeremonyRetryScopeIsCanonicalAndFailClosed/ordinary_in-band_delivery_refused
+=== RUN   TestH16CeremonyRetryScopeIsCanonicalAndFailClosed/ceremony_tip_accepted
+=== RUN   TestH16CeremonyRetryScopeIsCanonicalAndFailClosed/future_provenance_refused
+=== RUN   TestH16CeremonyRetryScopeIsCanonicalAndFailClosed/realized-undelivered_accepted
+--- PASS: TestH16CeremonyRetryScopeIsCanonicalAndFailClosed (0.65s)
+    --- PASS: TestH16CeremonyRetryScopeIsCanonicalAndFailClosed/ordinary_in-band_delivery_refused (0.12s)
+    --- PASS: TestH16CeremonyRetryScopeIsCanonicalAndFailClosed/ceremony_tip_accepted (0.20s)
+    --- PASS: TestH16CeremonyRetryScopeIsCanonicalAndFailClosed/future_provenance_refused (0.13s)
+    --- PASS: TestH16CeremonyRetryScopeIsCanonicalAndFailClosed/realized-undelivered_accepted (0.20s)
+=== RUN   TestH16CeremonyRetryRejectsAuthorityFieldsAtIntake
+--- PASS: TestH16CeremonyRetryRejectsAuthorityFieldsAtIntake (0.17s)
+=== RUN   TestH16CeremonyRetryCommitTimeAuthorityDeltaRejected
+=== RUN   TestH16CeremonyRetryCommitTimeAuthorityDeltaRejected/role_delta
+=== RUN   TestH16CeremonyRetryCommitTimeAuthorityDeltaRejected/operator_delta
+--- PASS: TestH16CeremonyRetryCommitTimeAuthorityDeltaRejected (0.06s)
+    --- PASS: TestH16CeremonyRetryCommitTimeAuthorityDeltaRejected/role_delta (0.03s)
+    --- PASS: TestH16CeremonyRetryCommitTimeAuthorityDeltaRejected/operator_delta (0.03s)
+=== RUN   TestH16CeremonyRetryReplyCrashRotatesAgainWithoutCredentialReuse
+=== RUN   TestH16CeremonyRetryReplyCrashRotatesAgainWithoutCredentialReuse/ceremony_retry_pre_reply
+=== RUN   TestH16CeremonyRetryReplyCrashRotatesAgainWithoutCredentialReuse/ceremony_retry_partial_reply
+=== RUN   TestH16CeremonyRetryReplyCrashRotatesAgainWithoutCredentialReuse/ceremony_retry_post_reply
+--- PASS: TestH16CeremonyRetryReplyCrashRotatesAgainWithoutCredentialReuse (1.34s)
+    --- PASS: TestH16CeremonyRetryReplyCrashRotatesAgainWithoutCredentialReuse/ceremony_retry_pre_reply (0.44s)
+    --- PASS: TestH16CeremonyRetryReplyCrashRotatesAgainWithoutCredentialReuse/ceremony_retry_partial_reply (0.46s)
+    --- PASS: TestH16CeremonyRetryReplyCrashRotatesAgainWithoutCredentialReuse/ceremony_retry_post_reply (0.44s)
+=== RUN   TestH16CeremonyConflictShapesRetainInBandOperatorPaths
+=== RUN   TestH16CeremonyConflictShapesRetainInBandOperatorPaths/target_operator=false
+=== RUN   TestH16CeremonyConflictShapesRetainInBandOperatorPaths/target_operator=true
+--- PASS: TestH16CeremonyConflictShapesRetainInBandOperatorPaths (0.45s)
+    --- PASS: TestH16CeremonyConflictShapesRetainInBandOperatorPaths/target_operator=false (0.23s)
+    --- PASS: TestH16CeremonyConflictShapesRetainInBandOperatorPaths/target_operator=true (0.22s)
+=== RUN   TestH16CeremonyConflictSelectsOnceRealizesAndRefusesReplay
+--- PASS: TestH16CeremonyConflictSelectsOnceRealizesAndRefusesReplay (0.22s)
+=== RUN   TestH16CeremonyStateActionMatrixResolvedBranches
+=== RUN   TestH16CeremonyStateActionMatrixResolvedBranches/unique_tip_unrealized_repairs_without_selector
+=== RUN   TestH16CeremonyStateActionMatrixResolvedBranches/selector_against_resolved_realized=false
+=== RUN   TestH16CeremonyStateActionMatrixResolvedBranches/selector_against_resolved_realized=true
+=== RUN   TestH16CeremonyStateActionMatrixResolvedBranches/resolved_realized_without_selector_refuses
+--- PASS: TestH16CeremonyStateActionMatrixResolvedBranches (0.46s)
+    --- PASS: TestH16CeremonyStateActionMatrixResolvedBranches/unique_tip_unrealized_repairs_without_selector (0.11s)
+    --- PASS: TestH16CeremonyStateActionMatrixResolvedBranches/selector_against_resolved_realized=false (0.12s)
+    --- PASS: TestH16CeremonyStateActionMatrixResolvedBranches/selector_against_resolved_realized=true (0.12s)
+    --- PASS: TestH16CeremonyStateActionMatrixResolvedBranches/resolved_realized_without_selector_refuses (0.12s)
+=== RUN   TestH16CeremonyCustodyAuthorityIgnoresDisputedRoleBits
+=== RUN   TestH16CeremonyCustodyAuthorityIgnoresDisputedRoleBits/role-worker
+=== RUN   TestH16CeremonyCustodyAuthorityIgnoresDisputedRoleBits/role-operator
+--- PASS: TestH16CeremonyCustodyAuthorityIgnoresDisputedRoleBits (0.33s)
+    --- PASS: TestH16CeremonyCustodyAuthorityIgnoresDisputedRoleBits/role-worker (0.17s)
+    --- PASS: TestH16CeremonyCustodyAuthorityIgnoresDisputedRoleBits/role-operator (0.16s)
+=== RUN   TestH16CeremonyLockFirstAliasAndSocketDiagnostic
+--- PASS: TestH16CeremonyLockFirstAliasAndSocketDiagnostic (0.13s)
+=== RUN   TestH16CeremonyConcurrentProcessesHaveOneLockWinner
+--- PASS: TestH16CeremonyConcurrentProcessesHaveOneLockWinner (0.26s)
+=== RUN   TestH16CeremonyCrashCutsConvergeWithoutDuplicateAnchor
+=== RUN   TestH16CeremonyCrashCutsConvergeWithoutDuplicateAnchor/ceremony_post_anchor
+=== RUN   TestH16CeremonyCrashCutsConvergeWithoutDuplicateAnchor/ceremony_post_binding
+=== RUN   TestH16CeremonyCrashCutsConvergeWithoutDuplicateAnchor/ceremony_pre_reply
+--- PASS: TestH16CeremonyCrashCutsConvergeWithoutDuplicateAnchor (0.62s)
+    --- PASS: TestH16CeremonyCrashCutsConvergeWithoutDuplicateAnchor/ceremony_post_anchor (0.20s)
+    --- PASS: TestH16CeremonyCrashCutsConvergeWithoutDuplicateAnchor/ceremony_post_binding (0.21s)
+    --- PASS: TestH16CeremonyCrashCutsConvergeWithoutDuplicateAnchor/ceremony_pre_reply (0.22s)
+=== RUN   TestH16ClassGDirtyRetryBeforeReplay
+--- PASS: TestH16ClassGDirtyRetryBeforeReplay (0.02s)
+=== RUN   TestH16ClassGAllFourSubstepsExposeDirtyAndPreServeHeal
+=== RUN   TestH16ClassGAllFourSubstepsExposeDirtyAndPreServeHeal/CompleteAuto
+=== RUN   TestH16ClassGAllFourSubstepsExposeDirtyAndPreServeHeal/GC
+=== RUN   TestH16ClassGAllFourSubstepsExposeDirtyAndPreServeHeal/tables-build-publication
+=== RUN   TestH16ClassGAllFourSubstepsExposeDirtyAndPreServeHeal/scheduler-arming
+--- PASS: TestH16ClassGAllFourSubstepsExposeDirtyAndPreServeHeal (0.09s)
+    --- PASS: TestH16ClassGAllFourSubstepsExposeDirtyAndPreServeHeal/CompleteAuto (0.02s)
+    --- PASS: TestH16ClassGAllFourSubstepsExposeDirtyAndPreServeHeal/GC (0.02s)
+    --- PASS: TestH16ClassGAllFourSubstepsExposeDirtyAndPreServeHeal/tables-build-publication (0.02s)
+    --- PASS: TestH16ClassGAllFourSubstepsExposeDirtyAndPreServeHeal/scheduler-arming (0.02s)
+=== RUN   TestH16ProcessQuarantineFailureIsObservableAndNextEventHeals
+--- PASS: TestH16ProcessQuarantineFailureIsObservableAndNextEventHeals (0.02s)
+=== RUN   TestH16PreServeDrainGatesRealHostAndConvertsPanicToNoServeError
+--- PASS: TestH16PreServeDrainGatesRealHostAndConvertsPanicToNoServeError (0.00s)
+=== RUN   TestH16NudgeRemainsMechanicalOnCompleteAcceptedStateOnly
+--- PASS: TestH16NudgeRemainsMechanicalOnCompleteAcceptedStateOnly (0.00s)
+=== RUN   TestH16StateOnlyConsumersFailClosedOnNonComplete
+--- PASS: TestH16StateOnlyConsumersFailClosedOnNonComplete (0.00s)
+=== RUN   TestH16NativeAndMCPForwardBothOutcomeDimensionsByteTransparently
+--- PASS: TestH16NativeAndMCPForwardBothOutcomeDimensionsByteTransparently (0.26s)
+=== RUN   TestH16ConsumerCensusRemainsStateOnlyAndHealNudgeDropped
+--- PASS: TestH16ConsumerCensusRemainsStateOnlyAndHealNudgeDropped (0.00s)
+=== RUN   TestH16DerivedFoldIsPerRecordAcceptedOnlyAndOrderFree
+--- PASS: TestH16DerivedFoldIsPerRecordAcceptedOnlyAndOrderFree (0.00s)
+=== RUN   TestH16DerivedFoldKeepsTwoConcurrentOpenItems
+--- PASS: TestH16DerivedFoldKeepsTwoConcurrentOpenItems (0.00s)
+=== RUN   TestH16DerivedFoldFailedParkPrecedesUnknownMarkerInEveryOrder
+--- PASS: TestH16DerivedFoldFailedParkPrecedesUnknownMarkerInEveryOrder (0.00s)
+=== RUN   TestH16DecisionConsumesJournalWhileDerivedCursorRemainsOpen
+--- PASS: TestH16DecisionConsumesJournalWhileDerivedCursorRemainsOpen (0.04s)
+=== RUN   TestH16LoopStampsAndBlindReplayAdvancesToTerminalIdempotently
+--- PASS: TestH16LoopStampsAndBlindReplayAdvancesToTerminalIdempotently (0.07s)
+=== RUN   TestH16RecoveryProcessorStampIsBeforeItsCommit
+--- PASS: TestH16RecoveryProcessorStampIsBeforeItsCommit (0.00s)
+=== RUN   TestH16FirstRecoveryCommitIsStampedAndRebuildsPendingFromCanonicalBytes
+=== RUN   TestH16FirstRecoveryCommitIsStampedAndRebuildsPendingFromCanonicalBytes/gate
+=== RUN   TestH16FirstRecoveryCommitIsStampedAndRebuildsPendingFromCanonicalBytes/seat_mint
+--- PASS: TestH16FirstRecoveryCommitIsStampedAndRebuildsPendingFromCanonicalBytes (0.25s)
+    --- PASS: TestH16FirstRecoveryCommitIsStampedAndRebuildsPendingFromCanonicalBytes/gate (0.13s)
+    --- PASS: TestH16FirstRecoveryCommitIsStampedAndRebuildsPendingFromCanonicalBytes/seat_mint (0.12s)
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/hook_contract/non-empty/hooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/hook_contract/non-empty/unhooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/hook_contract/present-empty/hooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/hook_contract/present-empty/unhooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/mint_predecessor/non-empty/hooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/mint_predecessor/non-empty/unhooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/mint_predecessor/present-empty/hooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/mint_predecessor/present-empty/unhooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/admin_provenance/non-empty/hooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/admin_provenance/non-empty/unhooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/admin_provenance/present-empty/hooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/admin_provenance/present-empty/unhooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/hook_contract/non-empty/hooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/hook_contract/non-empty/unhooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/hook_contract/present-empty/hooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/hook_contract/present-empty/unhooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/mint_predecessor/non-empty/hooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/mint_predecessor/non-empty/unhooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/mint_predecessor/present-empty/hooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/mint_predecessor/present-empty/unhooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/admin_provenance/non-empty/hooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/admin_provenance/non-empty/unhooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/admin_provenance/present-empty/hooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/admin_provenance/present-empty/unhooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S3_active_observe-enabled
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S3_active_observe-enabled/hook_contract/non-empty/hooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S3_active_observe-enabled/hook_contract/non-empty/unhooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S3_active_observe-enabled/hook_contract/present-empty/hooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S3_active_observe-enabled/hook_contract/present-empty/unhooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S3_active_observe-enabled/mint_predecessor/non-empty/hooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S3_active_observe-enabled/mint_predecessor/non-empty/unhooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S3_active_observe-enabled/mint_predecessor/present-empty/hooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S3_active_observe-enabled/mint_predecessor/present-empty/unhooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S3_active_observe-enabled/admin_provenance/non-empty/hooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S3_active_observe-enabled/admin_provenance/non-empty/unhooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S3_active_observe-enabled/admin_provenance/present-empty/hooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S3_active_observe-enabled/admin_provenance/present-empty/unhooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S4_active_observe-absent
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S4_active_observe-absent/hook_contract/non-empty/hooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S4_active_observe-absent/hook_contract/non-empty/unhooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S4_active_observe-absent/hook_contract/present-empty/hooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S4_active_observe-absent/hook_contract/present-empty/unhooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S4_active_observe-absent/mint_predecessor/non-empty/hooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S4_active_observe-absent/mint_predecessor/non-empty/unhooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S4_active_observe-absent/mint_predecessor/present-empty/hooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S4_active_observe-absent/mint_predecessor/present-empty/unhooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S4_active_observe-absent/admin_provenance/non-empty/hooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S4_active_observe-absent/admin_provenance/non-empty/unhooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S4_active_observe-absent/admin_provenance/present-empty/hooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S4_active_observe-absent/admin_provenance/present-empty/unhooked
+--- PASS: TestH16ForgedSystemHeadersFourStateMatrix (1.89s)
+    --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled (0.53s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/hook_contract/non-empty/hooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/hook_contract/non-empty/unhooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/hook_contract/present-empty/hooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/hook_contract/present-empty/unhooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/mint_predecessor/non-empty/hooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/mint_predecessor/non-empty/unhooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/mint_predecessor/present-empty/hooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/mint_predecessor/present-empty/unhooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/admin_provenance/non-empty/hooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/admin_provenance/non-empty/unhooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/admin_provenance/present-empty/hooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/admin_provenance/present-empty/unhooked (0.02s)
+    --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent (0.38s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/hook_contract/non-empty/hooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/hook_contract/non-empty/unhooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/hook_contract/present-empty/hooked (0.01s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/hook_contract/present-empty/unhooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/mint_predecessor/non-empty/hooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/mint_predecessor/non-empty/unhooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/mint_predecessor/present-empty/hooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/mint_predecessor/present-empty/unhooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/admin_provenance/non-empty/hooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/admin_provenance/non-empty/unhooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/admin_provenance/present-empty/hooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/admin_provenance/present-empty/unhooked (0.02s)
+    --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S3_active_observe-enabled (0.56s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S3_active_observe-enabled/hook_contract/non-empty/hooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S3_active_observe-enabled/hook_contract/non-empty/unhooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S3_active_observe-enabled/hook_contract/present-empty/hooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S3_active_observe-enabled/hook_contract/present-empty/unhooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S3_active_observe-enabled/mint_predecessor/non-empty/hooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S3_active_observe-enabled/mint_predecessor/non-empty/unhooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S3_active_observe-enabled/mint_predecessor/present-empty/hooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S3_active_observe-enabled/mint_predecessor/present-empty/unhooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S3_active_observe-enabled/admin_provenance/non-empty/hooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S3_active_observe-enabled/admin_provenance/non-empty/unhooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S3_active_observe-enabled/admin_provenance/present-empty/hooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S3_active_observe-enabled/admin_provenance/present-empty/unhooked (0.02s)
+    --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S4_active_observe-absent (0.42s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S4_active_observe-absent/hook_contract/non-empty/hooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S4_active_observe-absent/hook_contract/non-empty/unhooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S4_active_observe-absent/hook_contract/present-empty/hooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S4_active_observe-absent/hook_contract/present-empty/unhooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S4_active_observe-absent/mint_predecessor/non-empty/hooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S4_active_observe-absent/mint_predecessor/non-empty/unhooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S4_active_observe-absent/mint_predecessor/present-empty/hooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S4_active_observe-absent/mint_predecessor/present-empty/unhooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S4_active_observe-absent/admin_provenance/non-empty/hooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S4_active_observe-absent/admin_provenance/non-empty/unhooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S4_active_observe-absent/admin_provenance/present-empty/hooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S4_active_observe-absent/admin_provenance/present-empty/unhooked (0.02s)
+=== RUN   TestH16ForgedHeaderControlsAndRollback
+=== RUN   TestH16ForgedHeaderControlsAndRollback/S8-control/achieved_evidence
+=== RUN   TestH16ForgedHeaderControlsAndRollback/S8-control/executable_claim_results
+=== RUN   TestH16ForgedHeaderControlsAndRollback/S8-control/authority_class
+=== RUN   TestH16ForgedHeaderControlsAndRollback/S8-control/surface_intent
+=== RUN   TestH16ForgedHeaderControlsAndRollback/raw-forged-hook-contract-1
+=== RUN   TestH16ForgedHeaderControlsAndRollback/raw-forged-hook-contract-2
+--- PASS: TestH16ForgedHeaderControlsAndRollback (0.22s)
+    --- PASS: TestH16ForgedHeaderControlsAndRollback/S8-control/achieved_evidence (0.00s)
+    --- PASS: TestH16ForgedHeaderControlsAndRollback/S8-control/executable_claim_results (0.00s)
+    --- PASS: TestH16ForgedHeaderControlsAndRollback/S8-control/authority_class (0.00s)
+    --- PASS: TestH16ForgedHeaderControlsAndRollback/S8-control/surface_intent (0.00s)
+    --- PASS: TestH16ForgedHeaderControlsAndRollback/raw-forged-hook-contract-1 (0.02s)
+    --- PASS: TestH16ForgedHeaderControlsAndRollback/raw-forged-hook-contract-2 (0.02s)
+=== RUN   TestH16MintMarkerCommitFailureNeverEntersEffectAndCallerReplayHeals
+--- PASS: TestH16MintMarkerCommitFailureNeverEntersEffectAndCallerReplayHeals (0.07s)
+=== RUN   TestH16MintDurableMarkerWithoutEvidenceResumesOnlyForCaller
+--- PASS: TestH16MintDurableMarkerWithoutEvidenceResumesOnlyForCaller (0.07s)
+=== RUN   TestH16MintRealizedBeforeAdvanceIsFailedUndeliveredAndNeverReruns
+--- PASS: TestH16MintRealizedBeforeAdvanceIsFailedUndeliveredAndNeverReruns (0.07s)
+=== RUN   TestH16MintTerminalReplyCarriesExtrasOnceAndReplayDoesNot
+--- PASS: TestH16MintTerminalReplyCarriesExtrasOnceAndReplayDoesNot (0.07s)
+=== RUN   TestH16EarlierClassGFailureAndUnrelatedCommandNeverMint
+--- PASS: TestH16EarlierClassGFailureAndUnrelatedCommandNeverMint (0.09s)
+=== RUN   TestH16OutcomeSplitFivePostCommitFailureSites
+=== RUN   TestH16OutcomeSplitFivePostCommitFailureSites/completeTurn
+=== RUN   TestH16OutcomeSplitFivePostCommitFailureSites/AfterGateResolution
+=== RUN   TestH16OutcomeSplitFivePostCommitFailureSites/AfterApprovalResolution
+=== RUN   TestH16OutcomeSplitFivePostCommitFailureSites/AfterAccepted
+=== RUN   TestH16OutcomeSplitFivePostCommitFailureSites/supersededCredentialCompleteTurn
+--- PASS: TestH16OutcomeSplitFivePostCommitFailureSites (0.14s)
+    --- PASS: TestH16OutcomeSplitFivePostCommitFailureSites/completeTurn (0.02s)
+    --- PASS: TestH16OutcomeSplitFivePostCommitFailureSites/AfterGateResolution (0.03s)
+    --- PASS: TestH16OutcomeSplitFivePostCommitFailureSites/AfterApprovalResolution (0.05s)
+    --- PASS: TestH16OutcomeSplitFivePostCommitFailureSites/AfterAccepted (0.02s)
+    --- PASS: TestH16OutcomeSplitFivePostCommitFailureSites/supersededCredentialCompleteTurn (0.01s)
+=== RUN   TestH16PendingOutcomeFailsClosedForLegacyStateOnlyDecode
+--- PASS: TestH16PendingOutcomeFailsClosedForLegacyStateOnlyDecode (0.02s)
+=== RUN   TestH16OutcomeSplitCompleteEmittersCarryBothDimensions
+=== RUN   TestH16OutcomeSplitCompleteEmittersCarryBothDimensions/committed_accepted
+=== RUN   TestH16OutcomeSplitCompleteEmittersCarryBothDimensions/precommit_rejected
+--- PASS: TestH16OutcomeSplitCompleteEmittersCarryBothDimensions (0.03s)
+    --- PASS: TestH16OutcomeSplitCompleteEmittersCarryBothDimensions/committed_accepted (0.02s)
+    --- PASS: TestH16OutcomeSplitCompleteEmittersCarryBothDimensions/precommit_rejected (0.00s)
+=== RUN   TestH16MintPredecessorStampedAndMismatchRejectedAtCommit
+--- PASS: TestH16MintPredecessorStampedAndMismatchRejectedAtCommit (0.04s)
+=== RUN   TestH16CanonicalTipAndCallerlessRepairRespectUnresolvedMarker
+--- PASS: TestH16CanonicalTipAndCallerlessRepairRespectUnresolvedMarker (0.46s)
+=== RUN   TestH16RecoveryProcessorRescansAndRepairsMarkerlessPivot
+--- PASS: TestH16RecoveryProcessorRescansAndRepairsMarkerlessPivot (0.13s)
+=== RUN   TestH16MintChainConflictShapesFailClosedOrderFree
+=== RUN   TestH16MintChainConflictShapesFailClosedOrderFree/shared_predecessor
+=== RUN   TestH16MintChainConflictShapesFailClosedOrderFree/broken_link
+=== RUN   TestH16MintChainConflictShapesFailClosedOrderFree/cycle
+--- PASS: TestH16MintChainConflictShapesFailClosedOrderFree (0.00s)
+    --- PASS: TestH16MintChainConflictShapesFailClosedOrderFree/shared_predecessor (0.00s)
+    --- PASS: TestH16MintChainConflictShapesFailClosedOrderFree/broken_link (0.00s)
+    --- PASS: TestH16MintChainConflictShapesFailClosedOrderFree/cycle (0.00s)
+=== RUN   TestH16PresencePinnedRejectsPresentEmptySystemHeader
+--- PASS: TestH16PresencePinnedRejectsPresentEmptySystemHeader (0.00s)
+=== RUN   TestH16PresencePinnedSharedImpactPopulation
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/parent_hint_honored
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/parent_provenance
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/routing_ref_honored
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/gate_category_raised
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/delivery_state
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/failing_edge
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/hook_contract
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/mint_predecessor
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/admin_provenance
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/achieved_evidence
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/target_gap_result
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/evidence_integrity
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/record_integrity
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/executable_claim_results
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/egress_scan_result
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/degradation_notes
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/attestation_source
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/authority_class
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/deviated_observed
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/bucket_binding_observed
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/surface_intent
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/slot_in
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/seat_archetype
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/authority_ceiling
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/capability_prior_snapshot
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/template_ref
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/outcome_feedback_ref
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/subject_ref
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/decision_deadline
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/on_timeout
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/completed_proof
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/away_bridge_eligible
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/model_name
+=== RUN   TestH16PresencePinnedSharedImpactPopulation/gate_category_pick
+--- PASS: TestH16PresencePinnedSharedImpactPopulation (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/parent_hint_honored (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/parent_provenance (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/routing_ref_honored (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/gate_category_raised (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/delivery_state (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/failing_edge (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/hook_contract (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/mint_predecessor (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/admin_provenance (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/achieved_evidence (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/target_gap_result (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/evidence_integrity (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/record_integrity (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/executable_claim_results (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/egress_scan_result (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/degradation_notes (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/attestation_source (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/authority_class (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/deviated_observed (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/bucket_binding_observed (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/surface_intent (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/slot_in (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/seat_archetype (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/authority_ceiling (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/capability_prior_snapshot (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/template_ref (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/outcome_feedback_ref (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/subject_ref (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/decision_deadline (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/on_timeout (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/completed_proof (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/away_bridge_eligible (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/model_name (0.00s)
+    --- PASS: TestH16PresencePinnedSharedImpactPopulation/gate_category_pick (0.00s)
+=== RUN   TestH16PresencePinnedEnvelopeRowsRemainOutsideHeaderPopulation
+=== RUN   TestH16PresencePinnedEnvelopeRowsRemainOutsideHeaderPopulation/FROM
+=== RUN   TestH16PresencePinnedEnvelopeRowsRemainOutsideHeaderPopulation/ROLE
+=== RUN   TestH16PresencePinnedEnvelopeRowsRemainOutsideHeaderPopulation/relay_id
+--- PASS: TestH16PresencePinnedEnvelopeRowsRemainOutsideHeaderPopulation (0.00s)
+    --- PASS: TestH16PresencePinnedEnvelopeRowsRemainOutsideHeaderPopulation/FROM (0.00s)
+    --- PASS: TestH16PresencePinnedEnvelopeRowsRemainOutsideHeaderPopulation/ROLE (0.00s)
+    --- PASS: TestH16PresencePinnedEnvelopeRowsRemainOutsideHeaderPopulation/relay_id (0.00s)
+=== RUN   TestH16PresencePinnedObservationProducerRetainsEmptyDegradationNotes
+--- PASS: TestH16PresencePinnedObservationProducerRetainsEmptyDegradationNotes (0.00s)
+=== RUN   TestH16ResolveTypedQuarantineDoesNotLeakToNonmatchingCredential
+--- PASS: TestH16ResolveTypedQuarantineDoesNotLeakToNonmatchingCredential (0.01s)
+=== RUN   TestH16ConflictQuarantinePublishedBeforeServeOtherSeatsStillAuthenticate
+--- PASS: TestH16ConflictQuarantinePublishedBeforeServeOtherSeatsStillAuthenticate (0.15s)
+=== RUN   TestH16RegistryRowsAndRuledRecordKinds
+--- PASS: TestH16RegistryRowsAndRuledRecordKinds (0.00s)
+=== RUN   TestH16FieldspecV9ReaderAndForwardTransition
+--- PASS: TestH16FieldspecV9ReaderAndForwardTransition (0.00s)
+=== RUN   TestH16FreshGenesisIsBornAtV9AndPinsDigest
+--- PASS: TestH16FreshGenesisIsBornAtV9AndPinsDigest (0.04s)
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/parent_hint_honored
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/parent_provenance
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/routing_ref_honored
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/gate_category_raised
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/delivery_state
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/failing_edge
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/hook_contract
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/mint_predecessor
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/admin_provenance
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/achieved_evidence
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/target_gap_result
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/evidence_integrity
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/record_integrity
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/executable_claim_results
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/egress_scan_result
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/degradation_notes
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/attestation_source
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/authority_class
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/deviated_observed
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/bucket_binding_observed
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/surface_intent
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/slot_in
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/seat_archetype
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/authority_ceiling
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/capability_prior_snapshot
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/template_ref
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/outcome_feedback_ref
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/subject_ref
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/decision_deadline
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/on_timeout
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/completed_proof
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/away_bridge_eligible
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/model_name
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/gate_category_pick
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/hook_contract#01
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/mint_predecessor#01
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/admin_provenance#01
+--- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/parent_hint_honored (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/parent_provenance (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/routing_ref_honored (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/gate_category_raised (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/delivery_state (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/failing_edge (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/hook_contract (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/mint_predecessor (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/admin_provenance (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/achieved_evidence (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/target_gap_result (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/evidence_integrity (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/record_integrity (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/executable_claim_results (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/egress_scan_result (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/degradation_notes (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/attestation_source (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/authority_class (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/deviated_observed (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/bucket_binding_observed (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/surface_intent (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/slot_in (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/seat_archetype (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/authority_ceiling (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/capability_prior_snapshot (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/template_ref (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/outcome_feedback_ref (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/subject_ref (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/decision_deadline (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/on_timeout (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/completed_proof (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/away_bridge_eligible (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/model_name (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/gate_category_pick (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/hook_contract#01 (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/mint_predecessor#01 (0.00s)
+    --- PASS: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards/admin_provenance#01 (0.00s)
+=== RUN   TestH16RetryCeilingParksAndReopenGetsFreshCeiling
+--- PASS: TestH16RetryCeilingParksAndReopenGetsFreshCeiling (0.08s)
+=== RUN   TestH16AttemptResolutionOneShotClassesCommitAsCanonicalAnomalies
+=== RUN   TestH16AttemptResolutionOneShotClassesCommitAsCanonicalAnomalies/duplicate_and_conflicting
+=== RUN   TestH16AttemptResolutionOneShotClassesCommitAsCanonicalAnomalies/target-specific_body_shape
+=== RUN   TestH16AttemptResolutionOneShotClassesCommitAsCanonicalAnomalies/target-specific_body_shape/marker_missing_evidence
+=== RUN   TestH16AttemptResolutionOneShotClassesCommitAsCanonicalAnomalies/target-specific_body_shape/marker_extra_member
+=== RUN   TestH16AttemptResolutionOneShotClassesCommitAsCanonicalAnomalies/stale_and_unknown
+--- PASS: TestH16AttemptResolutionOneShotClassesCommitAsCanonicalAnomalies (0.24s)
+    --- PASS: TestH16AttemptResolutionOneShotClassesCommitAsCanonicalAnomalies/duplicate_and_conflicting (0.07s)
+    --- PASS: TestH16AttemptResolutionOneShotClassesCommitAsCanonicalAnomalies/target-specific_body_shape (0.10s)
+        --- PASS: TestH16AttemptResolutionOneShotClassesCommitAsCanonicalAnomalies/target-specific_body_shape/marker_missing_evidence (0.05s)
+        --- PASS: TestH16AttemptResolutionOneShotClassesCommitAsCanonicalAnomalies/target-specific_body_shape/marker_extra_member (0.05s)
+    --- PASS: TestH16AttemptResolutionOneShotClassesCommitAsCanonicalAnomalies/stale_and_unknown (0.07s)
+=== RUN   TestH16FreshAttemptInstanceSurvivesShuffledRebuild
+--- PASS: TestH16FreshAttemptInstanceSurvivesShuffledRebuild (0.00s)
+=== RUN   TestH16AttemptResolutionAuthorityUsesStampedSeatNotClaimedRole
+=== RUN   TestH16AttemptResolutionAuthorityUsesStampedSeatNotClaimedRole/park-claimed-implementer
+=== RUN   TestH16AttemptResolutionAuthorityUsesStampedSeatNotClaimedRole/park-claimed-operator
+=== RUN   TestH16AttemptResolutionAuthorityUsesStampedSeatNotClaimedRole/marker-claimed-implementer
+=== RUN   TestH16AttemptResolutionAuthorityUsesStampedSeatNotClaimedRole/marker-claimed-operator
+=== RUN   TestH16AttemptResolutionAuthorityUsesStampedSeatNotClaimedRole/operator-park
+=== RUN   TestH16AttemptResolutionAuthorityUsesStampedSeatNotClaimedRole/operator-marker
+--- PASS: TestH16AttemptResolutionAuthorityUsesStampedSeatNotClaimedRole (0.51s)
+    --- PASS: TestH16AttemptResolutionAuthorityUsesStampedSeatNotClaimedRole/park-claimed-implementer (0.08s)
+    --- PASS: TestH16AttemptResolutionAuthorityUsesStampedSeatNotClaimedRole/park-claimed-operator (0.08s)
+    --- PASS: TestH16AttemptResolutionAuthorityUsesStampedSeatNotClaimedRole/marker-claimed-implementer (0.08s)
+    --- PASS: TestH16AttemptResolutionAuthorityUsesStampedSeatNotClaimedRole/marker-claimed-operator (0.08s)
+    --- PASS: TestH16AttemptResolutionAuthorityUsesStampedSeatNotClaimedRole/operator-park (0.09s)
+    --- PASS: TestH16AttemptResolutionAuthorityUsesStampedSeatNotClaimedRole/operator-marker (0.09s)
+=== RUN   TestH16PostCommitPanicReportsDurableFoldAndPreCommitPanicStaysRejected
+--- PASS: TestH16PostCommitPanicReportsDurableFoldAndPreCommitPanicStaysRejected (0.08s)
+=== RUN   TestH16UpgradeAnchorOnlyWithCompleteRawRedo
+=== RUN   TestH16UpgradeAnchorOnlyWithCompleteRawRedo/complete
+=== RUN   TestH16UpgradeAnchorOnlyWithCompleteRawRedo/absent
+=== RUN   TestH16UpgradeAnchorOnlyWithCompleteRawRedo/partial_latest
+=== RUN   TestH16UpgradeAnchorOnlyWithCompleteRawRedo/partial_older
+=== RUN   TestH16UpgradeAnchorOnlyWithCompleteRawRedo/duplicate
+=== RUN   TestH16UpgradeAnchorOnlyWithCompleteRawRedo/segment_gap
+--- PASS: TestH16UpgradeAnchorOnlyWithCompleteRawRedo (1.10s)
+    --- PASS: TestH16UpgradeAnchorOnlyWithCompleteRawRedo/complete (0.28s)
+    --- PASS: TestH16UpgradeAnchorOnlyWithCompleteRawRedo/absent (0.14s)
+    --- PASS: TestH16UpgradeAnchorOnlyWithCompleteRawRedo/partial_latest (0.17s)
+    --- PASS: TestH16UpgradeAnchorOnlyWithCompleteRawRedo/partial_older (0.17s)
+    --- PASS: TestH16UpgradeAnchorOnlyWithCompleteRawRedo/duplicate (0.17s)
+    --- PASS: TestH16UpgradeAnchorOnlyWithCompleteRawRedo/segment_gap (0.17s)
+=== RUN   TestH16RawRedoMalformedAndTornRules
+--- PASS: TestH16RawRedoMalformedAndTornRules (0.06s)
+PASS
+ok  	github.com/jackli/frank/test/fixtures	12.939s

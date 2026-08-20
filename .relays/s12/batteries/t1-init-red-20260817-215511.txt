@@ -1,0 +1,23 @@
+TASK: s12 Task 1 R-INIT-UNLOCKED RED
+CAPTURED_AT_LOCAL: 2026-08-17T21:55:11-0700
+WORKTREE: /Users/jack/Programming/harness-s12-h16-fix
+COMMAND: go test ./test/fixtures/ -run '^TestInitLock' -v
+EXIT: 1
+
+=== RUN   TestInitLockRefusesHeldRootBeforeAnyInitWrite
+    init_lock_test.go:29: init under held root err=<nil> output="", want root-lock-held
+--- FAIL: TestInitLockRefusesHeldRootBeforeAnyInitWrite (0.32s)
+=== RUN   TestInitLockConcurrentDoubleInitKeepsOneCompleteWinner
+    init_lock_test.go:38: init loser err=exit status 1 output="rename .../root/staging/config/engine.json.tmp .../root/config/engine.json: no such file or directory\n", want root-lock-held or post-release genesis-exists
+--- FAIL: TestInitLockConcurrentDoubleInitKeepsOneCompleteWinner (0.12s)
+=== RUN   TestInitLockDifferingConfigRaceKeepsWinnerInternallyConsistent
+    init_lock_test.go:46: init loser err=exit status 1 output="rename .../root/staging/config/fieldspec/registry.json.tmp .../root/config/fieldspec/registry.json: no such file or directory\n", want root-lock-held or post-release genesis-exists
+--- FAIL: TestInitLockDifferingConfigRaceKeepsWinnerInternallyConsistent (0.12s)
+=== RUN   TestInitLockSymlinkAliasRefusesHeldRoot
+    init_lock_test.go:63: alias init under held root err=<nil> output="", want root-lock-held
+--- FAIL: TestInitLockSymlinkAliasRefusesHeldRoot (0.05s)
+FAIL
+FAIL    github.com/jackli/frank/test/fixtures 1.175s
+FAIL
+
+RED_REASON: the -init branch reaches store.Init without acquiring AcquireRoot. Held-root and alias-root attempts mutate successfully, while concurrent init processes collide in staging instead of producing the ruled typed loser outcome.

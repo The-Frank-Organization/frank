@@ -1,0 +1,16 @@
+CAPTURE_KIND=PREDECLARED_BUDGET
+DECLARED_AT=2026-08-18T15:12:10-0700
+SOURCE_BRANCH=s12-h16-fix
+SOURCE_HEAD=1ac14a019f4122a7e43a7f2d17c465ba331e1985
+LANDED_SENTINEL=17311ms; unchanged by this experiment
+HISTORICAL_REPRO_SENTINEL=1731ms exactly; scratch harness only
+SCRATCH_HARNESS=test/fixtures/s12_historical_boundary_repro_test.go
+SCRATCH_HARNESS_SHA256=6792e9a78484db604441fe3ec5098b965f02558f8f21990c2ba2917db2677485
+SCRATCH_HARNESS_DISPOSITION=disclosed, not landed; remove before staging
+
+RUN_BUDGET=5 runs exactly
+FIXED_CONDITIONS=prebuild one fixtures test binary before saturation; for each run start exactly 180 `yes` CPU competitors, run only TestS12Historical1731msExecutorReproduction at nice -n 20 with test.count=1 and verbose raw-verdict logging, then terminate those competitors before the next run
+CALIBRATION_PROVENANCE=reuses the prior implementer 180-competitor/prebuilt-binary saturation calibration recorded in implementer-flake-diagnosis-20260818-044741.txt
+CONTENTION_POLICY=no other go test, fixtures.test, or dogfood-suite process at preflight; only the declared competitors are introduced
+NO_TUNING=run count, competitor count, process priority, scratch harness bytes, and 1731ms live deadline remain fixed across all runs regardless of outcomes
+STOP_RULE=if a raw failing verdict fires, retain the exact executor detail and do not escalate conditions; if none fires in five runs, report non-reproduction exactly and defer disposition to m-3's parallel pre-ruling

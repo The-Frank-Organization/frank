@@ -1,0 +1,7 @@
+COMMAND: go test ./test/fixtures -run '^TestH16Mint|^TestH16Earlier' -count=1 -v
+# github.com/jackli/frank/test/fixtures_test [github.com/jackli/frank/test/fixtures.test]
+test/fixtures/h16_marker_law_test.go:19:7: loop.DerivedCommit undefined (type *engine.Loop has no field or method DerivedCommit)
+test/fixtures/h16_marker_law_test.go:43:7: loop.DerivedCommit undefined (type *engine.Loop has no field or method DerivedCommit)
+test/fixtures/h16_marker_law_test.go:130:7: loop.MintRealized undefined (type *engine.Loop has no field or method MintRealized)
+FAIL	github.com/jackli/frank/test/fixtures [build failed]
+FAIL

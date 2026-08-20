@@ -1,0 +1,43 @@
+CAPTURE_KIND=R2_FORWARD_VERIFY
+SOURCE_BRANCH=s12-h16-fix
+SOURCE_HEAD=08f18725c186d147a5671923a8fcd604d25cf66a
+IMPLEMENTATION_COMMIT=08f18725c186d147a5671923a8fcd604d25cf66a test: bind nested registry to fixture bodies
+IMPLEMENTATION_DIFF=one landed file, frank/test/fixtures/s12_nested_scope_test.go, 102 insertions, 0 deletions
+SCRATCH_HARNESS_LANDED=no; test/fixtures/s12_historical_boundary_repro_test.go removed before staging
+
+R2_F2_RED_COMMAND=GOWORK=off go test ./test/fixtures -run '^TestS12OuterRunOnlyRegistryBindingRejectsMissingCall$' -count=1 -v
+R2_F2_RED_RESULT=FAIL as required: synthetic TestSyntheticOuterOnly omitted s12SkipOuterRunOnly(t), the no-op inspector accepted it, and the test emitted "missing s12SkipOuterRunOnly(t) call was accepted"
+R2_F2_RED_EXIT=1
+R2_F2_GREEN_MECHANISM=Go AST parses ceremony_test.go, ceremony_retry_test.go, and h16_startup_evidence_test.go; every s12OuterRunOnlyFixtures name must resolve to exactly one FuncDecl whose body contains a direct s12SkipOuterRunOnly(t) CallExpr; missing bodies, duplicate bodies, and missing calls fail deterministically
+R2_F2_NEGATIVE_PROOF=the same inspector receives a synthetic registered TestSyntheticOuterOnly body with the helper call removed and returns "TestSyntheticOuterOnly: missing s12SkipOuterRunOnly(t) in synthetic_test.go"
+
+FOCUSED_STARTED_AT=2026-08-18T15:16:20-0700
+FOCUSED_COMMAND=GOWORK=off go test ./test/fixtures -run '^(TestS12OuterRunOnlyRegistryBindsNamedTestBodies|TestS12OuterRunOnlyRegistryBindingRejectsMissingCall|TestS12DogfoodNestedOuterOnlyContract|TestS8AdversarialExecutorIsolationAndVerdictIPHIntegrated|TestH16StartupFoldsRealizedMintEvidenceBeforeServing|TestH16DirtyClassGBlocksBlindClassDUntilSuccessfulPass)$' -count=1 -v
+FOCUSED_RESULT=all six top-level tests green; fixture package 1.369s; startup regression 0.62s; Class-G regression 0.08s; isolation probe 0.14s; both AST binding tests 0.00s
+FOCUSED_EXIT=0
+INVARIANT_COMMAND=GOWORK=off go test ./test/invariants -run '^TestLaw' -count=1
+INVARIANT_RESULT=green 1.279s
+INVARIANT_EXIT=0
+FOCUSED_FINISHED_AT=2026-08-18T15:16:23-0700
+
+FULL_STARTED_AT=2026-08-18T15:16:33-0700
+FULL_COMMAND=GOWORK=off go test ./... -count=1
+FULL_CONTENTION_PREFLIGHT=none; no go test, fixtures.test, dogfood-suite, or yes competitor process
+FULL_RESULT=all packages green; fixtures 171.072s; invariants 6.614s
+FULL_REAL_SECONDS=173.08
+FULL_USER_SECONDS=51.88
+FULL_SYS_SECONDS=33.70
+FULL_EXIT=0
+FULL_FINISHED_AT=2026-08-18T15:19:26-0700
+
+R2_F1_BUDGET=implementer-r2-f1-budget-20260818-151140.txt sha256 4848fc3ed36d7136ee6e9cc177402dc2e56670d3faa6a844467c7120b384cd38
+R2_F1_RESULT=implementer-r2-f1-result-20260818-151506.txt; five valid unchanged-1731ms/180-competitor trials all raw pass under-timeout with empty FailingDetail; historical detail not reproduced
+R2_F1_HARNESS_CORRECTION=implementer-r2-f1-harness-correction-20260818-151425.txt; invalid cumulative-load trials disclosed and excluded; zero competitors remained before focused/full verification
+R2_F1_DISPOSITION=cause remains inferred and item remains open pending m-3's parallel sufficiency pre-ruling; no tuning-to-fire and no operator-gate routing
+
+EXACT_FENCE=663e30d99d61d89ec1958ba432389727bcf7c15f..08f18725c186d147a5671923a8fcd604d25cf66a
+FENCE_COUNTS=20 commits; 46 files; 6536 insertions; 136 deletions
+FENCE_DIFF_BINARY_SHA256=d12bb5374c6e4e858b504548942a3c8759a3f5f34a6f3774a94c539554d92bb4
+FENCE_ORDERED_REV_LIST_SHA256=a4212aa4ff56cb42625e6c21201d915c95ff0c16edcd234334c821d9c790f99a
+IMPLEMENTATION_WORKTREE_STATUS=clean
+MERGE_GATE=held; no push, PR, merge, deploy, or release action

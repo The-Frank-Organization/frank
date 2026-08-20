@@ -1,0 +1,78 @@
+=== RUN   TestH16CeremonyConflictShapesRetainInBandOperatorPaths
+=== RUN   TestH16CeremonyConflictShapesRetainInBandOperatorPaths/target_operator=false
+=== RUN   TestH16CeremonyConflictShapesRetainInBandOperatorPaths/target_operator=true
+--- PASS: TestH16CeremonyConflictShapesRetainInBandOperatorPaths (0.69s)
+    --- PASS: TestH16CeremonyConflictShapesRetainInBandOperatorPaths/target_operator=false (0.47s)
+    --- PASS: TestH16CeremonyConflictShapesRetainInBandOperatorPaths/target_operator=true (0.22s)
+=== RUN   TestH16CeremonyConflictSelectsOnceRealizesAndRefusesReplay
+--- PASS: TestH16CeremonyConflictSelectsOnceRealizesAndRefusesReplay (0.24s)
+=== RUN   TestH16CeremonyStateActionMatrixResolvedBranches
+=== RUN   TestH16CeremonyStateActionMatrixResolvedBranches/unique_tip_unrealized_repairs_without_selector
+=== RUN   TestH16CeremonyStateActionMatrixResolvedBranches/selector_against_resolved_realized=false
+=== RUN   TestH16CeremonyStateActionMatrixResolvedBranches/selector_against_resolved_realized=true
+=== RUN   TestH16CeremonyStateActionMatrixResolvedBranches/resolved_realized_without_selector_refuses
+--- PASS: TestH16CeremonyStateActionMatrixResolvedBranches (0.47s)
+    --- PASS: TestH16CeremonyStateActionMatrixResolvedBranches/unique_tip_unrealized_repairs_without_selector (0.11s)
+    --- PASS: TestH16CeremonyStateActionMatrixResolvedBranches/selector_against_resolved_realized=false (0.12s)
+    --- PASS: TestH16CeremonyStateActionMatrixResolvedBranches/selector_against_resolved_realized=true (0.12s)
+    --- PASS: TestH16CeremonyStateActionMatrixResolvedBranches/resolved_realized_without_selector_refuses (0.11s)
+=== RUN   TestH16CeremonyCustodyAuthorityIgnoresDisputedRoleBits
+=== RUN   TestH16CeremonyCustodyAuthorityIgnoresDisputedRoleBits/role-worker
+=== RUN   TestH16CeremonyCustodyAuthorityIgnoresDisputedRoleBits/role-operator
+--- PASS: TestH16CeremonyCustodyAuthorityIgnoresDisputedRoleBits (0.34s)
+    --- PASS: TestH16CeremonyCustodyAuthorityIgnoresDisputedRoleBits/role-worker (0.17s)
+    --- PASS: TestH16CeremonyCustodyAuthorityIgnoresDisputedRoleBits/role-operator (0.17s)
+=== RUN   TestH16CeremonyLockFirstAliasAndSocketDiagnostic
+--- PASS: TestH16CeremonyLockFirstAliasAndSocketDiagnostic (0.14s)
+=== RUN   TestH16CeremonyConcurrentProcessesHaveOneLockWinner
+--- PASS: TestH16CeremonyConcurrentProcessesHaveOneLockWinner (0.26s)
+=== RUN   TestH16CeremonyCrashCutsConvergeWithoutDuplicateAnchor
+=== RUN   TestH16CeremonyCrashCutsConvergeWithoutDuplicateAnchor/ceremony_post_anchor
+=== RUN   TestH16CeremonyCrashCutsConvergeWithoutDuplicateAnchor/ceremony_post_binding
+=== RUN   TestH16CeremonyCrashCutsConvergeWithoutDuplicateAnchor/ceremony_pre_reply
+--- PASS: TestH16CeremonyCrashCutsConvergeWithoutDuplicateAnchor (0.62s)
+    --- PASS: TestH16CeremonyCrashCutsConvergeWithoutDuplicateAnchor/ceremony_post_anchor (0.21s)
+    --- PASS: TestH16CeremonyCrashCutsConvergeWithoutDuplicateAnchor/ceremony_post_binding (0.21s)
+    --- PASS: TestH16CeremonyCrashCutsConvergeWithoutDuplicateAnchor/ceremony_pre_reply (0.21s)
+PASS
+ok  	github.com/jackli/frank/test/fixtures	3.220s
+ok  	github.com/jackli/frank/test/invariants	1.394s
+ok  	github.com/jackli/frank/test/invariants	1.404s
+ok  	github.com/jackli/frank/test/invariants	1.419s
+ok  	github.com/jackli/frank/test/invariants	1.439s
+ok  	github.com/jackli/frank/test/invariants	1.460s
+ok  	github.com/jackli/frank/test/invariants	1.442s
+ok  	github.com/jackli/frank/test/invariants	1.344s
+ok  	github.com/jackli/frank/test/invariants	1.325s
+ok  	github.com/jackli/frank/test/invariants	1.330s
+ok  	github.com/jackli/frank/test/invariants	1.361s
+?   	github.com/jackli/frank/cmd/frank	[no test files]
+ok  	github.com/jackli/frank/cmd/frank-mcp	0.327s
+ok  	github.com/jackli/frank/internal/bounce	0.442s
+ok  	github.com/jackli/frank/internal/channel	0.989s
+ok  	github.com/jackli/frank/internal/config	0.866s
+ok  	github.com/jackli/frank/internal/crashpoint	1.005s
+?   	github.com/jackli/frank/internal/derived	[no test files]
+ok  	github.com/jackli/frank/internal/egress	1.238s
+ok  	github.com/jackli/frank/internal/engine	7.178s
+?   	github.com/jackli/frank/internal/executor	[no test files]
+ok  	github.com/jackli/frank/internal/fieldspec	1.650s
+ok  	github.com/jackli/frank/internal/fsio	1.840s
+ok  	github.com/jackli/frank/internal/gate	3.313s
+ok  	github.com/jackli/frank/internal/gc	3.159s
+ok  	github.com/jackli/frank/internal/intake	7.624s
+ok  	github.com/jackli/frank/internal/lineage	2.745s
+ok  	github.com/jackli/frank/internal/migrate	2.983s
+ok  	github.com/jackli/frank/internal/obligation	4.620s
+ok  	github.com/jackli/frank/internal/observe	6.061s
+ok  	github.com/jackli/frank/internal/record	3.113s
+ok  	github.com/jackli/frank/internal/recover	6.568s
+ok  	github.com/jackli/frank/internal/seat	3.166s
+ok  	github.com/jackli/frank/internal/store	6.617s
+ok  	github.com/jackli/frank/internal/tables	3.484s
+ok  	github.com/jackli/frank/test/fixtures	157.642s
+ok  	github.com/jackli/frank/test/invariants	6.489s
+ok  	github.com/jackli/frank/test/replay	2.052s
+ok  	github.com/jackli/frank/test/replay/dogfood	2.024s
+ok  	github.com/jackli/frank/test/replay/zeroloss	3.676s
+?   	github.com/jackli/frank/test/seatproc	[no test files]

@@ -1,0 +1,28 @@
+TASK: s12 Task 3 presence-pinned validator GREEN
+CAPTURED_AT_LOCAL: 2026-08-17T22:15:58-0700
+WORKTREE: /Users/jack/Programming/harness-s12-h16-fix
+
+FOCUSED COMMAND: go test ./test/fixtures/ -run '^TestH16PresencePinned' -v
+FOCUSED EXIT: 0
+FOCUSED RESULT:
+- present-empty delivery_state rejects system-owned with exact reason delivery_state is system-owned
+- registry-derived shared-impact population count is exactly 31
+- all 31 population members reject present-empty with Field=spec.ID, Class=system-owned, Reason=spec.ID + " is system-owned"
+- FROM, ROLE, and relay_id envelope rows remain outside the header predicate
+- CompleteObserved retains the conductor-produced present-empty degradation_notes member
+- package PASS in 0.611s
+
+INVARIANT COMMAND: go test ./test/invariants -v
+INVARIANT EXIT: 0
+INVARIANT RESULT: all ten TestLaw* INV-CATALOG laws PASS; package ok in 1.512s.
+
+FULL COMMAND: go test ./...
+FULL EXIT: 0
+FULL RESULT:
+- all cmd/internal packages PASS or report no test files
+- github.com/jackli/frank/test/fixtures PASS in 139.986s
+- github.com/jackli/frank/test/invariants PASS in 3.536s
+- replay PASS in 1.206s; dogfood PASS in 1.403s; zeroloss PASS/cached
+
+IMPLEMENTATION: internal/fieldspec/validate.go now keys the system-owned header rejection on map presence alone. The violation field, class, and reason bytes are unchanged.
+TASK_3_RESULT: PASS E2

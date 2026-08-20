@@ -1,0 +1,77 @@
+STARTED_AT=2026-08-18T02:23:14-0700
+SOURCE_BRANCH=s12-h16-fix
+SOURCE_HEAD=8ca99650019f2ddd12d47237e1abb32fbd5895e8
+COMMAND=go test ./test/invariants -run '^TestLaw' -count=1 -v
+CONTENTION=focused verification; no full-suite quiet-window claim
+=== RUN   TestLawIntakeOutcomeOneToOne
+--- PASS: TestLawIntakeOutcomeOneToOne (0.15s)
+=== RUN   TestLawDerivedOnlyActivation
+--- PASS: TestLawDerivedOnlyActivation (0.05s)
+=== RUN   TestLawSoleGovernedWriter
+--- PASS: TestLawSoleGovernedWriter (0.04s)
+=== RUN   TestLawPathHygiene
+=== RUN   TestLawPathHygiene/planted_leak_is_rejected_inside_mint_reply
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/binding
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/catalog-config
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/conductor-lock
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/engine-config
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/fieldspec-registry
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/journal
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/mailboxes
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/outbox
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/projections
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/quarantine
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/records
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/staging
+=== RUN   TestLawPathHygiene/mint_carve-outs_are_operator-channel_only
+=== RUN   TestLawPathHygiene/unregistered_family_is_rejected
+=== RUN   TestLawPathHygiene/unregistered_sink_pattern_is_rejected
+--- PASS: TestLawPathHygiene (0.48s)
+    --- PASS: TestLawPathHygiene/planted_leak_is_rejected_inside_mint_reply (0.00s)
+    --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/binding (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/catalog-config (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/conductor-lock (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/engine-config (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/fieldspec-registry (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/journal (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/mailboxes (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/outbox (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/projections (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/quarantine (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/records (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/staging (0.00s)
+    --- PASS: TestLawPathHygiene/mint_carve-outs_are_operator-channel_only (0.00s)
+    --- PASS: TestLawPathHygiene/unregistered_family_is_rejected (0.00s)
+    --- PASS: TestLawPathHygiene/unregistered_sink_pattern_is_rejected (0.00s)
+=== RUN   TestLawCanonicalWins
+--- PASS: TestLawCanonicalWins (0.06s)
+=== RUN   TestLawOnePivotPerMutation
+=== RUN   TestLawOnePivotPerMutation/exactly_one_canonical_rename
+=== RUN   TestLawOnePivotPerMutation/crash_before_pivot_is_absent
+=== RUN   TestLawOnePivotPerMutation/crash_after_pivot_is_present
+--- PASS: TestLawOnePivotPerMutation (0.06s)
+    --- PASS: TestLawOnePivotPerMutation/exactly_one_canonical_rename (0.03s)
+    --- PASS: TestLawOnePivotPerMutation/crash_before_pivot_is_absent (0.01s)
+    --- PASS: TestLawOnePivotPerMutation/crash_after_pivot_is_present (0.01s)
+=== RUN   TestLawRebuildBeforeOpen
+--- PASS: TestLawRebuildBeforeOpen (0.09s)
+=== RUN   TestLawTerminalEnumByteExact
+--- PASS: TestLawTerminalEnumByteExact (0.03s)
+=== RUN   TestLawThreeVerbSurface
+--- PASS: TestLawThreeVerbSurface (0.00s)
+=== RUN   TestLawR2NoModelPredicate
+=== RUN   TestLawR2NoModelPredicate/synthetic_required_when
+=== RUN   TestLawR2NoModelPredicate/synthetic_visible_when
+=== RUN   TestLawR2NoModelPredicate/synthetic_any-row_required_when
+=== RUN   TestLawR2NoModelPredicate/synthetic_any-row_visible_when
+--- PASS: TestLawR2NoModelPredicate (0.00s)
+    --- PASS: TestLawR2NoModelPredicate/synthetic_required_when (0.00s)
+    --- PASS: TestLawR2NoModelPredicate/synthetic_visible_when (0.00s)
+    --- PASS: TestLawR2NoModelPredicate/synthetic_any-row_required_when (0.00s)
+    --- PASS: TestLawR2NoModelPredicate/synthetic_any-row_visible_when (0.00s)
+PASS
+ok  	github.com/jackli/frank/test/invariants	1.285s
+EXIT_STATUS=0
+FINISHED_AT=2026-08-18T02:23:15-0700

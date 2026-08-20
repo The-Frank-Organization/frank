@@ -1,0 +1,49 @@
+=== RUN   TestCommitRevalidationSweepsSnapshotDependentRecordKinds
+=== RUN   TestCommitRevalidationSweepsSnapshotDependentRecordKinds/owed_disposition
+=== RUN   TestCommitRevalidationSweepsSnapshotDependentRecordKinds/waiver_retraction
+=== RUN   TestCommitRevalidationSweepsSnapshotDependentRecordKinds/seat_remint_remains_latest-wins
+=== RUN   TestCommitRevalidationSweepsSnapshotDependentRecordKinds/config_is_reread
+=== RUN   TestCommitRevalidationSweepsSnapshotDependentRecordKinds/mint_chain_anchor_rejects_a_chain_resolved_after_handler_snapshot
+    commit_validation_test.go:130: anchor commit revalidation = record.Record{Envelope:record.Envelope{RelayID:"", DispatchID:"", From:"operator", To:"", Role:"operator", DeliveryState:"accepted", IntakeID:"", SchemaVersion:1}, Headers:map[string]string{"PHASE":"SITREP", "SUBJECT":"legacy mint chain anchored", "record_kind":"mint-chain-anchor"}, Body:"{\"seat\":\"anchor-seat\",\"selects\":\"resolved-pivot\"}", XFields:map[string]string(nil), Checksum:""}, <nil>
+--- FAIL: TestCommitRevalidationSweepsSnapshotDependentRecordKinds (0.12s)
+    --- PASS: TestCommitRevalidationSweepsSnapshotDependentRecordKinds/owed_disposition (0.04s)
+    --- PASS: TestCommitRevalidationSweepsSnapshotDependentRecordKinds/waiver_retraction (0.02s)
+    --- PASS: TestCommitRevalidationSweepsSnapshotDependentRecordKinds/seat_remint_remains_latest-wins (0.01s)
+    --- PASS: TestCommitRevalidationSweepsSnapshotDependentRecordKinds/config_is_reread (0.03s)
+    --- FAIL: TestCommitRevalidationSweepsSnapshotDependentRecordKinds/mint_chain_anchor_rejects_a_chain_resolved_after_handler_snapshot (0.01s)
+FAIL
+FAIL	github.com/jackli/frank/internal/engine	0.654s
+=== RUN   TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall
+=== RUN   TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/hook_contract/non-empty
+=== RUN   TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/hook_contract/present-empty
+=== RUN   TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/mint_predecessor/non-empty
+=== RUN   TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/mint_predecessor/present-empty
+=== RUN   TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/admin_provenance/non-empty
+=== RUN   TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/admin_provenance/present-empty
+=== RUN   TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/phase-and-tier-mismatch-cannot-bypass-system-owned-gate
+    mcp_test.go:390: MCP result={Content:[{Type:text Text:{"error_class":"shim:auth-failed"}}] IsError:true} changed=false, want typed schema_invalid
+--- FAIL: TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall (0.00s)
+    --- PASS: TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/hook_contract/non-empty (0.00s)
+    --- PASS: TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/hook_contract/present-empty (0.00s)
+    --- PASS: TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/mint_predecessor/non-empty (0.00s)
+    --- PASS: TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/mint_predecessor/present-empty (0.00s)
+    --- PASS: TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/admin_provenance/non-empty (0.00s)
+    --- PASS: TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/admin_provenance/present-empty (0.00s)
+    --- FAIL: TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/phase-and-tier-mismatch-cannot-bypass-system-owned-gate (0.00s)
+FAIL
+FAIL	github.com/jackli/frank/cmd/frank-mcp	0.328s
+=== RUN   TestH16CeremonyRetryCreatesDistinctCanonicalRotationEachTime
+    ceremony_retry_test.go:33: rotation 0 headers=map[PHASE:SITREP SUBJECT:offline ceremony delivery retry admin_provenance:ceremony mint_predecessor:retry-selected record_kind:seat_mint], want predecessor="retry-selected" ceremony provenance
+--- FAIL: TestH16CeremonyRetryCreatesDistinctCanonicalRotationEachTime (0.61s)
+=== RUN   TestH16CeremonyRetryInterruptedPivotResumesOrdinaryMarkerMachinery
+    ceremony_retry_test.go:75: interrupted rotations=[{Envelope:{RelayID:relay-83b9e28a5fa81a7a6d5957d3 DispatchID: From:system To: Role:system DeliveryState:accepted IntakeID: SchemaVersion:1} Headers:map[PHASE:SITREP SUBJECT:offline ceremony delivery retry admin_provenance:ceremony mint_predecessor:retry-selected record_kind:seat_mint] Body:{"seat":"retry-anchor.implementer","role":"implementer","is_operator":false,"retry_reason":"interrupted before marker"} XFields:map[] Checksum:f74a0a8e37563d859ca0ed85cc682b68d3fbf07057845604d30f1e5151af4a3e}], want one stamped pivot
+--- FAIL: TestH16CeremonyRetryInterruptedPivotResumesOrdinaryMarkerMachinery (0.25s)
+=== RUN   TestH16DerivedFoldFailedParkPrecedesUnknownMarkerInEveryOrder
+    h16_derived_fold_test.go:80: fold={Cursor:[mint] Status:unknown}, want failed park to precede unresolved marker
+--- FAIL: TestH16DerivedFoldFailedParkPrecedesUnknownMarkerInEveryOrder (0.00s)
+=== RUN   TestH16MintRealizedBeforeAdvanceIsFailedUndeliveredAndNeverReruns
+    h16_marker_law_test.go:89: realized-undelivered transitions=0, want 1
+--- FAIL: TestH16MintRealizedBeforeAdvanceIsFailedUndeliveredAndNeverReruns (0.05s)
+FAIL
+FAIL	github.com/jackli/frank/test/fixtures	1.756s
+FAIL

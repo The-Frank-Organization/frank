@@ -1,0 +1,17 @@
+CAPTURE_KIND=REPRODUCTION_HARNESS_CORRECTION
+FILED_AT=2026-08-18T15:14:25-0700
+ORIGINAL_BUDGET=implementer-r2-f1-budget-20260818-151140.txt
+ORIGINAL_BUDGET_SHA256=4848fc3ed36d7136ee6e9cc177402dc2e56670d3faa6a844467c7120b384cd38
+PREBUILT_BINARY=/tmp/frank-s12-r2-f1.AWAlg7
+PREBUILT_BINARY_SHA256=c05ab58c40054af368426c251f74ff7f16aedb8a626db1c599b0a21998ddb97c
+
+HARNESS_FAULT=zsh scalar PID storage did not word-split in cleanup_load, so completed competitor processes were not killed between trials
+OBSERVED_ACCUMULATION=run 1 had 180 competitors; runs 2, 3, 4, and 5 started with 360, 540, 720, and 900 competitors respectively
+INVALIDATED_RESULTS=runs 2 through 5; conditions differed from the predeclared fixed 180-competitor budget, and run 5 terminal output was not retained when the command wrapper yielded
+VALID_RESULT_RETAINED=run 1 only; 180 competitors, historical 1731ms boundary, raw verdict pass/under-timeout, test 0.57s, command real 1.35s
+CLEANUP_PROOF=all 900 exact `yes` PIDs identified after a zero-process preflight were terminated; post-cleanup count 0
+
+CORRECTION_BUDGET=complete exactly four remaining valid trials so the original budget contains five valid fixed-condition trials total
+CORRECTED_CLEANUP=store PIDs in a zsh array, require exactly 180 array entries before each test, kill and wait on the quoted array after each test, and require zero `yes` processes before the next trial
+UNCHANGED_CONDITIONS=reuse the same prebuilt binary and scratch harness bytes; historical deadline remains 1731ms; exactly 180 competitors; nice -n 20; no outcome-responsive tuning
+STOP_RULE=unchanged from the original budget

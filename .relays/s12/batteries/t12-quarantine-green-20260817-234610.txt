@@ -1,0 +1,46 @@
+=== RUN   TestH16ResolveTypedQuarantineDoesNotLeakToNonmatchingCredential
+--- PASS: TestH16ResolveTypedQuarantineDoesNotLeakToNonmatchingCredential (0.01s)
+=== RUN   TestH16ConflictQuarantinePublishedBeforeServeOtherSeatsStillAuthenticate
+--- PASS: TestH16ConflictQuarantinePublishedBeforeServeOtherSeatsStillAuthenticate (0.33s)
+PASS
+ok  	github.com/jackli/frank/test/fixtures	0.809s
+ok  	github.com/jackli/frank/test/invariants	1.308s
+ok  	github.com/jackli/frank/test/invariants	1.311s
+ok  	github.com/jackli/frank/test/invariants	1.334s
+ok  	github.com/jackli/frank/test/invariants	1.263s
+ok  	github.com/jackli/frank/test/invariants	1.254s
+ok  	github.com/jackli/frank/test/invariants	1.293s
+ok  	github.com/jackli/frank/test/invariants	1.339s
+ok  	github.com/jackli/frank/test/invariants	1.321s
+ok  	github.com/jackli/frank/test/invariants	1.312s
+ok  	github.com/jackli/frank/test/invariants	1.333s
+?   	github.com/jackli/frank/cmd/frank	[no test files]
+ok  	github.com/jackli/frank/cmd/frank-mcp	0.501s
+ok  	github.com/jackli/frank/internal/bounce	0.215s
+ok  	github.com/jackli/frank/internal/channel	1.030s
+ok  	github.com/jackli/frank/internal/config	0.549s
+ok  	github.com/jackli/frank/internal/crashpoint	0.788s
+?   	github.com/jackli/frank/internal/derived	[no test files]
+ok  	github.com/jackli/frank/internal/egress	1.015s
+ok  	github.com/jackli/frank/internal/engine	6.861s
+?   	github.com/jackli/frank/internal/executor	[no test files]
+ok  	github.com/jackli/frank/internal/fieldspec	1.441s
+ok  	github.com/jackli/frank/internal/fsio	1.527s
+ok  	github.com/jackli/frank/internal/gate	4.047s
+ok  	github.com/jackli/frank/internal/gc	1.799s
+ok  	github.com/jackli/frank/internal/intake	6.857s
+ok  	github.com/jackli/frank/internal/lineage	1.944s
+ok  	github.com/jackli/frank/internal/migrate	2.082s
+ok  	github.com/jackli/frank/internal/obligation	2.647s
+ok  	github.com/jackli/frank/internal/observe	5.261s
+ok  	github.com/jackli/frank/internal/record	2.242s
+ok  	github.com/jackli/frank/internal/recover	5.842s
+ok  	github.com/jackli/frank/internal/seat	2.443s
+ok  	github.com/jackli/frank/internal/store	5.663s
+ok  	github.com/jackli/frank/internal/tables	2.904s
+ok  	github.com/jackli/frank/test/fixtures	150.205s
+ok  	github.com/jackli/frank/test/invariants	5.812s
+ok  	github.com/jackli/frank/test/replay	2.109s
+ok  	github.com/jackli/frank/test/replay/dogfood	2.218s
+ok  	github.com/jackli/frank/test/replay/zeroloss	3.656s
+?   	github.com/jackli/frank/test/seatproc	[no test files]

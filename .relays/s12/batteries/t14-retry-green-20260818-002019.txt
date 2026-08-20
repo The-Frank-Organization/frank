@@ -1,0 +1,70 @@
+=== RUN   TestH16CeremonyRetryCreatesDistinctCanonicalRotationEachTime
+--- PASS: TestH16CeremonyRetryCreatesDistinctCanonicalRotationEachTime (0.52s)
+=== RUN   TestH16CeremonyRetryScopeIsCanonicalAndFailClosed
+=== RUN   TestH16CeremonyRetryScopeIsCanonicalAndFailClosed/ordinary_in-band_delivery_refused
+=== RUN   TestH16CeremonyRetryScopeIsCanonicalAndFailClosed/ceremony_tip_accepted
+=== RUN   TestH16CeremonyRetryScopeIsCanonicalAndFailClosed/future_provenance_refused
+=== RUN   TestH16CeremonyRetryScopeIsCanonicalAndFailClosed/realized-undelivered_accepted
+--- PASS: TestH16CeremonyRetryScopeIsCanonicalAndFailClosed (0.53s)
+    --- PASS: TestH16CeremonyRetryScopeIsCanonicalAndFailClosed/ordinary_in-band_delivery_refused (0.11s)
+    --- PASS: TestH16CeremonyRetryScopeIsCanonicalAndFailClosed/ceremony_tip_accepted (0.14s)
+    --- PASS: TestH16CeremonyRetryScopeIsCanonicalAndFailClosed/future_provenance_refused (0.11s)
+    --- PASS: TestH16CeremonyRetryScopeIsCanonicalAndFailClosed/realized-undelivered_accepted (0.16s)
+=== RUN   TestH16CeremonyRetryRejectsAuthorityFieldsAtIntake
+--- PASS: TestH16CeremonyRetryRejectsAuthorityFieldsAtIntake (0.17s)
+=== RUN   TestH16CeremonyRetryCommitTimeAuthorityDeltaRejected
+=== RUN   TestH16CeremonyRetryCommitTimeAuthorityDeltaRejected/role_delta
+=== RUN   TestH16CeremonyRetryCommitTimeAuthorityDeltaRejected/operator_delta
+--- PASS: TestH16CeremonyRetryCommitTimeAuthorityDeltaRejected (0.07s)
+    --- PASS: TestH16CeremonyRetryCommitTimeAuthorityDeltaRejected/role_delta (0.03s)
+    --- PASS: TestH16CeremonyRetryCommitTimeAuthorityDeltaRejected/operator_delta (0.03s)
+=== RUN   TestH16CeremonyRetryReplyCrashRotatesAgainWithoutCredentialReuse
+=== RUN   TestH16CeremonyRetryReplyCrashRotatesAgainWithoutCredentialReuse/ceremony_retry_pre_reply
+=== RUN   TestH16CeremonyRetryReplyCrashRotatesAgainWithoutCredentialReuse/ceremony_retry_partial_reply
+=== RUN   TestH16CeremonyRetryReplyCrashRotatesAgainWithoutCredentialReuse/ceremony_retry_post_reply
+--- PASS: TestH16CeremonyRetryReplyCrashRotatesAgainWithoutCredentialReuse (1.00s)
+    --- PASS: TestH16CeremonyRetryReplyCrashRotatesAgainWithoutCredentialReuse/ceremony_retry_pre_reply (0.33s)
+    --- PASS: TestH16CeremonyRetryReplyCrashRotatesAgainWithoutCredentialReuse/ceremony_retry_partial_reply (0.34s)
+    --- PASS: TestH16CeremonyRetryReplyCrashRotatesAgainWithoutCredentialReuse/ceremony_retry_post_reply (0.33s)
+PASS
+ok  	github.com/jackli/frank/test/fixtures	2.825s
+ok  	github.com/jackli/frank/test/invariants	1.422s
+ok  	github.com/jackli/frank/test/invariants	1.334s
+ok  	github.com/jackli/frank/test/invariants	1.419s
+ok  	github.com/jackli/frank/test/invariants	1.346s
+ok  	github.com/jackli/frank/test/invariants	1.351s
+ok  	github.com/jackli/frank/test/invariants	1.386s
+ok  	github.com/jackli/frank/test/invariants	1.326s
+ok  	github.com/jackli/frank/test/invariants	1.285s
+ok  	github.com/jackli/frank/test/invariants	1.315s
+ok  	github.com/jackli/frank/test/invariants	1.266s
+?   	github.com/jackli/frank/cmd/frank	[no test files]
+ok  	github.com/jackli/frank/cmd/frank-mcp	0.290s
+ok  	github.com/jackli/frank/internal/bounce	0.422s
+ok  	github.com/jackli/frank/internal/channel	0.909s
+ok  	github.com/jackli/frank/internal/config	0.798s
+ok  	github.com/jackli/frank/internal/crashpoint	1.179s
+?   	github.com/jackli/frank/internal/derived	[no test files]
+ok  	github.com/jackli/frank/internal/egress	1.005s
+ok  	github.com/jackli/frank/internal/engine	6.091s
+?   	github.com/jackli/frank/internal/executor	[no test files]
+ok  	github.com/jackli/frank/internal/fieldspec	1.514s
+ok  	github.com/jackli/frank/internal/fsio	1.705s
+ok  	github.com/jackli/frank/internal/gate	3.434s
+ok  	github.com/jackli/frank/internal/gc	2.601s
+ok  	github.com/jackli/frank/internal/intake	7.739s
+ok  	github.com/jackli/frank/internal/lineage	2.365s
+ok  	github.com/jackli/frank/internal/migrate	3.031s
+ok  	github.com/jackli/frank/internal/obligation	3.696s
+ok  	github.com/jackli/frank/internal/observe	6.215s
+ok  	github.com/jackli/frank/internal/record	3.084s
+ok  	github.com/jackli/frank/internal/recover	6.216s
+ok  	github.com/jackli/frank/internal/seat	3.147s
+ok  	github.com/jackli/frank/internal/store	6.638s
+ok  	github.com/jackli/frank/internal/tables	3.667s
+ok  	github.com/jackli/frank/test/fixtures	171.108s
+ok  	github.com/jackli/frank/test/invariants	6.500s
+ok  	github.com/jackli/frank/test/replay	2.422s
+ok  	github.com/jackli/frank/test/replay/dogfood	2.411s
+ok  	github.com/jackli/frank/test/replay/zeroloss	3.714s
+?   	github.com/jackli/frank/test/seatproc	[no test files]

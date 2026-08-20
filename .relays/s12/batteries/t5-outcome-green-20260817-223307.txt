@@ -1,0 +1,75 @@
+COMMAND: focused Task 5 Outcome split battery
+=== RUN   TestH16OutcomeSplitFivePostCommitFailureSites
+=== RUN   TestH16OutcomeSplitFivePostCommitFailureSites/completeTurn
+=== RUN   TestH16OutcomeSplitFivePostCommitFailureSites/AfterGateResolution
+=== RUN   TestH16OutcomeSplitFivePostCommitFailureSites/AfterApprovalResolution
+=== RUN   TestH16OutcomeSplitFivePostCommitFailureSites/AfterAccepted
+=== RUN   TestH16OutcomeSplitFivePostCommitFailureSites/supersededCredentialCompleteTurn
+--- PASS: TestH16OutcomeSplitFivePostCommitFailureSites (0.12s)
+    --- PASS: TestH16OutcomeSplitFivePostCommitFailureSites/completeTurn (0.03s)
+    --- PASS: TestH16OutcomeSplitFivePostCommitFailureSites/AfterGateResolution (0.02s)
+    --- PASS: TestH16OutcomeSplitFivePostCommitFailureSites/AfterApprovalResolution (0.02s)
+    --- PASS: TestH16OutcomeSplitFivePostCommitFailureSites/AfterAccepted (0.03s)
+    --- PASS: TestH16OutcomeSplitFivePostCommitFailureSites/supersededCredentialCompleteTurn (0.01s)
+=== RUN   TestH16PendingOutcomeFailsClosedForLegacyStateOnlyDecode
+--- PASS: TestH16PendingOutcomeFailsClosedForLegacyStateOnlyDecode (0.02s)
+=== RUN   TestH16OutcomeSplitCompleteEmittersCarryBothDimensions
+=== RUN   TestH16OutcomeSplitCompleteEmittersCarryBothDimensions/committed_accepted
+=== RUN   TestH16OutcomeSplitCompleteEmittersCarryBothDimensions/precommit_rejected
+--- PASS: TestH16OutcomeSplitCompleteEmittersCarryBothDimensions (0.03s)
+    --- PASS: TestH16OutcomeSplitCompleteEmittersCarryBothDimensions/committed_accepted (0.03s)
+    --- PASS: TestH16OutcomeSplitCompleteEmittersCarryBothDimensions/precommit_rejected (0.00s)
+PASS
+ok  	github.com/jackli/frank/test/fixtures	0.619s
+COMMAND: go test ./internal/engine -count=1
+ok  	github.com/jackli/frank/internal/engine	1.605s
+COMMAND: go test ./test/invariants -count=1 (run 1/10)
+ok  	github.com/jackli/frank/test/invariants	1.452s
+COMMAND: go test ./test/invariants -count=1 (run 2/10)
+ok  	github.com/jackli/frank/test/invariants	1.302s
+COMMAND: go test ./test/invariants -count=1 (run 3/10)
+ok  	github.com/jackli/frank/test/invariants	1.322s
+COMMAND: go test ./test/invariants -count=1 (run 4/10)
+ok  	github.com/jackli/frank/test/invariants	1.300s
+COMMAND: go test ./test/invariants -count=1 (run 5/10)
+ok  	github.com/jackli/frank/test/invariants	1.316s
+COMMAND: go test ./test/invariants -count=1 (run 6/10)
+ok  	github.com/jackli/frank/test/invariants	1.312s
+COMMAND: go test ./test/invariants -count=1 (run 7/10)
+ok  	github.com/jackli/frank/test/invariants	1.294s
+COMMAND: go test ./test/invariants -count=1 (run 8/10)
+ok  	github.com/jackli/frank/test/invariants	1.313s
+COMMAND: go test ./test/invariants -count=1 (run 9/10)
+ok  	github.com/jackli/frank/test/invariants	1.352s
+COMMAND: go test ./test/invariants -count=1 (run 10/10)
+ok  	github.com/jackli/frank/test/invariants	1.350s
+COMMAND: go test ./... -count=1
+?   	github.com/jackli/frank/cmd/frank	[no test files]
+ok  	github.com/jackli/frank/cmd/frank-mcp	0.549s
+ok  	github.com/jackli/frank/internal/bounce	0.235s
+ok  	github.com/jackli/frank/internal/channel	0.993s
+ok  	github.com/jackli/frank/internal/config	1.405s
+ok  	github.com/jackli/frank/internal/crashpoint	0.823s
+ok  	github.com/jackli/frank/internal/egress	1.824s
+ok  	github.com/jackli/frank/internal/engine	4.723s
+?   	github.com/jackli/frank/internal/executor	[no test files]
+ok  	github.com/jackli/frank/internal/fieldspec	1.190s
+ok  	github.com/jackli/frank/internal/fsio	1.610s
+ok  	github.com/jackli/frank/internal/gate	3.341s
+ok  	github.com/jackli/frank/internal/gc	3.162s
+ok  	github.com/jackli/frank/internal/intake	7.335s
+ok  	github.com/jackli/frank/internal/lineage	2.636s
+ok  	github.com/jackli/frank/internal/migrate	2.867s
+ok  	github.com/jackli/frank/internal/obligation	4.428s
+ok  	github.com/jackli/frank/internal/observe	5.964s
+ok  	github.com/jackli/frank/internal/record	2.839s
+ok  	github.com/jackli/frank/internal/recover	6.133s
+ok  	github.com/jackli/frank/internal/seat	2.940s
+ok  	github.com/jackli/frank/internal/store	6.004s
+ok  	github.com/jackli/frank/internal/tables	3.179s
+ok  	github.com/jackli/frank/test/fixtures	143.176s
+ok  	github.com/jackli/frank/test/invariants	6.052s
+ok  	github.com/jackli/frank/test/replay	2.004s
+ok  	github.com/jackli/frank/test/replay/dogfood	1.991s
+ok  	github.com/jackli/frank/test/replay/zeroloss	3.323s
+?   	github.com/jackli/frank/test/seatproc	[no test files]

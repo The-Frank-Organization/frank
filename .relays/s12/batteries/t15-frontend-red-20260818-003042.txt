@@ -1,0 +1,25 @@
+=== RUN   TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall
+=== RUN   TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/hook_contract/non-empty
+    mcp_test.go:371: MCP result={Content:[{Type:text Text:{"error_class":"shim:auth-failed"}}] IsError:true} changed=false, want typed schema_invalid
+=== RUN   TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/hook_contract/present-empty
+    mcp_test.go:371: MCP result={Content:[{Type:text Text:{"error_class":"shim:auth-failed"}}] IsError:true} changed=false, want typed schema_invalid
+=== RUN   TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/mint_predecessor/non-empty
+    mcp_test.go:371: MCP result={Content:[{Type:text Text:{"error_class":"shim:auth-failed"}}] IsError:true} changed=false, want typed schema_invalid
+=== RUN   TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/mint_predecessor/present-empty
+    mcp_test.go:371: MCP result={Content:[{Type:text Text:{"error_class":"shim:auth-failed"}}] IsError:true} changed=false, want typed schema_invalid
+=== RUN   TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/admin_provenance/non-empty
+    mcp_test.go:371: MCP result={Content:[{Type:text Text:{"error_class":"shim:auth-failed"}}] IsError:true} changed=false, want typed schema_invalid
+=== RUN   TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/admin_provenance/present-empty
+    mcp_test.go:371: MCP result={Content:[{Type:text Text:{"error_class":"shim:auth-failed"}}] IsError:true} changed=false, want typed schema_invalid
+--- FAIL: TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall (0.00s)
+    --- FAIL: TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/hook_contract/non-empty (0.00s)
+    --- FAIL: TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/hook_contract/present-empty (0.00s)
+    --- FAIL: TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/mint_predecessor/non-empty (0.00s)
+    --- FAIL: TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/mint_predecessor/present-empty (0.00s)
+    --- FAIL: TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/admin_provenance/non-empty (0.00s)
+    --- FAIL: TestH16MCPRejectsForgedSystemHeadersBeforeConductorCall/admin_provenance/present-empty (0.00s)
+=== RUN   TestNativeGeneratedSchemaCannotRepresentH16SystemHeaders
+--- PASS: TestNativeGeneratedSchemaCannotRepresentH16SystemHeaders (0.00s)
+FAIL
+FAIL	github.com/jackli/frank/cmd/frank-mcp	0.303s
+FAIL

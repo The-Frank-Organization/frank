@@ -1,0 +1,70 @@
+COMMAND: focused Task 7 derived fold/stamping/replay/recovery battery
+=== RUN   TestH16DerivedFoldIsPerRecordAcceptedOnlyAndOrderFree
+--- PASS: TestH16DerivedFoldIsPerRecordAcceptedOnlyAndOrderFree (0.00s)
+=== RUN   TestH16DerivedFoldKeepsTwoConcurrentOpenItems
+--- PASS: TestH16DerivedFoldKeepsTwoConcurrentOpenItems (0.00s)
+=== RUN   TestH16DecisionConsumesJournalWhileDerivedCursorRemainsOpen
+--- PASS: TestH16DecisionConsumesJournalWhileDerivedCursorRemainsOpen (0.04s)
+=== RUN   TestH16LoopStampsAndBlindReplayAdvancesToTerminalIdempotently
+--- PASS: TestH16LoopStampsAndBlindReplayAdvancesToTerminalIdempotently (0.07s)
+=== RUN   TestH16RecoveryProcessorStampIsBeforeItsCommit
+--- PASS: TestH16RecoveryProcessorStampIsBeforeItsCommit (0.00s)
+=== RUN   TestH16FirstRecoveryCommitIsStampedAndRebuildsPendingFromCanonicalBytes
+=== RUN   TestH16FirstRecoveryCommitIsStampedAndRebuildsPendingFromCanonicalBytes/gate
+=== RUN   TestH16FirstRecoveryCommitIsStampedAndRebuildsPendingFromCanonicalBytes/seat_mint
+--- PASS: TestH16FirstRecoveryCommitIsStampedAndRebuildsPendingFromCanonicalBytes (0.26s)
+    --- PASS: TestH16FirstRecoveryCommitIsStampedAndRebuildsPendingFromCanonicalBytes/gate (0.14s)
+    --- PASS: TestH16FirstRecoveryCommitIsStampedAndRebuildsPendingFromCanonicalBytes/seat_mint (0.12s)
+PASS
+ok  	github.com/jackli/frank/test/fixtures	0.956s
+COMMAND: go test ./test/invariants -count=1 (run 1/10)
+ok  	github.com/jackli/frank/test/invariants	1.406s
+COMMAND: go test ./test/invariants -count=1 (run 2/10)
+ok  	github.com/jackli/frank/test/invariants	1.311s
+COMMAND: go test ./test/invariants -count=1 (run 3/10)
+ok  	github.com/jackli/frank/test/invariants	1.322s
+COMMAND: go test ./test/invariants -count=1 (run 4/10)
+ok  	github.com/jackli/frank/test/invariants	1.333s
+COMMAND: go test ./test/invariants -count=1 (run 5/10)
+ok  	github.com/jackli/frank/test/invariants	1.306s
+COMMAND: go test ./test/invariants -count=1 (run 6/10)
+ok  	github.com/jackli/frank/test/invariants	1.361s
+COMMAND: go test ./test/invariants -count=1 (run 7/10)
+ok  	github.com/jackli/frank/test/invariants	1.359s
+COMMAND: go test ./test/invariants -count=1 (run 8/10)
+ok  	github.com/jackli/frank/test/invariants	1.276s
+COMMAND: go test ./test/invariants -count=1 (run 9/10)
+ok  	github.com/jackli/frank/test/invariants	1.292s
+COMMAND: go test ./test/invariants -count=1 (run 10/10)
+ok  	github.com/jackli/frank/test/invariants	1.242s
+COMMAND: go test ./... -count=1
+?   	github.com/jackli/frank/cmd/frank	[no test files]
+ok  	github.com/jackli/frank/cmd/frank-mcp	0.318s
+ok  	github.com/jackli/frank/internal/bounce	0.424s
+ok  	github.com/jackli/frank/internal/channel	0.961s
+ok  	github.com/jackli/frank/internal/config	1.610s
+ok  	github.com/jackli/frank/internal/crashpoint	0.820s
+?   	github.com/jackli/frank/internal/derived	[no test files]
+ok  	github.com/jackli/frank/internal/egress	1.241s
+ok  	github.com/jackli/frank/internal/engine	7.311s
+?   	github.com/jackli/frank/internal/executor	[no test files]
+ok  	github.com/jackli/frank/internal/fieldspec	1.029s
+ok  	github.com/jackli/frank/internal/fsio	1.756s
+ok  	github.com/jackli/frank/internal/gate	3.328s
+ok  	github.com/jackli/frank/internal/gc	3.047s
+ok  	github.com/jackli/frank/internal/intake	7.529s
+ok  	github.com/jackli/frank/internal/lineage	2.588s
+ok  	github.com/jackli/frank/internal/migrate	2.785s
+ok  	github.com/jackli/frank/internal/obligation	4.405s
+ok  	github.com/jackli/frank/internal/observe	5.554s
+ok  	github.com/jackli/frank/internal/record	2.901s
+ok  	github.com/jackli/frank/internal/recover	6.532s
+ok  	github.com/jackli/frank/internal/seat	3.026s
+ok  	github.com/jackli/frank/internal/store	6.529s
+ok  	github.com/jackli/frank/internal/tables	3.353s
+ok  	github.com/jackli/frank/test/fixtures	143.234s
+ok  	github.com/jackli/frank/test/invariants	6.422s
+ok  	github.com/jackli/frank/test/replay	1.930s
+ok  	github.com/jackli/frank/test/replay/dogfood	1.783s
+ok  	github.com/jackli/frank/test/replay/zeroloss	3.369s
+?   	github.com/jackli/frank/test/seatproc	[no test files]

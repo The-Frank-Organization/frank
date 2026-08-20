@@ -1,0 +1,38 @@
+STARTED_AT=2026-08-18T02:24:14-0700
+SOURCE_BRANCH=s12-h16-fix
+SOURCE_HEAD=8ca99650019f2ddd12d47237e1abb32fbd5895e8
+COMMAND=go test ./... -count=1
+CONTENTION=QUIET WINDOW OPEN; operator/planner asked to run nothing in either worktree; this shell runs only the named full suite
+CONCURRENT_PROCESS_PREFLIGHT=none
+?   	github.com/jackli/frank/cmd/frank	[no test files]
+ok  	github.com/jackli/frank/cmd/frank-mcp	0.586s
+ok  	github.com/jackli/frank/internal/bounce	0.293s
+ok  	github.com/jackli/frank/internal/channel	1.188s
+ok  	github.com/jackli/frank/internal/config	1.066s
+ok  	github.com/jackli/frank/internal/crashpoint	0.656s
+?   	github.com/jackli/frank/internal/derived	[no test files]
+ok  	github.com/jackli/frank/internal/egress	1.294s
+ok  	github.com/jackli/frank/internal/engine	8.281s
+?   	github.com/jackli/frank/internal/executor	[no test files]
+ok  	github.com/jackli/frank/internal/fieldspec	1.665s
+ok  	github.com/jackli/frank/internal/fsio	1.474s
+ok  	github.com/jackli/frank/internal/gate	3.308s
+ok  	github.com/jackli/frank/internal/gc	3.001s
+ok  	github.com/jackli/frank/internal/intake	7.536s
+ok  	github.com/jackli/frank/internal/lineage	2.628s
+ok  	github.com/jackli/frank/internal/migrate	2.892s
+ok  	github.com/jackli/frank/internal/obligation	4.633s
+ok  	github.com/jackli/frank/internal/observe	6.178s
+ok  	github.com/jackli/frank/internal/record	2.848s
+ok  	github.com/jackli/frank/internal/recover	6.681s
+ok  	github.com/jackli/frank/internal/seat	2.961s
+ok  	github.com/jackli/frank/internal/store	6.384s
+ok  	github.com/jackli/frank/internal/tables	3.402s
+ok  	github.com/jackli/frank/test/fixtures	184.625s
+ok  	github.com/jackli/frank/test/invariants	6.781s
+ok  	github.com/jackli/frank/test/replay	2.145s
+ok  	github.com/jackli/frank/test/replay/dogfood	2.047s
+ok  	github.com/jackli/frank/test/replay/zeroloss	3.732s
+?   	github.com/jackli/frank/test/seatproc	[no test files]
+EXIT_STATUS=0
+FINISHED_AT=2026-08-18T02:27:21-0700

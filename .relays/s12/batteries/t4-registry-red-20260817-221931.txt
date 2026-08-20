@@ -1,0 +1,16 @@
+COMMAND: go test ./test/fixtures -run 'TestH16(RegistryRowsAndRuledRecordKinds|FieldspecV9ReaderAndForwardTransition|FreshGenesisIsBornAtV9AndPinsDigest|RegistryRowsJoinPresenceAndLaneSupplyGuards)$' -count=1 -v
+=== RUN   TestH16RegistryRowsAndRuledRecordKinds
+    h16_registry_rows_test.go:33: version="s10-fieldspec-v8", want "s12-fieldspec-v9"
+--- FAIL: TestH16RegistryRowsAndRuledRecordKinds (0.00s)
+=== RUN   TestH16FieldspecV9ReaderAndForwardTransition
+    h16_registry_rows_test.go:99: v8->v9 transition: config-version-transition
+--- FAIL: TestH16FieldspecV9ReaderAndForwardTransition (0.00s)
+=== RUN   TestH16FreshGenesisIsBornAtV9AndPinsDigest
+    h16_registry_rows_test.go:129: fresh genesis fieldspec="s10-fieldspec-v8", want "s12-fieldspec-v9"
+--- FAIL: TestH16FreshGenesisIsBornAtV9AndPinsDigest (0.04s)
+=== RUN   TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards
+    h16_registry_rows_test.go:146: system/computed header population=31, want 34
+--- FAIL: TestH16RegistryRowsJoinPresenceAndLaneSupplyGuards (0.00s)
+FAIL
+FAIL	github.com/jackli/frank/test/fixtures	0.490s
+FAIL

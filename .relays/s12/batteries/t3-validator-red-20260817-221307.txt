@@ -1,0 +1,14 @@
+TASK: s12 Task 3 presence-pinned validator RED
+CAPTURED_AT_LOCAL: 2026-08-17T22:13:07-0700
+WORKTREE: /Users/jack/Programming/harness-s12-h16-fix
+COMMAND: go test ./test/fixtures/ -run '^TestH16PresencePinned' -v
+EXIT: 1
+
+RESULT SUMMARY:
+- TestH16PresencePinnedRejectsPresentEmptySystemHeader FAIL: delivery_state present-empty produced no system-owned violation.
+- TestH16PresencePinnedSharedImpactPopulation discovered exactly 31 registry-derived system/computed header rows; every one of the 31 present-empty subtests FAILed with the expected system-owned violation absent.
+- TestH16PresencePinnedEnvelopeRowsRemainOutsideHeaderPopulation PASS for FROM, ROLE, and relay_id.
+- TestH16PresencePinnedObservationProducerRetainsEmptyDegradationNotes PASS, proving the post-validation conductor output preserves degradation_notes as a present-empty member.
+- package exit 1.
+
+RED_REASON: internal/fieldspec/validate.go requires present && raw != "" before applying systemOwnedHeader, so an explicitly supplied empty value bypasses the governed-ingress rejection for the entire 31-row population.

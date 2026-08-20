@@ -1,0 +1,22 @@
+TASK: s12 Task 2 H-26 mint root-lock RED
+CAPTURED_AT_LOCAL: 2026-08-17T22:00:25-0700
+WORKTREE: /Users/jack/Programming/harness-s12-h16-fix
+COMMAND: go test ./test/fixtures/ -run '^TestMintLock' -v
+EXIT: 1
+
+=== RUN   TestMintLockHeldRootRefusesWithoutBindingWrite
+    mint_lock_test.go:34: mint under held root err=<nil> output="credential=<redacted-random-test-value>\n", want root-lock-held
+--- FAIL: TestMintLockHeldRootRefusesWithoutBindingWrite (0.23s)
+=== RUN   TestMintLockPrecedesLiveSocketDiagnostic
+    mint_lock_test.go:60: mint precedence err=exit status 1 output="conductor is serving; -mint is admin-time only\n", want root-lock-held before socket diagnostic
+--- FAIL: TestMintLockPrecedesLiveSocketDiagnostic (0.05s)
+=== RUN   TestMintLockStaleSocketRemainsDiagnosticOnly
+--- PASS: TestMintLockStaleSocketRemainsDiagnosticOnly (0.05s)
+=== RUN   TestMintLockConcurrentMintHasOneTypedLoser
+    mint_lock_test.go:97: mint loser err=exit status 1 output="rename .../staging/binding/seats.json.tmp .../binding/seats.json: no such file or directory\n", want root-lock-held
+--- FAIL: TestMintLockConcurrentMintHasOneTypedLoser (0.15s)
+FAIL
+FAIL    github.com/jackli/frank/test/fixtures 1.018s
+FAIL
+
+RED_REASON: mintSeat probes the socket and mutates bindings before AcquireRoot. A held root does not exclude mint, the live-socket diagnostic wins over the lock error, and concurrent mints collide in staging. The stale-socket control already passes and protects its diagnostic-only semantics.

@@ -1,0 +1,113 @@
+?   	github.com/jackli/frank/cmd/frank	[no test files]
+ok  	github.com/jackli/frank/cmd/frank-mcp	0.496s
+ok  	github.com/jackli/frank/internal/bounce	0.997s
+ok  	github.com/jackli/frank/internal/channel	0.961s
+ok  	github.com/jackli/frank/internal/config	0.824s
+ok  	github.com/jackli/frank/internal/crashpoint	1.188s
+?   	github.com/jackli/frank/internal/derived	[no test files]
+ok  	github.com/jackli/frank/internal/egress	0.260s
+ok  	github.com/jackli/frank/internal/engine	7.657s
+?   	github.com/jackli/frank/internal/executor	[no test files]
+ok  	github.com/jackli/frank/internal/fieldspec	1.534s
+ok  	github.com/jackli/frank/internal/fsio	1.702s
+ok  	github.com/jackli/frank/internal/gate	3.312s
+ok  	github.com/jackli/frank/internal/gc	3.108s
+ok  	github.com/jackli/frank/internal/intake	7.413s
+ok  	github.com/jackli/frank/internal/lineage	2.496s
+ok  	github.com/jackli/frank/internal/migrate	2.705s
+ok  	github.com/jackli/frank/internal/obligation	4.204s
+ok  	github.com/jackli/frank/internal/observe	5.335s
+ok  	github.com/jackli/frank/internal/record	2.724s
+ok  	github.com/jackli/frank/internal/recover	6.230s
+ok  	github.com/jackli/frank/internal/seat	2.864s
+ok  	github.com/jackli/frank/internal/store	6.282s
+ok  	github.com/jackli/frank/internal/tables	3.233s
+--- FAIL: TestH16CeremonyConflictShapesRetainInBandOperatorPaths (0.43s)
+    --- FAIL: TestH16CeremonyConflictShapesRetainInBandOperatorPaths/target_operator=false (0.22s)
+        ceremony_test.go:87: anchor outcome={"state":"rejected","decision_state":"rejected","post_commit_state":"complete","relay_id":"relay-073b1ffb8f61f80a3f230ff5","intake_id":"intake-000001","detail":"selects:unknown-target"} decoded={State:rejected} err=<nil>
+    --- FAIL: TestH16CeremonyConflictShapesRetainInBandOperatorPaths/target_operator=true (0.22s)
+        ceremony_test.go:87: anchor outcome={"state":"rejected","decision_state":"rejected","post_commit_state":"complete","relay_id":"relay-fc419e8ea20bf74e7813867a","intake_id":"intake-000001","detail":"selects:unknown-target"} decoded={State:rejected} err=<nil>
+--- FAIL: TestS8ProductionDogfoodRejectsFalseDoneAndNamesPredicate (63.97s)
+    s8_exit_gate_test.go:310: production suite state = "rejected", want accepted; read={"record":{"envelope":{"relay_id":"relay-ba9760ab9879fba1e0cd762c","dispatch_id":"s4-nudge","from":"s8.implementer","to":"recipient.planner","role":"implementer","delivery_state":"rejected","intake_id":"intake-000007","schema_version":1},"headers":{"ACTIONS_GIT_REF":"branch@candidate","AUTHORITY":"report-only","CEREMONY_TIER":"medium","EVIDENCE_TARGET":"E2","FINAL_GIT_STATUS_SHORT":"none - clean tree","PARENT_DISPATCH_ID":"relay-1691aa90290e15ffdcf25190","PHASE":"SITREP","SUBJECT":"production governed suite","achieved_evidence":"E0","attestation_source":"conductor","authority_class":"no","bucket_binding_observed":"no","degradation_notes":"","deviated_observed":"no","egress_scan_result":"not_applicable","evidence_integrity":"{\"dogfood-battery-green\":\"observed\"}","executable_claim_results":"[{\"check_id\":\"run-suite\",\"claim_ref\":\"dogfood-battery-green\",\"integrity\":\"observed\",\"outcome\":\"fail\",\"rung_reached\":\"none\",\"signal_class\":\"none\"}]","executable_claims":"[{\"check_id\":\"run-suite\",\"claim_ref\":\"dogfood-battery-green\",\"params\":\"{\\\"expect_green\\\":\\\"true\\\",\\\"target\\\":\\\"dogfood-battery\\\"}\"}]","failing_edge":"observe-predicate","parent_provenance":"dispatch_root","record_integrity":"observed","surface_intent":"progress","target_gap_result":"target_gt_achieved"},"body":"dogfood-battery-green:observed-false","checksum":"01d5fee10969c6523932fd634cb68919543c4e55f7f4e5bcfebab7b2a51f91c3"},"schema_version":1,"source_schema_version":1}
+FAIL
+FAIL	github.com/jackli/frank/test/fixtures	108.975s
+ok  	github.com/jackli/frank/test/invariants	6.234s
+ok  	github.com/jackli/frank/test/replay	2.068s
+ok  	github.com/jackli/frank/test/replay/dogfood	1.944s
+ok  	github.com/jackli/frank/test/replay/zeroloss	3.411s
+?   	github.com/jackli/frank/test/seatproc	[no test files]
+FAIL
+=== RUN   TestLawIntakeOutcomeOneToOne
+--- PASS: TestLawIntakeOutcomeOneToOne (0.16s)
+=== RUN   TestLawDerivedOnlyActivation
+--- PASS: TestLawDerivedOnlyActivation (0.05s)
+=== RUN   TestLawSoleGovernedWriter
+--- PASS: TestLawSoleGovernedWriter (0.04s)
+=== RUN   TestLawPathHygiene
+=== RUN   TestLawPathHygiene/planted_leak_is_rejected_inside_mint_reply
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/binding
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/catalog-config
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/conductor-lock
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/engine-config
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/fieldspec-registry
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/journal
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/mailboxes
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/outbox
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/projections
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/quarantine
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/records
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/staging
+=== RUN   TestLawPathHygiene/mint_carve-outs_are_operator-channel_only
+=== RUN   TestLawPathHygiene/unregistered_family_is_rejected
+=== RUN   TestLawPathHygiene/unregistered_sink_pattern_is_rejected
+--- PASS: TestLawPathHygiene (0.49s)
+    --- PASS: TestLawPathHygiene/planted_leak_is_rejected_inside_mint_reply (0.00s)
+    --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/binding (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/catalog-config (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/conductor-lock (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/engine-config (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/fieldspec-registry (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/journal (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/mailboxes (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/outbox (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/projections (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/quarantine (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/records (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/staging (0.00s)
+    --- PASS: TestLawPathHygiene/mint_carve-outs_are_operator-channel_only (0.00s)
+    --- PASS: TestLawPathHygiene/unregistered_family_is_rejected (0.00s)
+    --- PASS: TestLawPathHygiene/unregistered_sink_pattern_is_rejected (0.00s)
+=== RUN   TestLawCanonicalWins
+--- PASS: TestLawCanonicalWins (0.06s)
+=== RUN   TestLawOnePivotPerMutation
+=== RUN   TestLawOnePivotPerMutation/exactly_one_canonical_rename
+=== RUN   TestLawOnePivotPerMutation/crash_before_pivot_is_absent
+=== RUN   TestLawOnePivotPerMutation/crash_after_pivot_is_present
+--- PASS: TestLawOnePivotPerMutation (0.07s)
+    --- PASS: TestLawOnePivotPerMutation/exactly_one_canonical_rename (0.03s)
+    --- PASS: TestLawOnePivotPerMutation/crash_before_pivot_is_absent (0.01s)
+    --- PASS: TestLawOnePivotPerMutation/crash_after_pivot_is_present (0.02s)
+=== RUN   TestLawRebuildBeforeOpen
+--- PASS: TestLawRebuildBeforeOpen (0.09s)
+=== RUN   TestLawTerminalEnumByteExact
+--- PASS: TestLawTerminalEnumByteExact (0.03s)
+=== RUN   TestLawThreeVerbSurface
+--- PASS: TestLawThreeVerbSurface (0.00s)
+=== RUN   TestLawR2NoModelPredicate
+=== RUN   TestLawR2NoModelPredicate/synthetic_required_when
+=== RUN   TestLawR2NoModelPredicate/synthetic_visible_when
+=== RUN   TestLawR2NoModelPredicate/synthetic_any-row_required_when
+=== RUN   TestLawR2NoModelPredicate/synthetic_any-row_visible_when
+--- PASS: TestLawR2NoModelPredicate (0.00s)
+    --- PASS: TestLawR2NoModelPredicate/synthetic_required_when (0.00s)
+    --- PASS: TestLawR2NoModelPredicate/synthetic_visible_when (0.00s)
+    --- PASS: TestLawR2NoModelPredicate/synthetic_any-row_required_when (0.00s)
+    --- PASS: TestLawR2NoModelPredicate/synthetic_any-row_visible_when (0.00s)
+PASS
+ok  	github.com/jackli/frank/test/invariants	1.304s
+ok  	github.com/jackli/frank/internal/engine	3.170s
+ok  	github.com/jackli/frank/internal/seat	1.227s
+ok  	github.com/jackli/frank/internal/channel	2.204s
+ok  	github.com/jackli/frank/cmd/frank-mcp	1.741s

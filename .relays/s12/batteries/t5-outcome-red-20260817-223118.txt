@@ -1,0 +1,24 @@
+COMMAND: go test ./test/fixtures -run '^TestH16(OutcomeSplitFivePostCommitFailureSites|PendingOutcomeFailsClosedForLegacyStateOnlyDecode)$' -count=1 -v
+=== RUN   TestH16OutcomeSplitFivePostCommitFailureSites
+=== RUN   TestH16OutcomeSplitFivePostCommitFailureSites/completeTurn
+    h16_outcome_split_test.go:90: pending outcome exposed legacy state: {"state":"rejected","relay_id":"relay-b368836cf448cde7c2fb111d","intake_id":"h16-outcome-TestH16OutcomeSplitFivePostCommitFailureSites-completeTurn","reason":"system:obligation-error"}
+=== RUN   TestH16OutcomeSplitFivePostCommitFailureSites/AfterGateResolution
+    h16_outcome_split_test.go:90: pending outcome exposed legacy state: {"state":"rejected","relay_id":"relay-0b386411d2c3445132ba9f4c","intake_id":"h16-outcome-TestH16OutcomeSplitFivePostCommitFailureSites-AfterGateResolution","reason":"system:derived-work-error"}
+=== RUN   TestH16OutcomeSplitFivePostCommitFailureSites/AfterApprovalResolution
+    h16_outcome_split_test.go:90: pending outcome exposed legacy state: {"state":"rejected","relay_id":"relay-9a784d9280750b0a37999228","intake_id":"h16-outcome-TestH16OutcomeSplitFivePostCommitFailureSites-AfterApprovalResolution","reason":"system:derived-work-error"}
+=== RUN   TestH16OutcomeSplitFivePostCommitFailureSites/AfterAccepted
+    h16_outcome_split_test.go:90: pending outcome exposed legacy state: {"state":"rejected","relay_id":"relay-f7906ec9cfcb210136c32a2d","intake_id":"h16-outcome-TestH16OutcomeSplitFivePostCommitFailureSites-AfterAccepted","reason":"system:derived-work-error"}
+=== RUN   TestH16OutcomeSplitFivePostCommitFailureSites/supersededCredentialCompleteTurn
+    h16_outcome_split_test.go:90: pending outcome exposed legacy state: {"state":"rejected","relay_id":"relay-fc81baa5b13dfeeb045a8f85","intake_id":"h16-outcome-TestH16OutcomeSplitFivePostCommitFailureSites-supersededCredentialCompleteTurn","reason":"system:obligation-error"}
+--- FAIL: TestH16OutcomeSplitFivePostCommitFailureSites (0.11s)
+    --- FAIL: TestH16OutcomeSplitFivePostCommitFailureSites/completeTurn (0.03s)
+    --- FAIL: TestH16OutcomeSplitFivePostCommitFailureSites/AfterGateResolution (0.02s)
+    --- FAIL: TestH16OutcomeSplitFivePostCommitFailureSites/AfterApprovalResolution (0.02s)
+    --- FAIL: TestH16OutcomeSplitFivePostCommitFailureSites/AfterAccepted (0.02s)
+    --- FAIL: TestH16OutcomeSplitFivePostCommitFailureSites/supersededCredentialCompleteTurn (0.01s)
+=== RUN   TestH16PendingOutcomeFailsClosedForLegacyStateOnlyDecode
+    h16_outcome_split_test.go:123: legacy state-only decoder matched pending outcome as "rejected": {"state":"rejected","relay_id":"relay-6a3b0e4e9d4b38faa79935eb","intake_id":"h16-outcome-TestH16PendingOutcomeFailsClosedForLegacyStateOnlyDecode","reason":"system:derived-work-error"}
+--- FAIL: TestH16PendingOutcomeFailsClosedForLegacyStateOnlyDecode (0.03s)
+FAIL
+FAIL	github.com/jackli/frank/test/fixtures	0.590s
+FAIL

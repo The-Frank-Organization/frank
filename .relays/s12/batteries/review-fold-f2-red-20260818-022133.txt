@@ -1,0 +1,13 @@
+STARTED_AT=2026-08-18T02:21:33-0700
+SOURCE_BRANCH=s12-h16-fix
+SOURCE_HEAD=692a3af9c29535cdbf4fe81cd6f316ea12d50bdd
+COMMAND=go test ./test/fixtures -run '^TestH16DirtyClassGBlocksBlindClassDUntilSuccessfulPass$' -count=1 -v
+CONTENTION=focused RED; no full-suite quiet-window claim
+=== RUN   TestH16DirtyClassGBlocksBlindClassDUntilSuccessfulPass
+    h16_classg_barrier_test.go:66: dirty Class-G allowed Class-D work: gate=1 approval=0 records=1->2 events=[class-g-failed class-g-failed gate class-g-failed]
+--- FAIL: TestH16DirtyClassGBlocksBlindClassDUntilSuccessfulPass (0.07s)
+FAIL
+FAIL	github.com/jackli/frank/test/fixtures	0.586s
+FAIL
+EXIT_STATUS=1
+FINISHED_AT=2026-08-18T02:21:34-0700

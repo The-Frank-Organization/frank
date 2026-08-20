@@ -1,0 +1,83 @@
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/hook_contract/non-empty/hooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/hook_contract/non-empty/unhooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/hook_contract/present-empty/hooked
+    h16_forged_headers_test.go:88: outcome={State:rejected RelayID:relay-6dc08fbc66c24758f6ae6fb6 Detail:hook_contract:system-owned; ACTIONS_GIT_REF:required; FINAL_GIT_STATUS_SHORT:required}, want rejected hook_contract:non-boot-before-active
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/hook_contract/present-empty/unhooked
+    h16_forged_headers_test.go:88: outcome={State:rejected RelayID:relay-233a7959d98549b589207615 Detail:hook_contract:system-owned; ACTIONS_GIT_REF:required; FINAL_GIT_STATUS_SHORT:required}, want rejected hook_contract:non-boot-before-active
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/mint_predecessor/non-empty/hooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/mint_predecessor/non-empty/unhooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/mint_predecessor/present-empty/hooked
+    h16_forged_headers_test.go:88: outcome={State:rejected RelayID:relay-dca54c13b25680f31f953b74 Detail:mint_predecessor:system-owned; ACTIONS_GIT_REF:required; FINAL_GIT_STATUS_SHORT:required}, want rejected mint_predecessor:non-boot-before-active
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/mint_predecessor/present-empty/unhooked
+    h16_forged_headers_test.go:88: outcome={State:rejected RelayID:relay-cbba8aab69defee9bd10ae85 Detail:mint_predecessor:system-owned; ACTIONS_GIT_REF:required; FINAL_GIT_STATUS_SHORT:required}, want rejected mint_predecessor:non-boot-before-active
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/admin_provenance/non-empty/hooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/admin_provenance/non-empty/unhooked
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/admin_provenance/present-empty/hooked
+    h16_forged_headers_test.go:88: outcome={State:rejected RelayID:relay-5295e4f8a044ad5286655f6c Detail:admin_provenance:system-owned; ACTIONS_GIT_REF:required; FINAL_GIT_STATUS_SHORT:required}, want rejected admin_provenance:non-boot-before-active
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/admin_provenance/present-empty/unhooked
+    h16_forged_headers_test.go:88: outcome={State:rejected RelayID:relay-db98cbd5d8ba5b92e89a2532 Detail:admin_provenance:system-owned; ACTIONS_GIT_REF:required; FINAL_GIT_STATUS_SHORT:required}, want rejected admin_provenance:non-boot-before-active
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/hook_contract/non-empty/hooked
+    h16_forged_headers_test.go:88: outcome={State:rejected RelayID:relay-b4128a2377840ad10f857905 Detail:hook_contract:system-owned}, want rejected hook_contract:non-boot-before-active
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/hook_contract/non-empty/unhooked
+    h16_forged_headers_test.go:88: outcome={State:rejected RelayID:relay-247b3e2791807a6df4e878a8 Detail:hook_contract:system-owned}, want rejected hook_contract:non-boot-before-active
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/hook_contract/present-empty/hooked
+    h16_forged_headers_test.go:88: outcome={State:rejected RelayID:relay-18ed7c7e57af34d8df1e9f39 Detail:hook_contract:system-owned}, want rejected hook_contract:non-boot-before-active
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/hook_contract/present-empty/unhooked
+    h16_forged_headers_test.go:88: outcome={State:rejected RelayID:relay-19ea4a87677fc3c831aa1091 Detail:hook_contract:system-owned}, want rejected hook_contract:non-boot-before-active
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/mint_predecessor/non-empty/hooked
+    h16_forged_headers_test.go:88: outcome={State:rejected RelayID:relay-09820666d62921843465db2d Detail:mint_predecessor:system-owned}, want rejected mint_predecessor:non-boot-before-active
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/mint_predecessor/non-empty/unhooked
+    h16_forged_headers_test.go:88: outcome={State:rejected RelayID:relay-bc812f4c281b9add55f0766a Detail:mint_predecessor:system-owned}, want rejected mint_predecessor:non-boot-before-active
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/mint_predecessor/present-empty/hooked
+    h16_forged_headers_test.go:88: outcome={State:rejected RelayID:relay-7f0b520e733a9132405198da Detail:mint_predecessor:system-owned}, want rejected mint_predecessor:non-boot-before-active
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/mint_predecessor/present-empty/unhooked
+    h16_forged_headers_test.go:88: outcome={State:rejected RelayID:relay-ef82a88768643b1c0a18ee19 Detail:mint_predecessor:system-owned}, want rejected mint_predecessor:non-boot-before-active
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/admin_provenance/non-empty/hooked
+    h16_forged_headers_test.go:88: outcome={State:rejected RelayID:relay-b70fd5fd30203006a1188c33 Detail:admin_provenance:system-owned}, want rejected admin_provenance:non-boot-before-active
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/admin_provenance/non-empty/unhooked
+    h16_forged_headers_test.go:88: outcome={State:rejected RelayID:relay-7a797d6aeb81cc3e292884a7 Detail:admin_provenance:system-owned}, want rejected admin_provenance:non-boot-before-active
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/admin_provenance/present-empty/hooked
+    h16_forged_headers_test.go:88: outcome={State:rejected RelayID:relay-3434d81d75f2234351f78172 Detail:admin_provenance:system-owned}, want rejected admin_provenance:non-boot-before-active
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/admin_provenance/present-empty/unhooked
+    h16_forged_headers_test.go:88: outcome={State:rejected RelayID:relay-ef0e7c2208faebe7dd28e5c5 Detail:admin_provenance:system-owned}, want rejected admin_provenance:non-boot-before-active
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S3_active_observe-enabled
+    h16_forged_headers_test.go:60: boot outcome={"state":"rejected","decision_state":"rejected","post_commit_state":"complete","relay_id":"relay-0f4b2856ddb2ffabb3bedfef","intake_id":"intake-000001","detail":"EVIDENCE_TARGET:required; ACTIONS_GIT_REF:required; FINAL_GIT_STATUS_SHORT:required"} err=<nil>
+=== RUN   TestH16ForgedSystemHeadersFourStateMatrix/S4_active_observe-absent
+    h16_forged_headers_test.go:60: boot outcome={"state":"rejected","decision_state":"rejected","post_commit_state":"complete","relay_id":"relay-2af23dbaa77f7a201042aabd","intake_id":"intake-000001","detail":"EVIDENCE_TARGET:required"} err=<nil>
+=== NAME  TestH16ForgedSystemHeadersFourStateMatrix
+    h16_forged_headers_test.go:127: executed cases=24, want 48
+--- FAIL: TestH16ForgedSystemHeadersFourStateMatrix (1.09s)
+    --- FAIL: TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled (0.53s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/hook_contract/non-empty/hooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/hook_contract/non-empty/unhooked (0.01s)
+        --- FAIL: TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/hook_contract/present-empty/hooked (0.02s)
+        --- FAIL: TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/hook_contract/present-empty/unhooked (0.02s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/mint_predecessor/non-empty/hooked (0.01s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/mint_predecessor/non-empty/unhooked (0.02s)
+        --- FAIL: TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/mint_predecessor/present-empty/hooked (0.01s)
+        --- FAIL: TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/mint_predecessor/present-empty/unhooked (0.01s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/admin_provenance/non-empty/hooked (0.01s)
+        --- PASS: TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/admin_provenance/non-empty/unhooked (0.01s)
+        --- FAIL: TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/admin_provenance/present-empty/hooked (0.01s)
+        --- FAIL: TestH16ForgedSystemHeadersFourStateMatrix/S1_pre-active_observe-enabled/admin_provenance/present-empty/unhooked (0.02s)
+    --- FAIL: TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent (0.31s)
+        --- FAIL: TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/hook_contract/non-empty/hooked (0.02s)
+        --- FAIL: TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/hook_contract/non-empty/unhooked (0.02s)
+        --- FAIL: TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/hook_contract/present-empty/hooked (0.02s)
+        --- FAIL: TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/hook_contract/present-empty/unhooked (0.02s)
+        --- FAIL: TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/mint_predecessor/non-empty/hooked (0.02s)
+        --- FAIL: TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/mint_predecessor/non-empty/unhooked (0.02s)
+        --- FAIL: TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/mint_predecessor/present-empty/hooked (0.02s)
+        --- FAIL: TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/mint_predecessor/present-empty/unhooked (0.02s)
+        --- FAIL: TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/admin_provenance/non-empty/hooked (0.02s)
+        --- FAIL: TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/admin_provenance/non-empty/unhooked (0.02s)
+        --- FAIL: TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/admin_provenance/present-empty/hooked (0.02s)
+        --- FAIL: TestH16ForgedSystemHeadersFourStateMatrix/S2_pre-active_observe-absent/admin_provenance/present-empty/unhooked (0.02s)
+    --- FAIL: TestH16ForgedSystemHeadersFourStateMatrix/S3_active_observe-enabled (0.12s)
+    --- FAIL: TestH16ForgedSystemHeadersFourStateMatrix/S4_active_observe-absent (0.12s)
+FAIL
+FAIL	github.com/jackli/frank/test/fixtures	1.727s
+FAIL

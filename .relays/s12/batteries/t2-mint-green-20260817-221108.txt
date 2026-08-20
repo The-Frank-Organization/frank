@@ -1,0 +1,36 @@
+TASK: s12 Task 2 H-26 mint root-lock GREEN
+CAPTURED_AT_LOCAL: 2026-08-17T22:11:08-0700
+WORKTREE: /Users/jack/Programming/harness-s12-h16-fix
+
+FOCUSED COMMAND: go test ./test/fixtures/ -run '^TestMintLock' -v
+FOCUSED EXIT: 0
+FOCUSED RESULT:
+- TestMintLockHeldRootRefusesWithoutBindingWrite PASS
+- TestMintLockPrecedesLiveSocketDiagnostic PASS
+- TestMintLockStaleSocketRemainsDiagnosticOnly PASS
+- TestMintLockConcurrentMintHasOneTypedLoser PASS
+- package PASS in 1.153s
+
+STALE-INTEGRATION ASSERTION
+The pre-existing TestFrankBinaryMintSeatAdminTimeCredential encoded the superseded probe-before-lock message and failed with root-lock-held after the production change. Its assertion was updated within the in-scope fixture directory to require root-lock-held and exclude conductor-is-serving when the serving process owns the lock.
+Command: go test ./test/fixtures/ -run '^(TestMintLock|TestFrankBinaryMintSeatAdminTimeCredential$)' -v
+Exit: 0
+Result: all five tests PASS; package PASS in 1.178s.
+
+INVARIANT COMMAND: go test ./test/invariants -v
+INVARIANT EXIT: 0
+INVARIANT RESULT: all ten TestLaw* INV-CATALOG laws PASS; package ok in 1.350s.
+
+FULL-SUITE INVESTIGATION
+The first go test ./... run returned exit 1 solely because TestS8ProductionDogfoodRejectsFalseDoneAndNamesPredicate observed a nonzero nested dogfood-suite child. Task 2 focused tests and all invariant laws were green. No code was changed in response.
+- exact child command FRANK_DOGFOOD_NESTED=1 go test -p=1 ./... -count=1: PASS, all packages
+- new init/mint fixtures stress command with -count=20: PASS
+- exact child command with -count=3: PASS, all packages; fixtures 84.970s
+- isolated outer dogfood test reproduced disagreement between its two child runs, confirming an intermittent existing nested-suite result rather than a mint-path assertion
+- unchanged required full-suite retry: PASS, exit 0; fixtures 134.689s; every other package PASS/cached/no-tests
+
+FINAL FULL COMMAND: go test ./...
+FINAL FULL EXIT: 0
+
+IMPLEMENTATION: mintSeat now acquires store.AcquireRoot before role validation, socket liveness, genesis-time checks, seat.Open, or Mint, and holds it through return. The socket probe remains a post-lock diagnostic; stale socket behavior remains permissive.
+TASK_2_RESULT: PASS E2, with the disclosed non-reproducible first full-suite dogfood failure above.

@@ -1,0 +1,38 @@
+FORWARD_VERIFY=s12 m-3 flake remedies
+SOURCE_BRANCH=s12-h16-fix
+SOURCE_HEAD=1ac14a019f4122a7e43a7f2d17c465ba331e1985
+CONTENTION=quiet window; pgrep preflight found no go test, fixtures.test, or dogfood-suite process before either final command
+
+FULL_STARTED_AT=2026-08-18T04:43:21-0700
+FULL_COMMAND=GOWORK=off go test ./... -count=1
+FULL_RESULT=all packages green; github.com/jackli/frank/test/fixtures 168.575s; github.com/jackli/frank/test/invariants 6.521s
+FULL_REAL_SECONDS=169.85
+FULL_USER_SECONDS=51.54
+FULL_SYS_SECONDS=33.40
+FULL_EXIT_STATUS=0
+FULL_FINISHED_AT=2026-08-18T04:46:11-0700
+
+NESTED_STARTED_AT=2026-08-18T04:46:34-0700
+NESTED_COMMAND=FRANK_DOGFOOD_NESTED=1 GOWORK=off go test -p=1 ./... -count=1
+NESTED_RESULT=all packages green; github.com/jackli/frank/test/fixtures 36.432s; github.com/jackli/frank/test/invariants 1.515s
+NESTED_REAL_SECONDS=52.45
+NESTED_USER_SECONDS=6.84
+NESTED_SYS_SECONDS=7.75
+NESTED_EXIT_STATUS=0
+NESTED_FINISHED_AT=2026-08-18T04:47:27-0700
+
+UNCHANGED_EXIT_GATE_CONTEXT_SECONDS=150
+RESTORED_EXIT_GATE_HEADROOM_SECONDS=97.55
+UNCHANGED_EXECUTOR_CAP_SECONDS=120
+RESTORED_EXECUTOR_CAP_HEADROOM_SECONDS=67.55
+MARGIN_ARITHMETIC=150-52.45=97.55; 120-52.45=67.55
+
+INVARIANT_STARTED_AT=2026-08-18T04:47:49-0700
+INVARIANT_COMMAND=GOWORK=off go test ./test/invariants -count=1
+INVARIANT_RESULT=ok github.com/jackli/frank/test/invariants 1.258s
+INVARIANT_EXIT_STATUS=0
+INVARIANT_FINISHED_AT=2026-08-18T04:47:50-0700
+
+NESTED_ATTESTATION=nested-green attests the courier's gate adjudication over the nested suite; the process-level crash/ceremony cuts are proven ONLY by the outer run.
+OUTER_REACHABILITY=the exit-gate test carries the same FRANK_DOGFOOD_NESTED guard; reaching its outer body proves the variable was unset in the outer invocation's shared parent environment and licenses every same-guard fixture's outer execution
+ANTI_PRECEDENT=option (b), increasing the 150s test context or the 120s executor cap, is expressly declined as anti-precedent

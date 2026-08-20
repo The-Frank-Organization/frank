@@ -1,0 +1,24 @@
+CAPTURE_KIND=R2_F1_UNCHANGED_BOUNDARY_RESULT
+SOURCE_BRANCH=s12-h16-fix
+SOURCE_HEAD=1ac14a019f4122a7e43a7f2d17c465ba331e1985
+ORIGINAL_BUDGET=implementer-r2-f1-budget-20260818-151140.txt
+ORIGINAL_BUDGET_SHA256=4848fc3ed36d7136ee6e9cc177402dc2e56670d3faa6a844467c7120b384cd38
+HARNESS_CORRECTION=implementer-r2-f1-harness-correction-20260818-151425.txt
+HARNESS_CORRECTION_SHA256=5492a04a15aaf0a7e820f8bfcc174d8ed7b29e0eded1601b1b89596dbfd8a5f2
+SCRATCH_HARNESS_SHA256=6792e9a78484db604441fe3ec5098b965f02558f8f21990c2ba2917db2677485
+PREBUILT_BINARY=/tmp/frank-s12-r2-f1.AWAlg7
+PREBUILT_BINARY_SHA256=c05ab58c40054af368426c251f74ff7f16aedb8a626db1c599b0a21998ddb97c
+
+FIXED_VALID_CONDITIONS=historical live deadline 1731ms; same scratch harness and prebuilt binary; exactly 180 `yes` competitors per trial; nice -n 20; exact TestS12Historical1731msExecutorReproduction only; test.count=1; raw verdict logged; zero competitor processes between trials
+VALID_TRIAL_COUNT=5
+VALID_RUN_1=test 0.57s; command real 1.35s; exit 0; raw Outcome:"pass" RungReached:"E2" Predicate:"pass" Timing:"under-timeout" FailingDetail:""
+VALID_RUN_2=test 0.36s; command real 0.73s; exit 0; raw Outcome:"pass" RungReached:"E2" Predicate:"pass" Timing:"under-timeout" FailingDetail:""
+VALID_RUN_3=test 0.20s; command real 0.53s; exit 0; raw Outcome:"pass" RungReached:"E2" Predicate:"pass" Timing:"under-timeout" FailingDetail:""
+VALID_RUN_4=test 0.19s; command real 0.36s; exit 0; raw Outcome:"pass" RungReached:"E2" Predicate:"pass" Timing:"under-timeout" FailingDetail:""
+VALID_RUN_5=test 0.25s; command real 0.49s; exit 0; raw Outcome:"pass" RungReached:"E2" Predicate:"pass" Timing:"under-timeout" FailingDetail:""
+VALID_SERIES_WINDOW=2026-08-18T15:13:11-0700 run 1; corrected remaining trials 2026-08-18T15:15:02-0700 through 2026-08-18T15:15:06-0700
+
+INVALID_TRIAL_DISCLOSURE=the first wrapper failed to kill zsh scalar-stored PIDs; its runs 2-5 accumulated 360/540/720/900 competitors and are excluded, regardless of their partial green output; all 900 exact PIDs were then terminated and zero remained before corrected trials
+NO_TUNING_ATTESTATION=no live deadline, competitor count, priority, scratch bytes, or valid run count changed in response to outcomes; the corrected four trials merely completed the originally predeclared fixed-condition five-run budget
+OUTCOME=did not fire within the stated budget; the historical raw executor detail remains unidentified
+DISPOSITION=stop reproduction; no escalation or retry-to-fire; report the cause as inferred and the item as open pending m-3's parallel sufficiency pre-ruling

@@ -1,0 +1,6 @@
+COMMAND: go test ./test/fixtures -run '^TestH16Derived|^TestH16DecisionConsumes' -count=1 -v
+# github.com/jackli/frank/test/fixtures
+test/fixtures/h16_derived_fold_test.go:9:2: no required module provides package github.com/jackli/frank/internal/derived; to add it:
+	go get github.com/jackli/frank/internal/derived
+FAIL	github.com/jackli/frank/test/fixtures [setup failed]
+FAIL

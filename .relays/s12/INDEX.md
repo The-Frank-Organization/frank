@@ -1,0 +1,35 @@
+# Relay INDEX — RUN_ID s12 (append-only, end-of-file, write order)
+
+Append-only routing index for the s12 H-16/H-26 fix-lane build pair (charter CH-s12-h16-fix).
+Boots live in the master root (`master/relays/boot/master-boot-s12-*`); this INDEX carries the pair's own relays.
+
+root: .
+
+| time | phase | role | dispatch | parent | from | to | cc | status | file |
+|---|---|---|---|---|---|---|---|---|---|
+| 20260817-191828 | PLAN | planner | s12-build-plan | step3-h16-h26-lane | s12.planner | s12.implementer | master.orchestrator-planner, master.orchestrator-reviewer, operator | review-requested | s12-build/PLAN-planner-20260817-191828.md |
+| 20260817-192631 | PLAN-REVIEW | implementer | s12-build-plan-review | s12-build-plan | s12.implementer | s12.planner | master.orchestrator-planner, master.orchestrator-reviewer, operator, m-2.planner, m-7.planner | must-revise | s12-build/PLAN-REVIEW-implementer-20260817-192631.md |
+| 20260817-194616 | SITREP | planner | s12-build | s12-build-plan-review | s12.planner | master.orchestrator-planner | master.orchestrator-reviewer, operator, m-2.planner, m-7.planner, s12.implementer | ruling-requested | s12-build/SITREP-planner-20260817-194616.md |
+| 20260817-194700 | PLAN | planner | s12-build-plan-2 | step3-h16-h26-lane | s12.planner | s12.implementer | master.orchestrator-planner, master.orchestrator-reviewer, operator | review-requested | s12-build/PLAN-planner-20260817-194700.md |
+| 20260817-194914 | SITREP | planner | s12-build | s12-build-plan-2 | s12.planner | operator | s12.implementer, master.orchestrator-planner, master.orchestrator-reviewer | decision-requested | s12-build/SITREP-planner-20260817-194914.md |
+| 20260817-204945 | PLAN | planner | s12-build-plan-3 | step3-h16-h26-lane | s12.planner | s12.implementer | master.orchestrator-planner, master.orchestrator-reviewer, operator | review-requested | s12-build/PLAN-planner-20260817-204945.md |
+| 20260817-205921 | PLAN-REVIEW | implementer | s12-build-plan-review-3 | s12-build-plan-3 | s12.implementer | s12.planner | master.orchestrator-planner, master.orchestrator-reviewer, operator | must-revise | s12-build/PLAN-REVIEW-implementer-20260817-205921.md |
+| 20260817-211202 | PLAN | planner | s12-build-plan-4 | step3-h16-h26-lane | s12.planner | s12.implementer | master.orchestrator-planner, master.orchestrator-reviewer, operator | review-requested | s12-build/PLAN-planner-20260817-211202.md |
+| 20260817-212251 | PLAN-REVIEW | implementer | s12-build-plan-review-4 | s12-build-plan-4 | s12.implementer | s12.planner | master.orchestrator-planner, master.orchestrator-reviewer, operator | approve | s12-build/PLAN-REVIEW-implementer-20260817-212251.md |
+| 20260817-213142 | SITREP | planner | s12-build | s12-build-plan-review-4 | s12.planner | operator | s12.implementer, master.orchestrator-planner, master.orchestrator-reviewer | decision-requested | s12-build/SITREP-planner-20260817-213142.md |
+| 20260817-214612 | IMPL | planner | s12-build-impl | s12-build-plan-review-4 | s12.planner | s12.implementer | operator, master.orchestrator-planner, master.orchestrator-reviewer | dispatched | s12-build/IMPL-planner-20260817-214612.md |
+| 20260818-010951 | IMPL | implementer | s12-build-impl | s12-build-impl | s12.implementer | s12.planner | master.orchestrator-planner, master.orchestrator-reviewer, operator | complete | s12-build/IMPL-implementer-20260818-010951.md |
+| 20260818-012207 | SITREP | planner | s12-build | s12-build-impl | s12.planner | master.orchestrator-planner | master.orchestrator-reviewer, operator, s12.implementer, m-7.planner, m-2.planner, m-1.planner | merge-ready-recommended | s12-build/SITREP-planner-20260818-012207.md |
+| 20260818-012336 | SITREP | planner | s12-build | s12-build-impl | s12.planner | master.orchestrator-planner | master.orchestrator-reviewer, operator, s12.implementer | correction | s12-build/SITREP-planner-20260818-012336.md |
+| 20260818-021247 | SITREP | planner | s12-build | s12-build-impl | s12.planner | s12.implementer | master.orchestrator-planner, master.orchestrator-reviewer, operator | review-fold-required | s12-build/SITREP-planner-20260818-021247.md |
+| 20260818-021838 | REVIEW-FOLD | implementer | s12-build-review-fold | s12-build-impl | s12.implementer | s12.planner | master.orchestrator-planner, master.orchestrator-reviewer, operator | scope-all-in | s12-build/FOLD_SCOPE-implementer-20260818-021838.md |
+| 20260818-022818 | REVIEW-FOLD | implementer | s12-build-review-fold | s12-build-impl | s12.implementer | s12.planner | master.orchestrator-planner, master.orchestrator-reviewer, operator | complete | s12-build/REVIEW-FOLD-implementer-20260818-022818.md |
+| 20260818-032222 | SITREP | planner | s12-build | s12-build-review-fold | s12.planner | master.orchestrator-planner | master.orchestrator-reviewer, operator, s12.implementer, m-3.planner, m-7.planner | ruling-requested | s12-build/SITREP-planner-20260818-032222.md |
+| 20260818-042436 | SITREP | planner | s12-build | s12-build-review-fold | s12.planner | s12.implementer | master.orchestrator-planner, master.orchestrator-reviewer, operator, m-3.planner | review-fold-required | s12-build/SITREP-planner-20260818-042436.md |
+| 20260818-043218 | REVIEW-FOLD | implementer | s12-build-review-fold | s12-build-review-fold | s12.implementer | s12.planner | master.orchestrator-planner, master.orchestrator-reviewer, operator, m-3.planner | scope-all-in | s12-build/FOLD_SCOPE-implementer-20260818-043218.md |
+| 20260818-044833 | REVIEW-FOLD | implementer | s12-build-review-fold | s12-build-review-fold | s12.implementer | s12.planner | master.orchestrator-planner, master.orchestrator-reviewer, operator, m-3.planner | complete | s12-build/REVIEW-FOLD-implementer-20260818-044833.md |
+| 20260818-141931 | SITREP | planner | s12-build | s12-build-review-fold | s12.planner | master.orchestrator-planner | master.orchestrator-reviewer, m-3.planner, operator, s12.implementer | merge-ready-recommended | s12-build/SITREP-planner-20260818-141931.md |
+| 20260818-145648 | SITREP | planner | s12-build | s12-build-review-fold | s12.planner | s12.implementer | master.orchestrator-planner, master.orchestrator-reviewer, operator, m-3.planner | review-fold-required | s12-build/SITREP-planner-20260818-145648.md |
+| 20260818-150926 | REVIEW-FOLD | implementer | s12-build-review-fold | s12-build-review-fold | s12.implementer | s12.planner | master.orchestrator-planner, master.orchestrator-reviewer, operator, m-3.planner | scope-all-in | s12-build/FOLD_SCOPE-implementer-20260818-150926.md |
+| 20260818-152017 | REVIEW-FOLD | implementer | s12-build-review-fold | s12-build-review-fold | s12.implementer | s12.planner | master.orchestrator-planner, master.orchestrator-reviewer, operator, m-3.planner | returned | s12-build/REVIEW-FOLD-implementer-20260818-152017.md |
+| 20260818-152856 | SITREP | planner | s12-build | s12-build-review-fold | s12.planner | master.orchestrator-planner | master.orchestrator-reviewer, m-3.planner, operator, s12.implementer | returned | s12-build/SITREP-planner-20260818-152856.md |

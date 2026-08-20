@@ -1,0 +1,9 @@
+# github.com/jackli/frank/test/fixtures_test [github.com/jackli/frank/test/fixtures.test]
+test/fixtures/h16_transitions_test.go:50:38: undefined: engine.DerivedRetryCeiling
+test/fixtures/h16_transitions_test.go:55:25: undefined: engine.DerivedRetryCeiling
+test/fixtures/h16_transitions_test.go:56:64: undefined: engine.DerivedRetryCeiling
+test/fixtures/h16_transitions_test.go:65:38: undefined: engine.DerivedRetryCeiling
+test/fixtures/h16_transitions_test.go:73:27: undefined: engine.DerivedRetryCeiling
+test/fixtures/h16_transitions_test.go:74:71: undefined: engine.DerivedRetryCeiling
+FAIL	github.com/jackli/frank/test/fixtures [build failed]
+FAIL

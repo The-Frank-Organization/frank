@@ -1,0 +1,18 @@
+STARTED_AT=2026-08-18T02:21:11-0700
+SOURCE_BRANCH=s12-h16-fix
+SOURCE_HEAD=692a3af9c29535cdbf4fe81cd6f316ea12d50bdd
+COMMAND=go test ./test/fixtures -run '^TestH16StartupFoldsRealizedMintEvidenceBeforeServing$' -count=1 -v
+CONTENTION=focused RED; no full-suite quiet-window claim
+=== RUN   TestH16StartupFoldsRealizedMintEvidenceBeforeServing
+=== RUN   TestH16StartupFoldsRealizedMintEvidenceBeforeServing/proof_failure_blocks_channel
+    h16_startup_evidence_test.go:67: channel opened while realized-mint evidence transition could not commit; stderr=
+=== RUN   TestH16StartupFoldsRealizedMintEvidenceBeforeServing/normal_restart_folds_once_without_remint
+    h16_startup_evidence_test.go:91: realized-undelivered transitions=0, want 1
+--- FAIL: TestH16StartupFoldsRealizedMintEvidenceBeforeServing (0.61s)
+    --- FAIL: TestH16StartupFoldsRealizedMintEvidenceBeforeServing/proof_failure_blocks_channel (0.40s)
+    --- FAIL: TestH16StartupFoldsRealizedMintEvidenceBeforeServing/normal_restart_folds_once_without_remint (0.20s)
+FAIL
+FAIL	github.com/jackli/frank/test/fixtures	1.264s
+FAIL
+EXIT_STATUS=1
+FINISHED_AT=2026-08-18T02:21:13-0700

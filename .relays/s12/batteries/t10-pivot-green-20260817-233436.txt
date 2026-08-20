@@ -1,0 +1,56 @@
+=== RUN   TestH16MintPredecessorStampedAndMismatchRejectedAtCommit
+--- PASS: TestH16MintPredecessorStampedAndMismatchRejectedAtCommit (0.04s)
+=== RUN   TestH16CanonicalTipAndCallerlessRepairRespectUnresolvedMarker
+--- PASS: TestH16CanonicalTipAndCallerlessRepairRespectUnresolvedMarker (0.63s)
+=== RUN   TestH16RecoveryProcessorRescansAndRepairsMarkerlessPivot
+--- PASS: TestH16RecoveryProcessorRescansAndRepairsMarkerlessPivot (0.13s)
+=== RUN   TestH16MintChainConflictShapesFailClosedOrderFree
+=== RUN   TestH16MintChainConflictShapesFailClosedOrderFree/shared_predecessor
+=== RUN   TestH16MintChainConflictShapesFailClosedOrderFree/broken_link
+=== RUN   TestH16MintChainConflictShapesFailClosedOrderFree/cycle
+--- PASS: TestH16MintChainConflictShapesFailClosedOrderFree (0.00s)
+    --- PASS: TestH16MintChainConflictShapesFailClosedOrderFree/shared_predecessor (0.00s)
+    --- PASS: TestH16MintChainConflictShapesFailClosedOrderFree/broken_link (0.00s)
+    --- PASS: TestH16MintChainConflictShapesFailClosedOrderFree/cycle (0.00s)
+PASS
+ok  	github.com/jackli/frank/test/fixtures	1.261s
+ok  	github.com/jackli/frank/test/invariants	1.373s
+ok  	github.com/jackli/frank/test/invariants	1.395s
+ok  	github.com/jackli/frank/test/invariants	1.388s
+ok  	github.com/jackli/frank/test/invariants	1.340s
+ok  	github.com/jackli/frank/test/invariants	1.422s
+ok  	github.com/jackli/frank/test/invariants	1.383s
+ok  	github.com/jackli/frank/test/invariants	1.352s
+ok  	github.com/jackli/frank/test/invariants	1.330s
+ok  	github.com/jackli/frank/test/invariants	1.405s
+ok  	github.com/jackli/frank/test/invariants	1.509s
+?   	github.com/jackli/frank/cmd/frank	[no test files]
+ok  	github.com/jackli/frank/cmd/frank-mcp	0.552s
+ok  	github.com/jackli/frank/internal/bounce	0.242s
+ok  	github.com/jackli/frank/internal/channel	0.992s
+ok  	github.com/jackli/frank/internal/config	1.472s
+ok  	github.com/jackli/frank/internal/crashpoint	0.850s
+?   	github.com/jackli/frank/internal/derived	[no test files]
+ok  	github.com/jackli/frank/internal/egress	1.279s
+ok  	github.com/jackli/frank/internal/engine	8.495s
+?   	github.com/jackli/frank/internal/executor	[no test files]
+ok  	github.com/jackli/frank/internal/fieldspec	1.074s
+ok  	github.com/jackli/frank/internal/fsio	1.906s
+ok  	github.com/jackli/frank/internal/gate	2.209s
+ok  	github.com/jackli/frank/internal/gc	2.914s
+ok  	github.com/jackli/frank/internal/intake	7.532s
+ok  	github.com/jackli/frank/internal/lineage	2.699s
+ok  	github.com/jackli/frank/internal/migrate	2.891s
+ok  	github.com/jackli/frank/internal/obligation	4.669s
+ok  	github.com/jackli/frank/internal/observe	6.336s
+ok  	github.com/jackli/frank/internal/record	2.955s
+ok  	github.com/jackli/frank/internal/recover	6.712s
+ok  	github.com/jackli/frank/internal/seat	3.134s
+ok  	github.com/jackli/frank/internal/store	6.673s
+ok  	github.com/jackli/frank/internal/tables	3.491s
+ok  	github.com/jackli/frank/test/fixtures	154.001s
+ok  	github.com/jackli/frank/test/invariants	6.706s
+ok  	github.com/jackli/frank/test/replay	2.694s
+ok  	github.com/jackli/frank/test/replay/dogfood	2.386s
+ok  	github.com/jackli/frank/test/replay/zeroloss	4.024s
+?   	github.com/jackli/frank/test/seatproc	[no test files]

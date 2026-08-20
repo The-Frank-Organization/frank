@@ -1,0 +1,78 @@
+TASK: s12 H-16/H-26 Task 0 isolated-worktree baseline and census
+CAPTURED_AT_LOCAL: 2026-08-17T21:52:28-0700
+WORKTREE: /Users/jack/Programming/harness-s12-h16-fix
+BRANCH: s12-h16-fix
+BASE_MAIN_SHA: 663e30d99d61d89ec1958ba432389727bcf7c15f
+
+ISOLATION
+- shared checkout: /Users/jack/Programming/harness on main
+- code checkout: /Users/jack/Programming/harness-s12-h16-fix on s12-h16-fix
+- worktree status at creation: clean
+- all code edits/tests/commits occur in the code checkout
+- relay and battery captures are append-written only under the shared checkout's frank/.relays/s12/
+
+SPEC HASH
+Command from worktree root:
+  shasum -a 256 master/domains/m-7-conductor-core/design/2026-07-20-h16-outcome-split.md
+Output:
+  cc8bcff3f4d04d45eb7cc4250714022f4050ab95bddae55f12fe17bdd7003d05  master/domains/m-7-conductor-core/design/2026-07-20-h16-outcome-split.md
+Result: exact rev21 match.
+Note: an initial invocation from worktree/frank used the repo-root-relative path and returned file-not-found. The exact command was rerun from the worktree root above; no design mismatch occurred.
+
+BASELINE
+Working directory: /Users/jack/Programming/harness-s12-h16-fix/frank
+Command: go test ./...
+Exit: 0
+Output:
+  ?   github.com/jackli/frank/cmd/frank [no test files]
+  ok  github.com/jackli/frank/cmd/frank-mcp 0.804s
+  ok  github.com/jackli/frank/internal/bounce 0.305s
+  ok  github.com/jackli/frank/internal/channel 0.877s
+  ok  github.com/jackli/frank/internal/config 0.915s
+  ok  github.com/jackli/frank/internal/crashpoint 1.091s
+  ok  github.com/jackli/frank/internal/egress 1.314s
+  ok  github.com/jackli/frank/internal/engine 7.983s
+  ?   github.com/jackli/frank/internal/executor [no test files]
+  ok  github.com/jackli/frank/internal/fieldspec 3.035s
+  ok  github.com/jackli/frank/internal/fsio 2.266s
+  ok  github.com/jackli/frank/internal/gate 4.618s
+  ok  github.com/jackli/frank/internal/gc 4.149s
+  ok  github.com/jackli/frank/internal/intake 6.821s
+  ok  github.com/jackli/frank/internal/lineage 1.879s
+  ok  github.com/jackli/frank/internal/migrate 2.114s
+  ok  github.com/jackli/frank/internal/obligation 4.784s
+  ok  github.com/jackli/frank/internal/observe 5.796s
+  ok  github.com/jackli/frank/internal/record 2.722s
+  ok  github.com/jackli/frank/internal/recover 6.261s
+  ok  github.com/jackli/frank/internal/seat 3.141s
+  ok  github.com/jackli/frank/internal/store 6.249s
+  ok  github.com/jackli/frank/internal/tables 3.552s
+  ok  github.com/jackli/frank/test/fixtures 136.152s
+  ok  github.com/jackli/frank/test/invariants 6.073s
+  ok  github.com/jackli/frank/test/replay 2.657s
+  ok  github.com/jackli/frank/test/replay/dogfood 2.062s
+  ok  github.com/jackli/frank/test/replay/zeroloss 3.341s
+  ?   github.com/jackli/frank/test/seatproc [no test files]
+
+INV-CATALOG HARNESS
+- actual package: ./test/invariants
+- ten TestLaw* tests found across path_hygiene_test.go, terminal_surface_test.go, lifecycle_writer_test.go, store_recovery_test.go, and intake_outcome_test.go
+- continuous command for each implementation commit: go test ./test/invariants -v
+
+BRANCH-BYTE LOCI CENSUS
+- internal/fieldspec/validate.go:35: present && raw != "" && r.systemOwnedHeader(spec), confirming the present-empty defect locus.
+- internal/engine/loop.go:168-186: four post-commit error returns still relabel accepted decisions as rejected (obligation, AfterGateResolution, AfterApprovalResolution, AfterAccepted).
+- internal/engine/loop.go:268-282: superseded-credential path still returns rejected on post-commit obligation failure.
+- cmd/frank/main.go:89-117: -init and -mint branches execute before the serve-path AcquireRoot.
+- cmd/frank/main.go:118: serve path acquires AcquireRoot.
+
+MUST-CHECK-6 EXCLUSION CENSUS
+- -bless/store.BlessS8: direct offline store/config writer, but internal/store/genesis.go:273-280 acquires AcquireRoot before Open or mutation. No unlocked-writer residual.
+- operatorSubmit: cmd/frank/main.go:706-728 reads the payload and calls submit through channel.DialAuthenticated; it performs no direct root/config/store write. No unlocked-writer residual.
+- Per plan, neither exclusion is modified.
+
+RULED GATES RECORDED
+- MUST-CHECK 1: m-2 DESIGN-planner-m2-20260817-201520.md section 1, routed by master RECONCILE-orchestrator-planner-20260817-202541.md; record_kind realization is landed and Task 4/9 are clear.
+- MUST-CHECK 7: mint-predecessor-mismatch at rev21 normative line 89, pair-approved by DESIGN-REVIEW-implementer-20260817-202647.md; Task 10 is clear.
+
+TASK_0_RESULT: PASS

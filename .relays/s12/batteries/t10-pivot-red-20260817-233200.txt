@@ -1,0 +1,9 @@
+=== RUN   TestH16MintPredecessorStampedAndMismatchRejectedAtCommit
+    h16_pivot_chain_test.go:45: first pivot={Envelope:{RelayID:relay-e17de16082528fb30d62fff6 DispatchID: From:operator To: Role:operator DeliveryState:accepted IntakeID:mint-first SchemaVersion:1} Headers:map[PHASE:SITREP SUBJECT:mint-first hook_contract:1 record_kind:seat_mint] Body:{"seat":"chain-seat.implementer","role":"implementer","is_operator":false} XFields:map[] Checksum:1811eef7a3d77158bff243086d0c173b13db53d8918f88bcd2b8846c2261635b}, want accepted genesis predecessor
+--- FAIL: TestH16MintPredecessorStampedAndMismatchRejectedAtCommit (0.03s)
+=== RUN   TestH16CanonicalTipAndCallerlessRepairRespectUnresolvedMarker
+    h16_pivot_chain_test.go:97: unresolved marker did not block repair: realized="a-pivot-b" ok=true
+--- FAIL: TestH16CanonicalTipAndCallerlessRepairRespectUnresolvedMarker (0.47s)
+FAIL
+FAIL	github.com/jackli/frank/test/fixtures	1.154s
+FAIL

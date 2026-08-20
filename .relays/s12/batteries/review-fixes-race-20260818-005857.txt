@@ -1,0 +1,4 @@
+ok  	github.com/jackli/frank/internal/engine	3.119s
+ok  	github.com/jackli/frank/internal/seat	1.946s
+ok  	github.com/jackli/frank/internal/channel	1.618s
+ok  	github.com/jackli/frank/cmd/frank-mcp	1.851s

@@ -1,0 +1,43 @@
+STARTED_AT=2026-08-18T03:15:06-0700
+SEAT=s12.planner (independent verification, rerun 2 of 2)
+SOURCE_BRANCH=s12-h16-fix
+SOURCE_HEAD=8ca99650019f2ddd12d47237e1abb32fbd5895e8
+COMMAND=go test ./... -count=1
+CONTENTION=QUIET WINDOW: only this planner shell active, serial; pgrep preflight=0
+none
+CACHE_STATE=warm (immediately follows the 57s nested measurement run at this same HEAD)
+?   	github.com/jackli/frank/cmd/frank	[no test files]
+ok  	github.com/jackli/frank/cmd/frank-mcp	0.215s
+ok  	github.com/jackli/frank/internal/bounce	0.263s
+ok  	github.com/jackli/frank/internal/channel	0.846s
+ok  	github.com/jackli/frank/internal/config	0.384s
+ok  	github.com/jackli/frank/internal/crashpoint	0.550s
+?   	github.com/jackli/frank/internal/derived	[no test files]
+ok  	github.com/jackli/frank/internal/egress	0.842s
+ok  	github.com/jackli/frank/internal/engine	6.991s
+?   	github.com/jackli/frank/internal/executor	[no test files]
+ok  	github.com/jackli/frank/internal/fieldspec	0.961s
+ok  	github.com/jackli/frank/internal/fsio	1.066s
+ok  	github.com/jackli/frank/internal/gate	2.786s
+ok  	github.com/jackli/frank/internal/gc	2.227s
+ok  	github.com/jackli/frank/internal/intake	6.500s
+ok  	github.com/jackli/frank/internal/lineage	1.584s
+ok  	github.com/jackli/frank/internal/migrate	1.770s
+ok  	github.com/jackli/frank/internal/obligation	3.688s
+ok  	github.com/jackli/frank/internal/observe	3.974s
+ok  	github.com/jackli/frank/internal/record	1.828s
+ok  	github.com/jackli/frank/internal/recover	5.734s
+ok  	github.com/jackli/frank/internal/seat	1.944s
+ok  	github.com/jackli/frank/internal/store	5.400s
+ok  	github.com/jackli/frank/internal/tables	2.203s
+--- FAIL: TestS8AdversarialExecutorIsolationAndVerdictIPHIntegrated (1.74s)
+    s8_adversarial_test.go:76: integrated isolation terminal = "rejected", result = observe.ObserveResult{PredicateResult:"blocked", Veto:"block_delivery", ObservedFields:map[string]string{"achieved_evidence":"E0", "attestation_source":"conductor", "bucket_binding_observed":"no", "degradation_notes":"observe-machinery-fault", "deviated_observed":"no", "egress_scan_result":"not_applicable", "evidence_integrity":"{\"isolation-probe\":\"self_reported\"}", "executable_claim_results":"[{\"check_id\":\"run-suite\",\"claim_ref\":\"isolation-probe\",\"integrity\":\"self_reported\",\"outcome\":\"unsafe\",\"rung_reached\":\"none\",\"signal_class\":\"none\"}]", "record_integrity":"self_reported", "target_gap_result":"target_gt_achieved"}, FailingPredicate:"isolation-probe", FailureClass:"observe-machinery-fault", Escalate:false}
+FAIL
+FAIL	github.com/jackli/frank/test/fixtures	192.555s
+ok  	github.com/jackli/frank/test/invariants	5.952s
+ok  	github.com/jackli/frank/test/replay	1.389s
+ok  	github.com/jackli/frank/test/replay/dogfood	1.325s
+ok  	github.com/jackli/frank/test/replay/zeroloss	2.792s
+?   	github.com/jackli/frank/test/seatproc	[no test files]
+FAIL
+EXIT_STATUS=1

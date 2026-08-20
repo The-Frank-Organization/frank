@@ -1,0 +1,100 @@
+?   	github.com/jackli/frank/cmd/frank	[no test files]
+ok  	github.com/jackli/frank/cmd/frank-mcp	0.327s
+ok  	github.com/jackli/frank/internal/bounce	0.433s
+ok  	github.com/jackli/frank/internal/channel	1.167s
+ok  	github.com/jackli/frank/internal/config	0.638s
+ok  	github.com/jackli/frank/internal/crashpoint	1.037s
+?   	github.com/jackli/frank/internal/derived	[no test files]
+ok  	github.com/jackli/frank/internal/egress	1.258s
+ok  	github.com/jackli/frank/internal/engine	6.363s
+?   	github.com/jackli/frank/internal/executor	[no test files]
+ok  	github.com/jackli/frank/internal/fieldspec	1.638s
+ok  	github.com/jackli/frank/internal/fsio	1.822s
+ok  	github.com/jackli/frank/internal/gate	3.522s
+ok  	github.com/jackli/frank/internal/gc	2.701s
+ok  	github.com/jackli/frank/internal/intake	7.092s
+ok  	github.com/jackli/frank/internal/lineage	2.670s
+ok  	github.com/jackli/frank/internal/migrate	2.884s
+ok  	github.com/jackli/frank/internal/obligation	4.343s
+ok  	github.com/jackli/frank/internal/observe	6.100s
+ok  	github.com/jackli/frank/internal/record	3.075s
+ok  	github.com/jackli/frank/internal/recover	6.334s
+ok  	github.com/jackli/frank/internal/seat	3.039s
+ok  	github.com/jackli/frank/internal/store	6.008s
+ok  	github.com/jackli/frank/internal/tables	3.407s
+ok  	github.com/jackli/frank/test/fixtures	174.899s
+ok  	github.com/jackli/frank/test/invariants	6.016s
+ok  	github.com/jackli/frank/test/replay	2.124s
+ok  	github.com/jackli/frank/test/replay/dogfood	2.341s
+ok  	github.com/jackli/frank/test/replay/zeroloss	3.835s
+?   	github.com/jackli/frank/test/seatproc	[no test files]
+=== RUN   TestLawIntakeOutcomeOneToOne
+--- PASS: TestLawIntakeOutcomeOneToOne (0.16s)
+=== RUN   TestLawDerivedOnlyActivation
+--- PASS: TestLawDerivedOnlyActivation (0.06s)
+=== RUN   TestLawSoleGovernedWriter
+--- PASS: TestLawSoleGovernedWriter (0.04s)
+=== RUN   TestLawPathHygiene
+=== RUN   TestLawPathHygiene/planted_leak_is_rejected_inside_mint_reply
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/binding
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/catalog-config
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/conductor-lock
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/engine-config
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/fieldspec-registry
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/journal
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/mailboxes
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/outbox
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/projections
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/quarantine
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/records
+=== RUN   TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/staging
+=== RUN   TestLawPathHygiene/mint_carve-outs_are_operator-channel_only
+=== RUN   TestLawPathHygiene/unregistered_family_is_rejected
+=== RUN   TestLawPathHygiene/unregistered_sink_pattern_is_rejected
+--- PASS: TestLawPathHygiene (0.48s)
+    --- PASS: TestLawPathHygiene/planted_leak_is_rejected_inside_mint_reply (0.00s)
+    --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/binding (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/catalog-config (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/conductor-lock (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/engine-config (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/fieldspec-registry (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/journal (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/mailboxes (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/outbox (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/projections (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/quarantine (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/records (0.00s)
+        --- PASS: TestLawPathHygiene/bounce-reason_rejects_every_canonical_path_family/staging (0.00s)
+    --- PASS: TestLawPathHygiene/mint_carve-outs_are_operator-channel_only (0.00s)
+    --- PASS: TestLawPathHygiene/unregistered_family_is_rejected (0.00s)
+    --- PASS: TestLawPathHygiene/unregistered_sink_pattern_is_rejected (0.00s)
+=== RUN   TestLawCanonicalWins
+--- PASS: TestLawCanonicalWins (0.06s)
+=== RUN   TestLawOnePivotPerMutation
+=== RUN   TestLawOnePivotPerMutation/exactly_one_canonical_rename
+=== RUN   TestLawOnePivotPerMutation/crash_before_pivot_is_absent
+=== RUN   TestLawOnePivotPerMutation/crash_after_pivot_is_present
+--- PASS: TestLawOnePivotPerMutation (0.06s)
+    --- PASS: TestLawOnePivotPerMutation/exactly_one_canonical_rename (0.03s)
+    --- PASS: TestLawOnePivotPerMutation/crash_before_pivot_is_absent (0.01s)
+    --- PASS: TestLawOnePivotPerMutation/crash_after_pivot_is_present (0.02s)
+=== RUN   TestLawRebuildBeforeOpen
+--- PASS: TestLawRebuildBeforeOpen (0.10s)
+=== RUN   TestLawTerminalEnumByteExact
+--- PASS: TestLawTerminalEnumByteExact (0.03s)
+=== RUN   TestLawThreeVerbSurface
+--- PASS: TestLawThreeVerbSurface (0.00s)
+=== RUN   TestLawR2NoModelPredicate
+=== RUN   TestLawR2NoModelPredicate/synthetic_required_when
+=== RUN   TestLawR2NoModelPredicate/synthetic_visible_when
+=== RUN   TestLawR2NoModelPredicate/synthetic_any-row_required_when
+=== RUN   TestLawR2NoModelPredicate/synthetic_any-row_visible_when
+--- PASS: TestLawR2NoModelPredicate (0.00s)
+    --- PASS: TestLawR2NoModelPredicate/synthetic_required_when (0.00s)
+    --- PASS: TestLawR2NoModelPredicate/synthetic_visible_when (0.00s)
+    --- PASS: TestLawR2NoModelPredicate/synthetic_any-row_required_when (0.00s)
+    --- PASS: TestLawR2NoModelPredicate/synthetic_any-row_visible_when (0.00s)
+PASS
+ok  	github.com/jackli/frank/test/invariants	1.334s
