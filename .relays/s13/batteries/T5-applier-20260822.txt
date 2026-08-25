@@ -1,0 +1,41 @@
+# T5 applier battery
+
+## RED — applier event loop absent
+
+Command:
+
+```text
+go test ./internal/appctl/applier
+```
+
+Expected first failure: the new package fixture does not compile because the applier API (`Emission`, `New`, `Config`, `EmitterFunc`, `Result`, `Response`, `QueryFunc`, and `Event`) does not exist yet. The fixture precedes all T5 implementation bytes.
+
+Observed RED:
+
+```text
+internal/appctl/applier/applier_test.go:26:23: undefined: Emission
+internal/appctl/applier/applier_test.go:27:10: undefined: New
+internal/appctl/applier/applier_test.go:27:18: undefined: Config
+internal/appctl/applier/applier_test.go:27:34: undefined: EmitterFunc
+internal/appctl/applier/applier_test.go:45:20: undefined: Response
+FAIL github.com/jackli/frank/internal/appctl/applier [build failed]
+```
+
+## Focused GREEN
+
+Commands:
+
+```text
+go test ./internal/appctl/applier -count=1
+go test -race ./internal/appctl/applier -count=1
+go vet ./internal/appctl/applier
+```
+
+Results:
+
+```text
+ok github.com/jackli/frank/internal/appctl/applier 0.341s
+ok github.com/jackli/frank/internal/appctl/applier 1.483s
+```
+
+The real SQLite-backed fixture proves one serialized event loop under 24 concurrent callers; one transaction per typed event; `state_seq` advanced in the same transaction; failed-event rollback includes the mutation and counter with zero emissions; reply and configured emissions become observable only after commit; committed-snapshot reads use the same queue; and a timer expiry re-enters through the ordinary event path. The import/chokepoint sweep rejects `database/sql` outside the store package and store updates outside the applier implementation/test floor.

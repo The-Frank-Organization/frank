@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackli/frank/internal/bounce"
 	frankconfig "github.com/jackli/frank/internal/config"
+	"github.com/jackli/frank/internal/derived"
 	"github.com/jackli/frank/internal/fieldspec"
 	"github.com/jackli/frank/internal/intake"
 	"github.com/jackli/frank/internal/lineage"
@@ -103,7 +104,11 @@ func submitHandlerWithObservation(st *store.Store, reg *fieldspec.Registry, meta
 			return cand, nil, nil
 		}
 		if violation := validateRecordKind(tab, cand, meta); violation != nil {
-			cand = rejectAtEdge(cand, "form-validation", bounce.Format(*violation))
+			edge := "form-validation"
+			if violation.Class == "anchor-target-resolved" {
+				edge = "anchor-target-resolved"
+			}
+			cand = rejectAtEdge(cand, edge, bounce.Format(*violation))
 			return cand, nil, nil
 		}
 		if observeEnv.PresentLayers["observe"] {
@@ -128,6 +133,14 @@ func submitHandlerWithObservation(st *store.Store, reg *fieldspec.Registry, meta
 			}
 			cand = failAtEdge(cand, terminal, "observe-predicate", bounce.Format(fieldspec.Violation{Field: observeResult.FailingPredicate, Class: failureClass}))
 			return cand, nil, nil
+		}
+		if cand.Headers["record_kind"] == "seat_mint" {
+			expected, violation := expectedMintPredecessor(tab.Records, cand)
+			if violation != nil {
+				cand = rejectAtEdge(cand, "mint-predecessor-mismatch", formatVerdictViolation(*violation))
+				return cand, nil, nil
+			}
+			cand.Headers["mint_predecessor"] = expected
 		}
 		if cand.Headers["record_kind"] == "config_change" {
 			cand = classifyConfigChange(st, cand, meta)
@@ -229,7 +242,7 @@ func revalidateAtCommit(st *store.Store, cand record.Record, intents []store.Int
 		return cand, intents, nil
 	}
 	kind := cand.Headers["record_kind"]
-	if cand.Headers["resolves_gate"] == "" && kind != "owed_disposition" && kind != "waiver_retraction" && kind != "config_change" && kind != "seat_mint" {
+	if cand.Headers["resolves_gate"] == "" && kind != "owed_disposition" && kind != "waiver_retraction" && kind != "config_change" && kind != "seat_mint" && kind != "mint-chain-anchor" && kind != "attempt_resolution" {
 		return cand, intents, nil
 	}
 	tab, err := tables.Build(st)
@@ -252,9 +265,35 @@ func revalidateAtCommit(st *store.Store, cand record.Record, intents []store.Int
 		}
 	}
 	switch kind {
-	case "owed_disposition", "waiver_retraction", "seat_mint":
+	case "owed_disposition", "waiver_retraction", "attempt_resolution", "mint-chain-anchor":
 		if violation := validateRecordKind(tab, cand, meta); violation != nil {
 			cand = clearGateRaiseHeaders(cand)
+			cand.Envelope.DeliveryState = record.Rejected
+			if violation.Class == "anchor-target-resolved" {
+				cand.Headers["failing_edge"] = "anchor-target-resolved"
+			}
+			cand.Body = formatVerdictViolation(*violation)
+			return cand, nil, nil
+		}
+	case "seat_mint":
+		expected, violation := expectedMintPredecessor(tab.Records, cand)
+		if violation != nil || (cand.Headers["mint_predecessor"] != "" && cand.Headers["mint_predecessor"] != expected) {
+			if violation == nil {
+				violation = &fieldspec.Violation{Field: "mint_predecessor", Class: "mint-predecessor-mismatch", Reason: "mint predecessor is not the current chain tip"}
+			}
+			cand.Envelope.DeliveryState = record.Rejected
+			cand.Headers["failing_edge"] = "mint-predecessor-mismatch"
+			cand.Body = formatVerdictViolation(*violation)
+			return cand, nil, nil
+		}
+		cand.Headers["mint_predecessor"] = expected
+		if violation := ValidateCeremonyRetryAuthority(tab.Records, cand); violation != nil {
+			cand.Envelope.DeliveryState = record.Rejected
+			cand.Headers["failing_edge"] = "retry-authority-delta"
+			cand.Body = formatVerdictViolation(*violation)
+			return cand, nil, nil
+		}
+		if violation := validateRecordKind(tab, cand, meta); violation != nil {
 			cand.Envelope.DeliveryState = record.Rejected
 			cand.Body = formatVerdictViolation(*violation)
 			return cand, nil, nil
@@ -266,6 +305,191 @@ func revalidateAtCommit(st *store.Store, cand record.Record, intents []store.Int
 		}
 	}
 	return cand, intents, nil
+}
+
+// ValidateCeremonyRetryAuthority is the commit-time belt-and-braces check for
+// the offline ceremony writer. A delivery retry is a generation rotation, not
+// an authority edit: all authority-bearing body members must equal the
+// predecessor tip byte-for-byte.
+func ValidateCeremonyRetryAuthority(records []record.Record, cand record.Record) *fieldspec.Violation {
+	if cand.Envelope.DeliveryState != record.Accepted || cand.Headers["record_kind"] != "seat_mint" || cand.Headers["admin_provenance"] != "ceremony" {
+		return nil
+	}
+	predecessorID := cand.Headers["mint_predecessor"]
+	var predecessor record.Record
+	for _, rec := range records {
+		if rec.Envelope.RelayID == predecessorID && rec.Envelope.DeliveryState == record.Accepted && rec.Headers["record_kind"] == "seat_mint" {
+			predecessor = rec
+			break
+		}
+	}
+	if predecessor.Envelope.RelayID == "" {
+		return nil
+	}
+	prior, priorViolation := ParseSeatMintBody(predecessor.Body, predecessor.Envelope.From)
+	next, nextViolation := ParseSeatMintBody(cand.Body, cand.Envelope.From)
+	if priorViolation != nil || nextViolation != nil {
+		return nil
+	}
+	if prior.Seat != next.Seat || prior.Role != next.Role || prior.IsOperator != next.IsOperator {
+		return &fieldspec.Violation{Field: "seat_mint", Class: "retry-authority-delta", Reason: "ceremony retry authority must equal predecessor"}
+	}
+	return nil
+}
+
+type MintChain struct {
+	Tip        record.Record
+	Conflicted bool
+}
+
+type mintChainAnchorBody struct {
+	Seat    string `json:"seat"`
+	Selects string `json:"selects"`
+}
+
+func MintChainAnchorRecord(seatName, selects string) record.Record {
+	body, _ := json.Marshal(mintChainAnchorBody{Seat: seatName, Selects: selects})
+	return record.Record{
+		Envelope: record.Envelope{From: "system", Role: "system", DeliveryState: record.Accepted, SchemaVersion: 1},
+		Headers:  map[string]string{"PHASE": "SITREP", "SUBJECT": "legacy mint chain anchored", "record_kind": "mint-chain-anchor"},
+		Body:     string(body),
+	}
+}
+
+// BuildMintChains derives each seat's canonical pivot tip from set relations,
+// never relay-ID or redo order. Multiple predecessor-less legacy pivots remain
+// conflicted until the governed upgrade-anchor fold selects one.
+func BuildMintChains(records []record.Record) (map[string]MintChain, error) {
+	type pivot struct {
+		rec  record.Record
+		req  SeatMintRequest
+		pred string
+	}
+	bySeat := map[string][]pivot{}
+	anchors := map[string][]mintChainAnchorBody{}
+	for _, rec := range records {
+		if rec.Envelope.DeliveryState == record.Accepted && rec.Headers["record_kind"] == "mint-chain-anchor" {
+			var anchor mintChainAnchorBody
+			if json.Unmarshal([]byte(rec.Body), &anchor) != nil || anchor.Seat == "" || anchor.Selects == "" {
+				continue
+			}
+			anchors[anchor.Seat] = append(anchors[anchor.Seat], anchor)
+			continue
+		}
+		if rec.Envelope.DeliveryState != record.Accepted || rec.Headers["record_kind"] != "seat_mint" {
+			continue
+		}
+		req, violation := ParseSeatMintBody(rec.Body, rec.Envelope.From)
+		if violation != nil {
+			return nil, fmt.Errorf("accepted seat_mint failed parse: %s:%s", violation.Field, violation.Class)
+		}
+		bySeat[req.Seat] = append(bySeat[req.Seat], pivot{rec: rec, req: req, pred: rec.Headers["mint_predecessor"]})
+	}
+	chains := make(map[string]MintChain, len(bySeat))
+	for seatName, pivots := range bySeat {
+		nodes := map[string]pivot{}
+		var legacy []pivot
+		for _, item := range pivots {
+			nodes[item.rec.Envelope.RelayID] = item
+			if item.pred == "" {
+				legacy = append(legacy, item)
+			}
+		}
+		seatAnchors := anchors[seatName]
+		if len(seatAnchors) > 1 {
+			chains[seatName] = MintChain{Conflicted: true}
+			continue
+		}
+		var anchored *pivot
+		if len(seatAnchors) == 1 {
+			selected, ok := nodes[seatAnchors[0].Selects]
+			if !ok || selected.pred != "" {
+				chains[seatName] = MintChain{Conflicted: true}
+				continue
+			}
+			anchored = &selected
+		} else if len(legacy) > 1 {
+			chains[seatName] = MintChain{Conflicted: true}
+			continue
+		}
+		children := map[string][]string{}
+		conflicted := false
+		for _, item := range pivots {
+			if item.pred == "" {
+				continue
+			}
+			if item.pred != "genesis" {
+				if parent, ok := nodes[item.pred]; !ok || parent.req.Seat != seatName {
+					conflicted = true
+				}
+			} else if len(legacy) != 0 || anchored != nil {
+				conflicted = true
+			}
+			children[item.pred] = append(children[item.pred], item.rec.Envelope.RelayID)
+			if len(children[item.pred]) > 1 {
+				conflicted = true
+			}
+		}
+		start := "genesis"
+		visited := map[string]bool{}
+		var tip record.Record
+		if anchored != nil {
+			start = anchored.rec.Envelope.RelayID
+			visited[start] = true
+			tip = anchored.rec
+		} else if len(legacy) == 1 {
+			start = legacy[0].rec.Envelope.RelayID
+			visited[start] = true
+			tip = legacy[0].rec
+		}
+		current := start
+		for len(children[current]) == 1 {
+			next := children[current][0]
+			if visited[next] {
+				conflicted = true
+				break
+			}
+			visited[next] = true
+			tip = nodes[next].rec
+			current = next
+		}
+		expectedVisited := len(pivots)
+		if anchored != nil {
+			expectedVisited = 1
+			for _, item := range pivots {
+				if item.pred != "" {
+					expectedVisited++
+				}
+			}
+		}
+		if len(visited) != expectedVisited {
+			conflicted = true
+		}
+		if conflicted {
+			tip = record.Record{}
+		}
+		chains[seatName] = MintChain{Tip: tip, Conflicted: conflicted}
+	}
+	return chains, nil
+}
+
+func expectedMintPredecessor(records []record.Record, cand record.Record) (string, *fieldspec.Violation) {
+	req, violation := ParseSeatMintBody(cand.Body, cand.Envelope.From)
+	if violation != nil {
+		return "", violation
+	}
+	chains, err := BuildMintChains(records)
+	if err != nil {
+		return "", &fieldspec.Violation{Field: "mint_predecessor", Class: "mint-predecessor-mismatch", Reason: err.Error()}
+	}
+	chain, exists := chains[req.Seat]
+	if !exists {
+		return "genesis", nil
+	}
+	if chain.Conflicted || chain.Tip.Envelope.RelayID == "" {
+		return "", &fieldspec.Violation{Field: "mint_predecessor", Class: "mint-predecessor-mismatch", Reason: "mint chain has no unique tip"}
+	}
+	return chain.Tip.Envelope.RelayID, nil
 }
 
 func clearGateRaiseHeaders(rec record.Record) record.Record {
@@ -383,9 +607,178 @@ func validateRecordKind(t *tables.T, cand record.Record, meta seat.SeatMeta) *fi
 	case "seat_mint":
 		_, violation := ParseSeatMintBody(cand.Body, meta.Name)
 		return violation
+	case "mint-chain-anchor":
+		return validateMintChainAnchor(t, cand, meta)
+	case "attempt_resolution":
+		return validateAttemptResolution(t, cand, meta)
 	default:
 		return nil
 	}
+}
+
+func validateMintChainAnchor(t *tables.T, cand record.Record, meta seat.SeatMeta) *fieldspec.Violation {
+	if !operatorSeat(meta) {
+		return &fieldspec.Violation{Field: "record_kind", Class: "seat-scope", Reason: "mint-chain-anchor requires operator"}
+	}
+	var body mintChainAnchorBody
+	if err := json.Unmarshal([]byte(cand.Body), &body); err != nil {
+		return &fieldspec.Violation{Field: "body", Class: "typed", Reason: "mint-chain-anchor body must be a JSON object"}
+	}
+	if body.Seat == "" {
+		return &fieldspec.Violation{Field: "seat", Class: "required", Reason: "seat required"}
+	}
+	if body.Selects == "" {
+		return &fieldspec.Violation{Field: "selects", Class: "required", Reason: "selects required"}
+	}
+	for _, rec := range t.Records {
+		if rec.Envelope.DeliveryState != record.Accepted {
+			continue
+		}
+		if rec.Headers["record_kind"] == "mint-chain-anchor" {
+			var existing mintChainAnchorBody
+			if json.Unmarshal([]byte(rec.Body), &existing) == nil && existing.Seat == body.Seat {
+				return &fieldspec.Violation{Field: "selects", Class: "anchor-target-resolved", Reason: "mint chain already has an anchor"}
+			}
+		}
+	}
+	chains, err := BuildMintChains(t.Records)
+	if err != nil {
+		return &fieldspec.Violation{Field: "selects", Class: "unknown-target", Reason: err.Error()}
+	}
+	chain, exists := chains[body.Seat]
+	if !exists {
+		return &fieldspec.Violation{Field: "selects", Class: "unknown-target", Reason: "mint chain unknown"}
+	}
+	if !chain.Conflicted {
+		return &fieldspec.Violation{Field: "selects", Class: "anchor-target-resolved", Reason: "mint chain already resolved"}
+	}
+	legacyCount := 0
+	selectionValid := false
+	for _, rec := range t.Records {
+		if rec.Envelope.DeliveryState != record.Accepted || rec.Headers["record_kind"] != "seat_mint" || rec.Headers["mint_predecessor"] != "" {
+			continue
+		}
+		req, violation := ParseSeatMintBody(rec.Body, rec.Envelope.From)
+		if violation == nil && req.Seat == body.Seat {
+			legacyCount++
+			selectionValid = selectionValid || rec.Envelope.RelayID == body.Selects
+		}
+	}
+	if legacyCount < 2 || !selectionValid {
+		return &fieldspec.Violation{Field: "selects", Class: "unknown-target", Reason: "anchor must select a conflicted legacy pivot"}
+	}
+	trialCandidate := cand
+	trialCandidate.Envelope.DeliveryState = record.Accepted
+	trial := append(append([]record.Record(nil), t.Records...), trialCandidate)
+	trialChains, err := BuildMintChains(trial)
+	if err != nil {
+		return &fieldspec.Violation{Field: "selects", Class: "unknown-target", Reason: err.Error()}
+	}
+	resolved, exists := trialChains[body.Seat]
+	if !exists || resolved.Conflicted || resolved.Tip.Envelope.RelayID == "" {
+		return &fieldspec.Violation{Field: "selects", Class: "unknown-target", Reason: "anchor selection does not resolve the mint chain"}
+	}
+	return nil
+}
+
+type attemptResolutionBody struct {
+	Resolves    string `json:"resolves"`
+	Disposition string `json:"disposition"`
+	EvidenceRef string `json:"evidence_ref"`
+}
+
+func parseAttemptResolutionBody(body string) (attemptResolutionBody, map[string]json.RawMessage, *fieldspec.Violation) {
+	var members map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(body), &members); err != nil || members == nil {
+		return attemptResolutionBody{}, nil, &fieldspec.Violation{Field: "body", Class: "typed", Reason: "attempt_resolution body must be a JSON object"}
+	}
+	var parsed attemptResolutionBody
+	if raw, ok := members["resolves"]; !ok || json.Unmarshal(raw, &parsed.Resolves) != nil || parsed.Resolves == "" {
+		return attemptResolutionBody{}, members, &fieldspec.Violation{Field: "resolves", Class: "required", Reason: "resolves required"}
+	}
+	if raw, ok := members["disposition"]; ok && json.Unmarshal(raw, &parsed.Disposition) != nil {
+		return attemptResolutionBody{}, members, &fieldspec.Violation{Field: "disposition", Class: "typed", Reason: "disposition must be text"}
+	}
+	if raw, ok := members["evidence_ref"]; ok && json.Unmarshal(raw, &parsed.EvidenceRef) != nil {
+		return attemptResolutionBody{}, members, &fieldspec.Violation{Field: "evidence_ref", Class: "typed", Reason: "evidence_ref must be text"}
+	}
+	return parsed, members, nil
+}
+
+func validateAttemptResolution(t *tables.T, cand record.Record, meta seat.SeatMeta) *fieldspec.Violation {
+	if !operatorSeat(meta) {
+		return &fieldspec.Violation{Field: "record_kind", Class: "seat-scope", Reason: "attempt_resolution requires operator"}
+	}
+	body, members, violation := parseAttemptResolutionBody(cand.Body)
+	if violation != nil {
+		return violation
+	}
+	target, ok := t.ByRelay[body.Resolves]
+	if !ok || target.Envelope.DeliveryState != record.Accepted {
+		return &fieldspec.Violation{Field: "resolves", Class: "unknown-target", Reason: "resolution target unknown"}
+	}
+	targetType, sourceRelayID, hook := resolutionTarget(target)
+	if targetType == "" {
+		return &fieldspec.Violation{Field: "resolves", Class: "unknown-target", Reason: "resolution target unknown"}
+	}
+	for _, rec := range t.Records {
+		if rec.Envelope.DeliveryState != record.Accepted || rec.Headers["record_kind"] != "attempt_resolution" {
+			continue
+		}
+		prior, _, issue := parseAttemptResolutionBody(rec.Body)
+		if issue != nil || prior.Resolves != body.Resolves {
+			continue
+		}
+		class := "duplicate-resolution"
+		if targetType == "marker" && prior.Disposition != body.Disposition {
+			class = "conflicting-resolution"
+		}
+		return &fieldspec.Violation{Field: "resolves", Class: class, Reason: "resolution target already resolved"}
+	}
+	switch targetType {
+	case "marker":
+		if len(members) != 3 || body.Disposition == "" || body.EvidenceRef == "" {
+			return &fieldspec.Violation{Field: "body", Class: "typed", Reason: "marker resolution requires resolves, disposition, and evidence_ref"}
+		}
+		if body.Disposition != "effect-confirmed-realized" && body.Disposition != "effect-confirmed-unrealized" {
+			return &fieldspec.Violation{Field: "disposition", Class: "typed", Reason: "unknown attempt disposition"}
+		}
+		status, present := derived.Fold(t.Records)[sourceRelayID]
+		if !present || status.Status != "unknown" || !containsHook(status.Cursor, hook) {
+			return &fieldspec.Violation{Field: "resolves", Class: "stale-resolution", Reason: "attempt is no longer current"}
+		}
+	case "park":
+		if len(members) != 1 {
+			return &fieldspec.Violation{Field: "body", Class: "typed", Reason: "park reopen requires resolves only"}
+		}
+		status, present := derived.Fold(t.Records)[sourceRelayID]
+		if !present || status.Status != "failed" {
+			return &fieldspec.Violation{Field: "resolves", Class: "stale-resolution", Reason: "park is no longer current"}
+		}
+	}
+	return nil
+}
+
+func resolutionTarget(rec record.Record) (targetType, sourceRelayID, hook string) {
+	var body struct {
+		SourceRelayID string `json:"source_relay_id"`
+		Hook          string `json:"hook"`
+		Kind          string `json:"kind"`
+	}
+	if json.Unmarshal([]byte(rec.Body), &body) != nil || body.SourceRelayID == "" {
+		return "", "", ""
+	}
+	switch rec.Headers["record_kind"] {
+	case "derived-work-attempt":
+		if body.Hook != "" {
+			return "marker", body.SourceRelayID, body.Hook
+		}
+	case "derived-work-transition":
+		if body.Kind == "parked" {
+			return "park", body.SourceRelayID, ""
+		}
+	}
+	return "", "", ""
 }
 
 type SeatMintRequest struct {

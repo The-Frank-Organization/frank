@@ -1,0 +1,92 @@
+# T7 F59 one-shot authorization battery
+
+## RED — F59 package absent
+
+```text
+go test ./internal/appctl/f59
+```
+
+The fixture is written before the F59 host. It binds descriptor R/empty
+applicability, deterministic apply-patch target identity, replay-before-mutable
+state, shared ISSUED/VOID accounting, consume fencing/identity/one-shot, expiry
+truth, and the two discriminated outcome records.
+
+Observed RED:
+
+```text
+internal/appctl/f59/f59_test.go:23:22: undefined: OrderedTargetSetDigest
+internal/appctl/f59/f59_test.go:38:12: undefined: Operands
+internal/appctl/f59/f59_test.go:244:17: undefined: Host
+FAIL github.com/jackli/frank/internal/appctl/f59 [build failed]
+```
+
+## GREEN — focused, race, vet, and reduced-limit matrices
+
+```text
+$ go test ./internal/appctl/f59 ./internal/appctl/applier ./internal/appctl/manifest ./internal/appctl/store -count=1
+ok  github.com/jackli/frank/internal/appctl/f59       0.377s
+ok  github.com/jackli/frank/internal/appctl/applier   0.792s
+ok  github.com/jackli/frank/internal/appctl/manifest  0.555s
+ok  github.com/jackli/frank/internal/appctl/store     0.984s
+
+$ go test -race ./internal/appctl/f59 ./internal/appctl/applier ./internal/appctl/manifest ./internal/appctl/store -count=1
+ok  github.com/jackli/frank/internal/appctl/f59       2.734s
+ok  github.com/jackli/frank/internal/appctl/applier   1.712s
+ok  github.com/jackli/frank/internal/appctl/manifest  1.335s
+ok  github.com/jackli/frank/internal/appctl/store     1.973s
+
+$ go vet ./internal/appctl/f59 ./internal/appctl/applier ./internal/appctl/manifest ./internal/appctl/store
+
+$ go test -tags frank_test_reduced_limits ./internal/appipc/... ./internal/appctl/... -count=1
+ok  github.com/jackli/frank/internal/appipc           0.248s
+ok  github.com/jackli/frank/internal/appctl/f59       0.720s
+ok  github.com/jackli/frank/internal/appctl/applier   0.540s
+ok  github.com/jackli/frank/internal/appctl/manifest  0.875s
+ok  github.com/jackli/frank/internal/appctl/store     1.292s
+ok  github.com/jackli/frank/internal/appctl/testutil  1.061s
+```
+
+The import-boundary battery initially caught direct `database/sql` imports in
+F59. Null/not-found adaptation moved behind `appctl/store`; the rerun above is
+green and F59 performs every transition only through the serialized applier.
+
+## GREEN — mandatory commit gate
+
+```text
+$ go build ./... && go test ./... && go vet ./...
+...
+ok  github.com/jackli/frank/internal/appctl/f59  0.649s
+ok  github.com/jackli/frank/internal/executor   18.522s
+ok  github.com/jackli/frank/test/fixtures       221.448s
+ok  github.com/jackli/frank/test/invariants     2.022s
+...
+exit 0
+```
+
+The production ceiling is `MaxToolCallsPerTurn = 128`; the build-tagged test
+table reduces it to 4 and exercises the identical insertion-point rule.
+
+## Forward contract reconciliation — canonical `tool_calls` locus
+
+The T8 source pass re-read the composed-design invariant that `tool_calls` is
+established at outcome/retirement, never at issue or consume. The T7 schema and
+host were corrected forward: `tool_authorizations.tool_call_id` is no longer a
+foreign key to a prematurely-created row; consume leaves `tool_calls` empty;
+outcome and `ParkOpen` each materialize exactly their canonical terminal row.
+
+```text
+$ go test -race ./internal/appctl/f59 ./internal/appctl/applier ./internal/appctl/store -count=1
+ok  github.com/jackli/frank/internal/appctl/f59      2.109s
+ok  github.com/jackli/frank/internal/appctl/applier  1.959s
+ok  github.com/jackli/frank/internal/appctl/store    1.490s
+
+$ go test -tags frank_test_reduced_limits ./internal/appipc/... ./internal/appctl/... -count=1
+ok  github.com/jackli/frank/internal/appctl/f59  0.529s
+...
+
+$ go build ./... && go test ./... && go vet ./...
+ok  github.com/jackli/frank/internal/appctl/f59  0.333s
+ok  github.com/jackli/frank/test/fixtures       211.089s
+ok  github.com/jackli/frank/test/invariants       2.294s
+exit 0
+```

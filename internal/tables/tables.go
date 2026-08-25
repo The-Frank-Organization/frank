@@ -5,12 +5,15 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/jackli/frank/internal/derived"
 	"github.com/jackli/frank/internal/intake"
 	"github.com/jackli/frank/internal/record"
 	"github.com/jackli/frank/internal/store"
 )
 
 type T struct {
+	ClassGDirty     bool
+	DerivedWork     map[string]derived.WorkStatus
 	Records         []record.Record
 	ByRelay         map[string]record.Record
 	ByDispatch      map[string][]record.Record
@@ -36,6 +39,7 @@ type Live struct {
 
 func New() *T {
 	return &T{
+		DerivedWork:     map[string]derived.WorkStatus{},
 		ByRelay:         map[string]record.Record{},
 		ByDispatch:      map[string][]record.Record{},
 		AcceptedParents: map[string]string{},
@@ -94,6 +98,8 @@ func (t *T) Clone() *T {
 		return New()
 	}
 	out := New()
+	out.ClassGDirty = t.ClassGDirty
+	out.DerivedWork = cloneDerivedWork(t.DerivedWork)
 	out.Records = cloneRecords(t.Records)
 	out.ByRelay = cloneRecordMap(t.ByRelay)
 	out.ByDispatch = cloneRecordSliceMap(t.ByDispatch)
@@ -220,6 +226,16 @@ func (t *T) OnCommit(rec record.Record) {
 	}
 	t.updateLifecycle(rec)
 	t.updateCompletion(rec)
+	t.DerivedWork = derived.Fold(t.Records)
+}
+
+func cloneDerivedWork(in map[string]derived.WorkStatus) map[string]derived.WorkStatus {
+	out := make(map[string]derived.WorkStatus, len(in))
+	for relayID, status := range in {
+		status.Cursor = append([]string(nil), status.Cursor...)
+		out[relayID] = status
+	}
+	return out
 }
 
 func verifiedShape(rec record.Record) record.Record {

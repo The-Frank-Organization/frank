@@ -76,6 +76,27 @@ func TestSchemaSystemFieldAbsence(t *testing.T) {
 	}
 }
 
+func TestNativeGeneratedSchemaCannotRepresentH16SystemHeaders(t *testing.T) {
+	reg, err := fieldspec.Load("../../internal/fieldspec/registry.json")
+	if err != nil {
+		t.Fatalf("load registry: %v", err)
+	}
+	form, digest := reg.Render(fieldspec.RenderEnv{}, fieldspec.SeatMeta{Name: "operator", Role: "operator", IsOperator: true}, "SITREP", "medium", fieldspec.ClosedGrantState)
+	schema := SchemaFromForm(form, digest)
+	headerSchema := schema["properties"].(map[string]any)["headers"].(map[string]any)
+	if headerSchema["additionalProperties"] != true {
+		t.Fatalf("advertised header schema is not open for volatile drift: %#v", headerSchema)
+	}
+	properties := headerSchema["properties"].(map[string]any)
+	for _, field := range []string{"hook_contract", "mint_predecessor", "admin_provenance"} {
+		if _, representable := properties[field]; representable {
+			t.Fatalf("native schema represents system field %s", field)
+		}
+		// H16 is enforced by the explicit pre-conductor guard because advertised
+		// headers must remain open for digest-exempt volatile fields.
+	}
+}
+
 func TestSchemaConstDigest(t *testing.T) {
 	schema := SchemaFromForm(fieldspec.Form{Fields: map[string]fieldspec.Field{}}, "digest-3")
 	top := schema["properties"].(map[string]any)

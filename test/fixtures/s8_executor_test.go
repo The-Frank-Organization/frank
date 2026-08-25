@@ -16,13 +16,23 @@ import (
 
 func TestS8FXEXE1ExecutorProvidesOnlyRunScopedHandles(t *testing.T) {
 	source := t.TempDir()
+	hostCache, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatalf("resolve host module cache: %v", err)
+	}
+	t.Setenv("GOMODCACHE", hostCache)
 	s8WriteExecutable(t, source, "probe.sh", `#!/bin/sh
 set -eu
 [ "$HOME" = "$PWD" ]
 [ "$TMPDIR" = "$PWD/.tmp" ]
 [ "$GOCACHE" = "$PWD/.cache/go-build" ]
-[ "$GOMODCACHE" = "$PWD/.cache/go-mod" ]
 [ "$GOPATH" = "$PWD/.cache/gopath" ]
+[ "$GOMODCACHE" = "$1" ]
+[ "$GOPROXY" = "off" ]
+[ "$GOSUMDB" = "off" ]
+[ "$GOFLAGS" = "-mod=readonly" ]
+[ "$GOTOOLCHAIN" = "local" ]
+[ "$GOWORK" = "off" ]
 for key in FRANK_ROOT FRANK_SOCKET FRANK_CREDENTIAL SIGNING_KEY CONFIG_PATH OUTBOX_PATH; do
   eval "value=\${$key-}"
   [ -z "$value" ]
@@ -31,7 +41,7 @@ done
 	host := executor.New(executor.Config{
 		TempRoot: t.TempDir(),
 		Suites: map[string]executor.Suite{
-			"isolation": {SourceDir: source, Command: "probe.sh", TimeoutClass: "suite_bounded", Timeout: 2 * time.Second},
+			"isolation": {SourceDir: source, Command: "probe.sh", Args: []string{hostCache}, TimeoutClass: "suite_bounded", Timeout: 2 * time.Second},
 		},
 	})
 	verdict := host.Spawn(observe.CheckEntry{ID: "run-suite", Class: "suite", ExecutorRequired: true, TimeoutClass: "suite_bounded"}, observe.Selection{

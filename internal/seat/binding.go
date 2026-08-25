@@ -31,9 +31,10 @@ type SeatMeta struct {
 }
 
 type Manager struct {
-	root  string
-	table bindingTable
-	mu    sync.Mutex
+	root        string
+	table       bindingTable
+	mu          sync.Mutex
+	quarantined map[string]bool
 }
 
 type bindingTable struct {
@@ -50,7 +51,7 @@ func Open(root string) (*Manager, error) {
 	if err := os.MkdirAll(filepath.Join(root, "binding"), 0o700); err != nil {
 		return nil, err
 	}
-	m := &Manager{root: root, table: bindingTable{Seats: map[string]binding{}}}
+	m := &Manager{root: root, table: bindingTable{Seats: map[string]binding{}}, quarantined: map[string]bool{}}
 	data, err := os.ReadFile(filepath.Join(root, "binding", "seats.json"))
 	if os.IsNotExist(err) {
 		return m, nil
@@ -119,14 +120,33 @@ func (m *Manager) MintOrReplace(name, role string, isOperator bool, realizedMint
 }
 
 func (m *Manager) Resolve(credential string) (SeatMeta, bool) {
+	meta, refusal := m.ResolveTyped(credential)
+	return meta, refusal == ""
+}
+
+func (m *Manager) ResolveTyped(credential string) (SeatMeta, string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	for _, binding := range m.table.Seats {
+	for seatName, binding := range m.table.Seats {
 		if subtle.ConstantTimeCompare([]byte(binding.Credential), []byte(credential)) == 1 {
-			return binding.Meta, true
+			if m.quarantined[seatName] {
+				return binding.Meta, "auth:seat-quarantined"
+			}
+			return binding.Meta, ""
 		}
 	}
-	return SeatMeta{}, false
+	return SeatMeta{}, "auth:invalid-credential"
+}
+
+func (m *Manager) PublishQuarantine(seats map[string]bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.quarantined = make(map[string]bool, len(seats))
+	for seatName, quarantined := range seats {
+		if quarantined {
+			m.quarantined[seatName] = true
+		}
+	}
 }
 
 func (m *Manager) CredentialsFor(name string) int {

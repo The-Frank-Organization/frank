@@ -14,6 +14,7 @@ const (
 	errConnectionLost       = "shim:connection-lost"
 	errFrameTooLarge        = "shim:frame-too-large"
 	errProtocol             = "shim:protocol-error"
+	errSchemaInvalid        = "schema_invalid"
 )
 
 func scrubError(err error) string {

@@ -1,0 +1,85 @@
+T15 completion battery — 2026-08-22
+
+PRE-COMMIT SOURCE HEAD
+branch: s13-m10-module
+head: 3bc9b5ff0909791238459b2c1c079e6a8694aafc
+status: none (clean)
+
+LOCKS
+design artifact SHA-256:
+3e74c4c1fe76dbaf07f3ca9547ffeb88a958cf23d0f6180afa9d49cd71a81361
+plan artifact SHA-256:
+00b1f60368d2e227f48a1bf22d8cb0e1ebeefb800bcc316aaab1bc2e5c9ad161
+
+DEPENDENCY / TOOLCHAIN FLOOR
+go version: go1.26.4 darwin/arm64
+go.mod directive: go 1.25.0
+toolchain directive: absent
+direct requirements:
+- golang.org/x/text v0.41.0
+- modernc.org/sqlite v1.57.0
+command: go mod verify
+result: all modules verified
+command: go mod tidy -diff
+result: PASS (no output; no byte drift)
+
+CARRIAGE V4 EXACT FILE HASHES
+05b529fce363efbe6c22b0b164efb423870e1f32a8a1033cd24811a0387cda76  internal/executor/executor.go
+858e28cfd1179bc215a3795d1eabbefaa9fa41a0a56f05e3a8a102a10a0b73cb  internal/executor/executor_test.go
+c339bc0f2b2467d29b05d1a273acd905cc1ec66b8922d741698ae05d03c1af8f  test/fixtures/s8_exit_gate_test.go
+93f1e94b734b3b35d05cc4fcb856d3a25f1ab151621a2f1327ef569f599be6ab  test/fixtures/s8_executor_test.go
+
+SCOPE / STRUCTURE
+command: path-classify every name in git diff --name-only b7f406b2..HEAD
+result: PASS — zero paths outside the owned fence plus the four exact carriage-v4 exceptions
+command: go list -deps ./internal/appctl/...
+result: PASS — no conductor engine/seat/store/intake dependency
+app-control + appipc + frank-app Go test inventory: 78 top-level tests plus subtests
+
+COMPILE MATRIX
+command: go test -run '^TestLimitsCompileMatrix$' -count=1 ./internal/appipc
+result: PASS
+output: ok github.com/jackli/frank/internal/appipc 0.468s
+matrix asserted by the test:
+- ordinary go build succeeds with the production table
+- frank_test_reduced_limits build succeeds with the polarity-flipped P1 proof
+- frank_limits_compile_negative build fails at the named P2 assertion
+
+RACE STABILITY
+command: go test -race -count=3 ./internal/appctl/... ./internal/appipc/... ./cmd/frank-app
+result: PASS
+selected output:
+ok github.com/jackli/frank/internal/appctl/recovery 3.761s
+ok github.com/jackli/frank/internal/appctl/scheduler 4.614s
+ok github.com/jackli/frank/internal/appctl/supervisor 5.205s
+ok github.com/jackli/frank/internal/appipc 5.173s
+ok github.com/jackli/frank/cmd/frank-app 4.763s
+
+REDUCED-TAG FINAL
+command: go test -tags frank_test_reduced_limits -count=1 ./internal/appipc/... ./internal/appctl/...
+result: PASS
+selected output:
+ok github.com/jackli/frank/internal/appipc 0.233s
+ok github.com/jackli/frank/internal/appctl/recovery 2.380s
+ok github.com/jackli/frank/internal/appctl/settle 1.743s
+ok github.com/jackli/frank/internal/appctl/terminal 2.534s
+
+ORDINARY FINAL
+command: go build ./... && go test ./... && go vet ./...
+result: PASS
+selected output:
+ok github.com/jackli/frank/cmd/frank-app (cached)
+ok github.com/jackli/frank/internal/appctl/recovery (cached)
+ok github.com/jackli/frank/internal/appipc (cached)
+ok github.com/jackli/frank/test/fixtures 194.080s
+ok github.com/jackli/frank/test/invariants (cached)
+vet: PASS (no output)
+
+INV-CATALOG FRESH CONFIRMATION
+command: go test -count=1 ./test/invariants
+result: PASS
+output: ok github.com/jackli/frank/test/invariants 1.261s
+
+OUT-OF-SCOPE
+No GitHub CI/CD, live credentialed provider call, E3, push, PR, restack,
+merge, deployment, publication, release, or operator decision was performed.

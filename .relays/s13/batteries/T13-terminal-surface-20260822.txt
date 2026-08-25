@@ -1,0 +1,55 @@
+T13 terminal surface battery — 2026-08-22
+
+RED
+command: go test ./internal/appctl/terminal
+result: FAIL (expected)
+evidence: undefined MutatingVerbs, New, StartRequest, and Runner
+
+FOCUSED
+command: go test ./cmd/frank-app ./internal/appctl/terminal
+result: PASS
+output:
+ok github.com/jackli/frank/cmd/frank-app 0.350s
+ok github.com/jackli/frank/internal/appctl/terminal (cached)
+
+command: go test -race ./cmd/frank-app ./internal/appctl/terminal
+result: PASS
+output:
+ok github.com/jackli/frank/cmd/frank-app 1.361s
+ok github.com/jackli/frank/internal/appctl/terminal 1.693s
+
+command: go vet ./cmd/frank-app ./internal/appctl/terminal
+result: PASS (no output)
+
+BOUNDARY CORRECTION
+The first complete run found terminal/views.go importing database/sql outside the
+store boundary. The implementation was changed to consume the store-owned rows
+through a local interface. The focused architectural guard then passed:
+command: go test ./internal/appctl/applier ./internal/appctl/terminal ./cmd/frank-app
+result: PASS
+output:
+ok github.com/jackli/frank/internal/appctl/applier 0.211s
+ok github.com/jackli/frank/internal/appctl/terminal 0.599s
+ok github.com/jackli/frank/cmd/frank-app 0.378s
+
+FULL COMMIT GATE (isolated; no concurrent Go test process)
+command: go build ./... && go test ./... && go vet ./...
+result: PASS
+terminal packages:
+ok github.com/jackli/frank/cmd/frank-app (cached)
+ok github.com/jackli/frank/internal/appctl/terminal (cached)
+architectural guard:
+ok github.com/jackli/frank/internal/appctl/applier (cached)
+long fixtures:
+ok github.com/jackli/frank/test/fixtures 194.353s
+ok github.com/jackli/frank/test/invariants 1.854s
+vet: PASS (no output)
+
+SURFACE CLAIMS
+- command registry exact mutating set: run cancel, run start, run stop
+- forbidden mutation names refused at runtime without state_seq movement
+- status, attempts, tickets, parked, and wakes use committed snapshots
+- views omit manifest bytes, admission payloads, effect descriptors, workspace
+  paths, session paths, and credential references
+- FAILED runs emit persistent ALERT output and scripted exit 1
+- command boot invokes recovery before dispatch; recovery failure is loud/nonzero

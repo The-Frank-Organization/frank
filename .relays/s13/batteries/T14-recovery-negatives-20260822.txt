@@ -1,0 +1,67 @@
+T14 recovery and negatives battery — 2026-08-22
+
+RED
+command: go test ./internal/appctl/recovery
+result: FAIL (expected)
+evidence: undefined Case, CaseLeased, CaseRetired, CasePreLease,
+CaseInitial, New
+
+RECOVERY MATRIX / BROKER PROTOCOL
+command: go test ./cmd/frank-app ./internal/appctl/recovery ./internal/appctl/brokerclient
+result: PASS
+output:
+ok github.com/jackli/frank/cmd/frank-app 0.328s
+ok github.com/jackli/frank/internal/appctl/recovery (cached)
+ok github.com/jackli/frank/internal/appctl/brokerclient (cached)
+
+The battery exercises:
+- (a) LEASED/no-retirement -> one retirement mint, old generation FAILED
+- (b) committed retirement -> successor allocation at the current epoch
+- (c) ALLOCATED/SPAWNING/READY -> washout and successor at the same epoch
+- (d) initial E=1/no lease -> first generation allocation without a mint
+- terminal runs -> no restart and no broker proposal
+- every recoverable run -> current durable tuple proposed
+- transition-started/rejected-transition-active -> bounded re-proposal
+- installed mismatch/refusal -> fail-closed
+- production Unix control establishment -> control_generation advances before
+  reconstruction and the post-allocation state_seq is the proposed tuple
+
+NEGATIVES + RACE/VET
+command: go test -race ./internal/appctl/... ./cmd/frank-app
+result: PASS
+selected output:
+ok github.com/jackli/frank/internal/appctl/recovery 2.983s
+ok github.com/jackli/frank/internal/appctl/supervisor 4.475s
+ok github.com/jackli/frank/cmd/frank-app 3.347s
+
+command: go vet ./internal/appctl/... ./cmd/frank-app
+result: PASS (no output)
+
+The executable negative sweep asserts:
+- appctl dependency closure excludes conductor engine/seat/store/intake packages
+- CTRL-W/CTRL-C/broker typed families carry no provider payload or secret bytes
+- the app-control schema has no credential-byte/provider-payload column family
+- credential-reference validation errors do not echo the reference value
+- lower/current/higher epoch classification is stale/current/future-fault
+- closed E0 schemas reject both workspace_root_path and session_log_path
+- existing retirement and scheduler suites retain crash-honest parking/fencing
+  and duplicate-wake at-most-once behavior
+
+REDUCED LIMITS
+command: go test -tags frank_test_reduced_limits ./internal/appipc/... ./internal/appctl/...
+result: PASS
+selected output:
+ok github.com/jackli/frank/internal/appipc 0.211s
+ok github.com/jackli/frank/internal/appctl/recovery 1.032s
+ok github.com/jackli/frank/internal/appctl/settle 1.794s
+
+FULL COMMIT GATE (post carrier-negative addition, isolated)
+command: go build ./... && go test ./... && go vet ./...
+result: PASS
+selected output:
+ok github.com/jackli/frank/cmd/frank-app (cached)
+ok github.com/jackli/frank/internal/appctl/recovery (cached)
+ok github.com/jackli/frank/internal/appctl/applier 0.268s
+ok github.com/jackli/frank/test/fixtures 197.194s
+ok github.com/jackli/frank/test/invariants 1.934s
+vet: PASS (no output)

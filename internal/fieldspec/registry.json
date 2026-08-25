@@ -1,10 +1,11 @@
 {
-  "version": "s10-fieldspec-v8",
+  "version": "s12-fieldspec-v9",
   "provenance": {
     "owner": "m-2",
-    "design_doc_id": "F-S7-R2-COLGRAIN",
-    "plan_lock_id": "s7a-plan-m2",
-    "note": "s7a m-2 pair build under the operator B10 second-application ruling; restores c1 section 5 column-grain fidelity"
+    "design_doc_id": "h16-outcome-split-design",
+    "plan_lock_id": "s12-h16-fix-plan",
+    "supersedes": "s10-fieldspec-v8",
+    "note": "s12 H-16-REG realization under the operator-opened step3-h16-h26-lane; three system-stamped header rows + the ruled record_kind tokens"
   },
   "named_enums": {
     "PHASE": [
@@ -81,7 +82,7 @@
     "surface_intent": ["progress", "review_checkpoint", "advisory", "result"],
     "DESIGN_RECORD_KIND": ["design-doc", "audit-record", "direct-override"],
     "DESIGN_REVIEW_VERDICT": ["approve", "must-revise", "reject-narrow", "human-decision-required"],
-    "record_kind": ["genesis", "owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint", "odb", "resummon_command"],
+    "record_kind": ["genesis", "owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint", "odb", "resummon_command", "mint-chain-anchor", "attempt_resolution", "derived-work-attempt", "derived-work-transition"],
     "config_member": ["fieldspec", "engine", "catalog", "adoption"],
     "dispatch_status": ["read", "awaiting"]
   },
@@ -111,6 +112,9 @@
     {"id": "grant", "layer": "header", "owner": "seat_scoped_enum", "type": "enum", "enum_set": "grant", "gate_referenceable": true, "fill_constraints": "seat_allowed_values", "lineage_role": "grant", "seat_scope": {"operator": ["dispatch-impl", "dispatch-merge"], "*.orchestrator-planner": ["dispatch-impl", "dispatch-merge"], "*.planner": ["dispatch-impl"]}},
     {"id": "delivery_state", "layer": "header", "owner": "system", "type": "enum", "enum_set": "delivery_state", "fill_constraints": "system_only", "lineage_role": "none"},
     {"id": "failing_edge", "layer": "header", "owner": "system", "type": "text", "fill_constraints": "system_only", "lineage_role": "none"},
+    {"id": "hook_contract", "layer": "header", "owner": "system", "type": "string", "fill_constraints": "system_only", "lineage_role": "none"},
+    {"id": "mint_predecessor", "layer": "header", "owner": "system", "type": "string", "fill_constraints": "system_only", "lineage_role": "none"},
+    {"id": "admin_provenance", "layer": "header", "owner": "system", "type": "string", "fill_constraints": "system_only", "lineage_role": "none"},
     {"id": "SUBJECT", "layer": "header", "owner": "free_text", "type": "text", "fill_constraints": "free_text", "lineage_role": "none"},
     {"id": "body", "layer": "body", "owner": "body_text", "type": "text", "fill_constraints": "free_text", "lineage_role": "none"},
     {"id": "X-*", "layer": "header", "owner": "free_text", "type": "text", "fill_constraints": "free_text", "lineage_role": "none"},
@@ -127,7 +131,7 @@
     {"id": "ESCALATION_SCAN", "layer": "header", "owner": "agent_enum_pick", "type": "row_array", "gate_referenceable": true, "fill_constraints": "free_text", "lineage_role": "none"},
     {"id": "ACTIONS_GIT_REF", "layer": "header", "owner": "agent_enum_pick", "type": "text", "fill_constraints": "observed_value", "lineage_role": "action_report", "required_when": {"all_of": [{"layer_present": "observe"}]}, "visible_when": {"all_of": [{"layer_present": "observe"}]}},
     {"id": "FINAL_GIT_STATUS_SHORT", "layer": "header", "owner": "agent_enum_pick", "type": "text", "fill_constraints": "observed_value", "lineage_role": "action_report", "required_when": {"all_of": [{"layer_present": "observe"}]}, "visible_when": {"all_of": [{"layer_present": "observe"}]}},
-    {"id": "record_kind", "layer": "header", "owner": "seat_scoped_enum", "type": "enum", "enum_set": "record_kind", "gate_referenceable": true, "fill_constraints": "seat_allowed_values", "lineage_role": "none", "seat_scope": {"operator": ["owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint"], "*": ["diagnostics"]}, "annotation": "a Step-1 SCOPE posture, not permanent class semantics — the provenance axis (owed records are principal-authored via submit, never machinery) is unchanged; owed_disposition is authority-bearing in effect (it discharges exit-gating obligations), so the scope axis gets the pessimistic Step-1 floor. A future cycle granting named seats owed-authoring is a registry/config scope amendment with m-1 route-back."},
+    {"id": "record_kind", "layer": "header", "owner": "seat_scoped_enum", "type": "enum", "enum_set": "record_kind", "gate_referenceable": true, "fill_constraints": "seat_allowed_values", "lineage_role": "none", "seat_scope": {"operator": ["owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint", "mint-chain-anchor", "attempt_resolution"], "*": ["diagnostics"]}, "annotation": "a Step-1 SCOPE posture, not permanent class semantics — the provenance axis (owed records are principal-authored via submit, never machinery) is unchanged; owed_disposition is authority-bearing in effect (it discharges exit-gating obligations), so the scope axis gets the pessimistic Step-1 floor. A future cycle granting named seats owed-authoring is a registry/config scope amendment with m-1 route-back."},
     {"id": "owner", "layer": "header", "owner": "free_text", "type": "text", "fill_constraints": "free_text", "lineage_role": "none", "gate_referenceable": false, "required_when": {"all_of": [{"record_kind_in": ["owed_item"]}]}},
     {"id": "source", "layer": "header", "owner": "free_text", "type": "text", "fill_constraints": "free_text", "lineage_role": "none", "gate_referenceable": false, "required_when": {"all_of": [{"record_kind_in": ["owed_item"]}]}},
     {"id": "target_surface", "layer": "header", "owner": "free_text", "type": "text", "fill_constraints": "free_text", "lineage_role": "none", "gate_referenceable": false, "required_when": {"all_of": [{"record_kind_in": ["owed_item"]}]}},

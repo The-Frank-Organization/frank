@@ -322,7 +322,7 @@ func preflightMemberMarkers(loaded map[string][]byte) error {
 		}
 	}
 	if data, ok := loaded["fieldspec"]; ok {
-		if err := ValidateFieldspecReaderMarker(data, "s7a-fieldspec-v5", "s8-fieldspec-v6", "s8-fieldspec-v7", "s10-fieldspec-v8"); err != nil {
+		if err := ValidateFieldspecReaderMarker(data, "s7a-fieldspec-v5", "s8-fieldspec-v6", "s8-fieldspec-v7", "s10-fieldspec-v8", "s12-fieldspec-v9"); err != nil {
 			return err
 		}
 	}
@@ -430,7 +430,7 @@ func validateFieldspecMarkerTransition(current, candidate []byte) error {
 	if err != nil {
 		return ErrConfigVersionTransition
 	}
-	if from == to || from == "s7a-fieldspec-v5" && to == "s8-fieldspec-v6" || from == "s8-fieldspec-v6" && to == "s8-fieldspec-v7" || from == "s8-fieldspec-v7" && to == "s10-fieldspec-v8" {
+	if from == to || from == "s7a-fieldspec-v5" && to == "s8-fieldspec-v6" || from == "s8-fieldspec-v6" && to == "s8-fieldspec-v7" || from == "s8-fieldspec-v7" && to == "s10-fieldspec-v8" || from == "s10-fieldspec-v8" && to == "s12-fieldspec-v9" {
 		return nil
 	}
 	return ErrConfigVersionTransition

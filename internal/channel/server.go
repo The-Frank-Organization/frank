@@ -283,9 +283,9 @@ func (c *serverConn) handle(req rpcMessage) (json.RawMessage, string) {
 		if err := json.Unmarshal(req.Params, &connect); err != nil {
 			return nil, "auth:bad-request"
 		}
-		meta, ok := c.server.auth.Resolve(connect.Credential)
-		if !ok {
-			return nil, "auth:invalid-credential"
+		meta, refusal := c.server.auth.ResolveTyped(connect.Credential)
+		if refusal != "" {
+			return nil, refusal
 		}
 		credHash := sha256.Sum256([]byte(connect.Credential))
 		tools := c.server.factory(meta)

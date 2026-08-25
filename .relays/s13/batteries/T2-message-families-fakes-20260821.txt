@@ -1,0 +1,163 @@
+# T2 message families and fake peers battery
+
+Captured sequence-honestly on 2026-08-21 in `/Users/jack/Programming/harness-s13-m10-module/frank`.
+
+## RED 1 — protocol inventory and typed bodies absent
+
+Command: `go test ./internal/appipc`
+
+```text
+# github.com/jackli/frank/internal/appipc [github.com/jackli/frank/internal/appipc.test]
+internal/appipc/messages_test.go:10:19: undefined: NewProtocolRegistry
+internal/appipc/messages_test.go:37:19: undefined: NewProtocolRegistry
+internal/appipc/messages_test.go:47:11: undefined: TurnOpenBody
+internal/appipc/messages_test.go:49:20: undefined: AdmissionRef
+internal/appipc/messages_test.go:49:39: undefined: AdmissionOperatorInput
+internal/appipc/messages_test.go:50:22: undefined: ParkedUnknown
+internal/appipc/messages_test.go:51:21: undefined: RunDispositionResume
+internal/appipc/messages_test.go:56:11: undefined: ConnectorAssignBody
+internal/appipc/messages_test.go:63:11: undefined: StateProposalResultBody
+internal/appipc/messages_test.go:64:53: undefined: ProposalInstalled
+internal/appipc/messages_test.go:64:53: too many errors
+FAIL github.com/jackli/frank/internal/appipc [build failed]
+FAIL
+```
+
+## RED 2 — worker/connector fake frame cores absent
+
+Command: `go test ./internal/appctl/testutil`
+
+```text
+# github.com/jackli/frank/internal/appctl/testutil [github.com/jackli/frank/internal/appctl/testutil.test]
+internal/appctl/testutil/peers_test.go:19:17: undefined: NewFakeWorker
+internal/appctl/testutil/peers_test.go:23:21: undefined: NewPeer
+internal/appctl/testutil/peers_test.go:30:32: undefined: Outbound
+internal/appctl/testutil/peers_test.go:41:36: undefined: Outbound
+internal/appctl/testutil/peers_test.go:61:20: undefined: NewFakeConnector
+internal/appctl/testutil/peers_test.go:65:21: undefined: NewPeer
+internal/appctl/testutil/peers_test.go:74:32: undefined: Step
+internal/appctl/testutil/peers_test.go:76:12: undefined: Outbound
+internal/appctl/testutil/peers_test.go:79:36: undefined: Outbound
+FAIL github.com/jackli/frank/internal/appctl/testutil [build failed]
+FAIL
+```
+
+## RED 3 — dual-context typed rejection identity absent
+
+Command: `go test ./internal/appipc`
+
+```text
+# github.com/jackli/frank/internal/appipc [github.com/jackli/frank/internal/appipc.test]
+internal/appipc/messages_test.go:143:10: undefined: TypedRejectBody
+internal/appipc/messages_test.go:153:32: undefined: TypedRejectBody
+internal/appipc/messages_test.go:158:14: undefined: TypedRejectBody
+FAIL github.com/jackli/frank/internal/appipc [build failed]
+FAIL
+```
+
+## RED 4 — settlement discriminated union not enforced
+
+Command: `go test ./internal/appipc`
+
+```text
+--- FAIL: TestProtocolRegistryRejectsClosedEnumsAndDiscriminatedShapes (0.00s)
+    messages_test.go:116: Encode(ctrl-w/turn_open) error = <nil>, want ErrInvalidMessageBody
+FAIL
+FAIL github.com/jackli/frank/internal/appipc 0.233s
+FAIL
+```
+
+## Focused GREEN + race/vet
+
+Commands:
+
+```text
+go test ./internal/appipc ./internal/appctl/testutil
+go test -race ./internal/appipc ./internal/appctl/testutil
+go vet ./internal/appipc ./internal/appctl/testutil
+```
+
+Results:
+
+```text
+ok  github.com/jackli/frank/internal/appipc  1.283s
+ok  github.com/jackli/frank/internal/appctl/testutil  1.510s
+```
+
+## Commit gate
+
+First command: `go build ./... && go test ./... && go vet ./...`
+
+Exit: `1`
+
+```text
+--- FAIL: TestFrankBinaryReadCorruptionQueuesLiveQuarantine (0.17s)
+    main_assembly_test.go:628: DialAuthenticated stderr=: dial unix /var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/frank-k2-1787345279685998000.sock: connect: connection refused
+FAIL github.com/jackli/frank/test/fixtures 203.087s
+ok   github.com/jackli/frank/test/invariants 2.411s
+FAIL
+```
+
+Systematic isolation:
+
+```text
+go test ./test/fixtures -run '^TestFrankBinaryReadCorruptionQueuesLiveQuarantine$' -count=1 -v
+PASS (0.46s)
+
+go test ./test/fixtures -run '^TestFrankBinaryReadCorruptionQueuesLiveQuarantine$' -count=20
+ok  github.com/jackli/frank/test/fixtures  9.362s
+```
+
+The changed-path census contains no existing fixture, channel, command, or conductor package; the new appipc package is not imported by the existing fixture binary. The isolated leg passed 21/21 and the failure is a non-reproducible temporary-socket startup miss. No out-of-lane fixture patch was made.
+
+Second identical commit gate: exit `1` in pre-existing fixtures.
+
+```text
+--- FAIL: TestNudgeRecipientOnly (0.17s)
+    s4_shim_test.go:27: DialAuthenticated stderr=: dial unix .../frank-s4-1787345579095018000.sock: connect: connection refused
+--- FAIL: TestS8ProductionDogfoodRejectsFalseDoneAndNamesPredicate (131.42s)
+    s8_exit_gate_test.go:356: production false suite outcome = {State:accepted ...}
+FAIL github.com/jackli/frank/test/fixtures 188.850s
+ok   github.com/jackli/frank/test/invariants (cached)
+FAIL
+```
+
+Further isolation:
+
+```text
+go list -deps ./test/fixtures | rg 'github.com/jackli/frank/internal/(appipc|appctl)'
+# no output: neither changed package participates in the fixture dependency graph
+
+go test ./test/fixtures -run '^TestNudgeRecipientOnly$' -count=20
+ok  github.com/jackli/frank/test/fixtures  6.289s
+
+go test ./test/fixtures -run '^TestS8ProductionDogfoodRejectsFalseDoneAndNamesPredicate$' -count=1 -v
+--- FAIL: TestS8ProductionDogfoodRejectsFalseDoneAndNamesPredicate (150.04s)
+    s8_exit_gate_test.go:345: production false suite submit: context deadline exceeded
+```
+
+The dogfood leg performs a nested whole-repository battery inside a fixed 150-second context. A concurrent foreign s15 whole-repository battery was observed live in `/Users/jack/Programming/harness-s15-m9-worker/frank`; no foreign process was interrupted.
+
+Third identical commit gate, run after the foreign whole-repository battery exited: exit `0`.
+
+```text
+ok  github.com/jackli/frank/test/fixtures  184.353s
+ok  github.com/jackli/frank/test/invariants  (cached)
+ok  github.com/jackli/frank/test/replay  (cached)
+ok  github.com/jackli/frank/test/replay/dogfood  (cached)
+ok  github.com/jackli/frank/test/replay/zeroloss  (cached)
+?   github.com/jackli/frank/test/seatproc  [no test files]
+```
+
+The unchanged required command completed all three legs (`go build ./...`, `go test ./...`, and `go vet ./...`) successfully. This clean-window result closes the T2 commit gate without modifying the known s8 timeout or unrelated fixture startup behavior.
+
+After final `gofmt`, the exact staged bytes were checked again with the unchanged required command. Exit: `0`.
+
+```text
+ok  github.com/jackli/frank/test/fixtures  172.118s
+ok  github.com/jackli/frank/test/invariants  (cached)
+ok  github.com/jackli/frank/test/replay  (cached)
+ok  github.com/jackli/frank/test/replay/dogfood  (cached)
+ok  github.com/jackli/frank/test/replay/zeroloss  (cached)
+?   github.com/jackli/frank/test/seatproc  [no test files]
+```

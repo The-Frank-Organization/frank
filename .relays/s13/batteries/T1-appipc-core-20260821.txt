@@ -1,0 +1,103 @@
+# T1 appipc core battery
+
+Captured sequence-honestly on 2026-08-21 in `/Users/jack/Programming/harness-s13-m10-module/frank`.
+
+## RED 1 — JCS encoder absent
+
+Command: `go test ./internal/appipc`
+
+```text
+# github.com/jackli/frank/internal/appipc [github.com/jackli/frank/internal/appipc.test]
+internal/appipc/jcs_test.go:11:14: undefined: MarshalJCS
+internal/appipc/jcs_test.go:32:16: undefined: MarshalJCS
+internal/appipc/jcs_test.go:40:18: undefined: MarshalJCS
+internal/appipc/jcs_test.go:52:15: undefined: MarshalJCS
+internal/appipc/jcs_test.go:61:16: undefined: MarshalJCS
+internal/appipc/jcs_test.go:72:15: undefined: MarshalJCS
+FAIL github.com/jackli/frank/internal/appipc [build failed]
+FAIL
+```
+
+## RED 2 — counter codec absent
+
+Command: `go test ./internal/appipc`
+
+```text
+# github.com/jackli/frank/internal/appipc [github.com/jackli/frank/internal/appipc.test]
+internal/appipc/counter_test.go:7:17: undefined: ParseCounter
+internal/appipc/counter_test.go:11:13: undefined: FormatCounter
+internal/appipc/counter_test.go:20:16: undefined: ParseCounter
+internal/appipc/counter_test.go:33:15: undefined: PadCounter
+internal/appipc/counter_test.go:40:21: undefined: UnpadCounter
+internal/appipc/counter_test.go:55:16: undefined: UnpadCounter
+FAIL github.com/jackli/frank/internal/appipc [build failed]
+FAIL
+```
+
+## RED 3 — frame codec absent
+
+Command: `go test ./internal/appipc`
+
+```text
+# github.com/jackli/frank/internal/appipc [github.com/jackli/frank/internal/appipc.test]
+internal/appipc/frame_test.go:14:12: undefined: WriteFrame
+internal/appipc/frame_test.go:21:14: undefined: ReadFrame
+internal/appipc/frame_test.go:31:39: undefined: FrameMax
+internal/appipc/frame_test.go:33:12: undefined: WriteFrame
+internal/appipc/frame_test.go:36:14: undefined: ReadFrame
+internal/appipc/frame_test.go:47:12: undefined: WriteFrame
+internal/appipc/frame_test.go:47:43: undefined: FrameMax
+internal/appipc/frame_test.go:47:73: undefined: ErrFrameTooLarge
+internal/appipc/frame_test.go:55:47: undefined: FrameMax
+internal/appipc/frame_test.go:56:15: undefined: ReadFrame
+internal/appipc/frame_test.go:56:15: too many errors
+FAIL github.com/jackli/frank/internal/appipc [build failed]
+FAIL
+```
+
+## RED 4 — envelope registry absent
+
+Command: `go test ./internal/appipc`
+
+```text
+# github.com/jackli/frank/internal/appipc [github.com/jackli/frank/internal/appipc.test]
+internal/appipc/envelope_test.go:9:14: undefined: NewRegistry
+internal/appipc/envelope_test.go:11:57: undefined: ErrUnknownMessage
+internal/appipc/envelope_test.go:13:19: undefined: FaultCode
+internal/appipc/envelope_test.go:13:42: undefined: FaultUnknownMessage
+internal/appipc/envelope_test.go:14:60: undefined: FaultUnknownMessage
+internal/appipc/envelope_test.go:19:38: undefined: AdditiveFamily
+internal/appipc/envelope_test.go:21:59: undefined: ErrMalformedEnvelope
+internal/appipc/envelope_test.go:23:19: undefined: FaultCode
+internal/appipc/envelope_test.go:113:51: undefined: FamilyEvolution
+internal/appipc/envelope_test.go:113:81: undefined: Registry
+internal/appipc/envelope_test.go:23:19: too many errors
+FAIL github.com/jackli/frank/internal/appipc [build failed]
+FAIL
+```
+
+## Focused GREEN
+
+Command: `go test ./internal/appipc`
+
+```text
+ok  github.com/jackli/frank/internal/appipc  0.241s
+```
+
+## Commit gate
+
+Command: `go build ./... && go test ./... && go vet ./...`
+
+Exit: `0`
+
+Salient tail:
+
+```text
+ok  github.com/jackli/frank/internal/appipc  (cached)
+ok  github.com/jackli/frank/test/fixtures  190.879s
+ok  github.com/jackli/frank/test/invariants  1.998s
+ok  github.com/jackli/frank/test/replay  (cached)
+ok  github.com/jackli/frank/test/replay/dogfood  (cached)
+ok  github.com/jackli/frank/test/replay/zeroloss  (cached)
+?   github.com/jackli/frank/test/seatproc  [no test files]
+```

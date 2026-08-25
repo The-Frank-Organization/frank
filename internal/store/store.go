@@ -359,6 +359,50 @@ type redoEntry struct {
 	Intents []Intent `json:"intents"`
 }
 
+type RawRedoSnapshot struct {
+	RelayIDs []string
+	Complete bool
+}
+
+// RawRedo reads the pre-dedup stream for one-time upgrade evidence. Unlike
+// readRedo, it fails closed on segment gaps and malformed complete entries.
+func (s *Store) RawRedo() RawRedoSnapshot {
+	dir := filepath.Join(s.Root, "journal", "redo")
+	seqs, err := redoSegmentSeqs(dir)
+	if err != nil || len(seqs) == 0 {
+		return RawRedoSnapshot{}
+	}
+	for i, seq := range seqs {
+		if seq != i+1 {
+			return RawRedoSnapshot{}
+		}
+	}
+	snapshot := RawRedoSnapshot{Complete: true}
+	for index, seq := range seqs {
+		data, err := os.ReadFile(filepath.Join(dir, fmt.Sprintf("%06d.jsonl", seq)))
+		if err != nil {
+			return RawRedoSnapshot{}
+		}
+		lines := bytes.Split(data, []byte("\n"))
+		completeTail := bytes.HasSuffix(data, []byte("\n"))
+		for lineIndex, line := range lines {
+			if len(line) == 0 {
+				continue
+			}
+			var entry redoEntry
+			if err := json.Unmarshal(line, &entry); err != nil {
+				isTornFinal := index == len(seqs)-1 && lineIndex == len(lines)-1 && !completeTail
+				if isTornFinal {
+					break
+				}
+				return RawRedoSnapshot{}
+			}
+			snapshot.RelayIDs = append(snapshot.RelayIDs, entry.RelayID)
+		}
+	}
+	return snapshot
+}
+
 func readRedo(root string) ([]redoEntry, error) {
 	dir := filepath.Join(root, "journal", "redo")
 	seqs, err := redoSegmentSeqs(dir)

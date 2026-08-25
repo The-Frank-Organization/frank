@@ -1,0 +1,135 @@
+F1/F2/Q3 corrective fold battery — 2026-08-22
+
+AUTHORITY / LOCKS
+standing dispatch: .relays/s13/s13-build-impl/IMPL-planner-20260821-130456.md
+plan SHA-256: 00b1f60368d2e227f48a1bf22d8cb0e1ebeefb800bcc316aaab1bc2e5c9ad161
+design r5 SHA-256: d762cb2f2097f824e1c49422395a4fc9d9ac6024740005fbdde931cff833a2ea
+design r5 approval: .relays/s13/s13-build-design/DESIGN-REVIEW-implementer-20260822-140014.md
+pre-edit source head: f090868fb28347de93464fd56df4514928f479cd
+
+RED — required F1/F2 mechanisms absent
+
+command:
+go test -count=1 ./internal/appctl/scheduler ./internal/appipc
+
+result: FAIL
+selected diagnostics:
+- undefined: appipc.GenesisCommittedBody
+- fixture.scheduler.ReemitActive undefined
+- fixture.scheduler.RecordGenesisCommitted undefined
+
+The RED fixtures named the wake-origin continuation/re-consume cut, durable
+commit-then-drop replay, genesis disposition re-derivation, and establishment
+ack path before their production mechanisms existed.
+
+GREEN — focused fold
+
+command:
+go test -count=1 ./internal/appctl/scheduler ./internal/appctl/store ./internal/appipc ./cmd/frank-app
+
+result: PASS
+selected output:
+ok github.com/jackli/frank/internal/appctl/scheduler 0.856s
+ok github.com/jackli/frank/internal/appctl/store 0.913s
+ok github.com/jackli/frank/internal/appipc 1.250s
+ok github.com/jackli/frank/cmd/frank-app 1.130s
+
+The green families prove:
+- fresh-only wake consumption; a wake-origin continuation inherits the exact
+  admission_ref without touching its already-ADMITTED wake row;
+- commit-then-drop recovery from the durable ACTIVE turn, with byte-identical
+  continuation payload, immutable resume snapshot/disclosures, and no wake
+  mutation;
+- genesis recovery re-derives resume in both create_authorized and established;
+- the six ordered genesis_committed receiver branches, with state_seq motion
+  only for the current create_authorized-to-established commit;
+- one-shot fresh authorization, internal 32-lowercase-hex minting, collision
+  refusal, lineage copy on continuation, and closed schema negatives;
+- initial session_log_path replay from runs.session_log_path.
+
+REDUCED-LIMIT DISCOVERY AND GREEN
+
+First command:
+go test -tags frank_test_reduced_limits -count=1 ./internal/appipc/... ./internal/appctl/...
+
+first result: FAIL
+diagnostic:
+TestReducedRuntimeOverflowBoundaries exact-fit fixture retained an established
+phase while exercising a fresh admission; the new lifecycle guard refused it.
+
+Correction: both reduced fresh-admission fixtures now seed created. No
+production semantic changed.
+
+Final result: PASS
+selected output:
+ok github.com/jackli/frank/internal/appipc 0.239s
+ok github.com/jackli/frank/internal/appctl/scheduler 2.637s
+ok github.com/jackli/frank/internal/appctl/store 1.545s
+ok github.com/jackli/frank/internal/appctl/supervisor 3.706s
+
+COMPILE MATRIX
+
+command:
+go test -run '^TestLimitsCompileMatrix$' -count=1 ./internal/appipc
+
+result: PASS
+output: ok github.com/jackli/frank/internal/appipc 0.779s
+
+RACE STABILITY
+
+command:
+go test -race -count=3 ./internal/appctl/... ./internal/appipc/... ./cmd/frank-app
+
+result: PASS
+selected output:
+ok github.com/jackli/frank/internal/appctl/scheduler 7.056s
+ok github.com/jackli/frank/internal/appctl/store 8.724s
+ok github.com/jackli/frank/internal/appipc 9.118s
+ok github.com/jackli/frank/cmd/frank-app 7.931s
+
+ORDINARY FULL GATE — DISCLOSED INTERMITTENT AND FINAL GREEN
+
+command:
+go build ./... && go test -count=1 ./... && go vet ./...
+
+An intermediate unchanged-tree attempt returned one timing-sensitive foreign
+failure in internal/engine/TestLoopNestedReplySendTimesOutWhenReceiverAbandons
+("abandoned nested ReplyCh deadlocked the serialized loop"). The exact test
+immediately passed 10/10 in isolation. No internal/engine byte moved.
+
+The subsequent exact full command result: PASS, exit 0.
+selected output:
+ok github.com/jackli/frank/internal/engine 8.553s
+ok github.com/jackli/frank/test/fixtures 212.099s
+ok github.com/jackli/frank/test/invariants 5.997s
+vet: PASS (no output)
+
+INV-CATALOG FRESH CONFIRMATION
+
+command:
+go test -count=1 ./test/invariants
+
+result: PASS
+output: ok github.com/jackli/frank/test/invariants 7.968s
+
+DEPENDENCY / FORMAT / CARRIAGE PROOF
+
+go mod verify: all modules verified
+go mod tidy -diff: PASS (no output)
+git diff --check: PASS (no output)
+
+05b529fce363efbe6c22b0b164efb423870e1f32a8a1033cd24811a0387cda76  internal/executor/executor.go
+858e28cfd1179bc215a3795d1eabbefaa9fa41a0a56f05e3a8a102a10a0b73cb  internal/executor/executor_test.go
+c339bc0f2b2467d29b05d1a273acd905cc1ec66b8922d741698ae05d03c1af8f  test/fixtures/s8_exit_gate_test.go
+93f1e94b734b3b35d05cc4fcb856d3a25f1ab151621a2f1327ef569f599be6ab  test/fixtures/s8_executor_test.go
+
+SCOPE / INTEGRATION
+
+The sole cmd/frank-app change is the ruled main_test.go phase-seed correction
+RUNNING -> established. That fixture seeds an ACTIVE run with its epoch and
+broker-control state already present, so genesis has committed and both create
+edges are past. Every other changed source/test byte is under internal/appctl
+or internal/appipc. The four foreign carriage files remain exact.
+
+No GitHub CI/CD, live provider call, E3, push, PR, restack, merge, deployment,
+publication, release, or operator decision was performed.

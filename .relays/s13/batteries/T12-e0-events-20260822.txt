@@ -1,0 +1,44 @@
+# T12 E0 persistence battery
+
+## RED
+
+```text
+$ go test ./internal/appctl/events
+internal/appctl/events/events_test.go:23: undefined: New
+internal/appctl/events/events_test.go:25: undefined: Request
+FAIL github.com/jackli/frank/internal/appctl/events [build failed]
+```
+
+## GREEN — focused, race, vet, and reduced-limit matrices
+
+```text
+$ go test -race ./internal/appctl/events ./internal/appctl/applier ./internal/appctl/store -count=1
+ok github.com/jackli/frank/internal/appctl/events  1.535s
+ok github.com/jackli/frank/internal/appctl/applier 1.932s
+ok github.com/jackli/frank/internal/appctl/store   2.134s
+
+$ go vet ./internal/appctl/events
+
+$ go test -tags frank_test_reduced_limits ./internal/appipc/... ./internal/appctl/... -count=1
+ok github.com/jackli/frank/internal/appctl/events 0.932s
+```
+
+The validator selects only exact `m3.app_event.v1|v2` literals, rejects unknown
+or duplicate fields, applies the complete fixed/required/conditional rules,
+checks canonical counters and RFC3339 timestamps, and preserves v2's optional
+frozen-core digest without inferring pipeline state. The exact received bytes
+are stored only after validation. An exact event-id replay is idempotent; a
+different body at the same identity fails closed and the first row stands.
+Malformed events create no row, so the persistence path has no silent-drop
+success branch.
+
+## GREEN — mandatory commit gate
+
+```text
+$ go build ./... && go test ./... && go vet ./...
+ok github.com/jackli/frank/internal/appctl/events 0.397s
+ok github.com/jackli/frank/internal/executor      14.883s
+ok github.com/jackli/frank/test/fixtures          200.392s
+ok github.com/jackli/frank/test/invariants          2.160s
+exit 0
+```

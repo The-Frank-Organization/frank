@@ -1,0 +1,102 @@
+# T3 limits tables, witness, and compile-matrix battery
+
+## Frozen inputs
+
+```text
+1016a9515a5aafe94a6bea1781625057a99d377a370428958ce3930ed8b20991  master/domains/m-10-app-control-plane/design/2026-07-30-reduced-limits-table-testonly.md
+33e67a09fa68000b6c01d728165f1cc5df6327509d8a4d70ce11f99b2a301403  master/exit-fixtures/common/limits-table-testonly.json
+```
+
+## RED 1 — production table absent
+
+Command: `go test ./internal/appipc`
+
+```text
+# github.com/jackli/frank/internal/appipc [github.com/jackli/frank/internal/appipc.test]
+internal/appipc/limits_test.go:13:30: undefined: AdmissionRefEncMax
+internal/appipc/limits_test.go:13:65: undefined: ManifestMax
+internal/appipc/limits_test.go:16:5: undefined: EntryMax
+internal/appipc/limits_test.go:16:24: undefined: ParkedMax
+FAIL github.com/jackli/frank/internal/appipc [build failed]
+```
+
+The failing expectations preceded `limits.go`, `limits_reduced.go`, the classifier, and the compile-negative fixture.
+
+## RED 2 — content-addressed bytes preserved
+
+Command: `go test -tags frank_test_reduced_limits ./internal/appipc/...`
+
+```text
+--- FAIL: TestReducedLimitsArtifactAndAssertions (0.00s)
+    limits_reduced_test.go:33: reduced artifact SHA-256 = 53e8574ef53698a72217d7c89540f3ac5196d4517e84055172ee3cfcae4a8f16
+FAIL github.com/jackli/frank/internal/appipc 0.229s
+```
+
+The source representation's conventional terminal newline was not part of the frozen 5,829-byte artifact. The reduced-only loader now returns the exact governed bytes; the assertion remained pinned to `33e67a09...`.
+
+## Selector and witness GREEN
+
+Commands:
+
+```text
+go test ./internal/appipc
+go test -race ./internal/appipc
+go test -tags frank_test_reduced_limits ./internal/appipc/...
+go vet ./internal/appipc
+go vet -tags frank_test_reduced_limits ./internal/appipc
+```
+
+Results:
+
+```text
+ok  github.com/jackli/frank/internal/appipc  0.656s
+ok  github.com/jackli/frank/internal/appipc  1.518s
+ok  github.com/jackli/frank/internal/appipc  (cached)
+```
+
+The reduced battery asserts:
+
+```text
+runtime artifact SHA-256 = 33e67a09fa68000b6c01d728165f1cc5df6327509d8a4d70ce11f99b2a301403
+|S_cont| = 770
+SHA-256(S_cont) = 60a40957f033255cdfe24b0d1b77a82805726fe727f45625576816c435bfe2f3
+L* = 3326
+|W| = 4096
+SHA-256(W) = 740553dfa398b769f75f8a6358fbbf1c98c94699e431a6323ac444fa7dbc4806
+|W+| = 4097
+encoded admission_ref lengths = 3367 / 3368, both <= 8192
+```
+
+## Executable compile-negative
+
+The ordinary `TestLimitsCompileMatrix` runs and asserts:
+
+```text
+go build ./...
+go build -tags frank_test_reduced_limits ./internal/appipc
+go build -tags frank_limits_compile_negative ./internal/appipc/limitscompileneg
+```
+
+The first two commands succeed. The third must fail and did fail at the named P2 assertion declaration:
+
+```text
+# github.com/jackli/frank/internal/appipc/limitscompileneg
+internal/appipc/limitscompileneg/assertions.go:21:5: invalid array length AttemptAckBoundAssertion (untyped int constant -1)
+```
+
+Production selects only the P1-positive table; the reduced selector compiles only with flipped P1 and positive P2; the independent negative tag demonstrates a P2-violating table is rejected by the compiler.
+
+## Commit gate
+
+Command: `go build ./... && go test ./... && go vet ./...`
+
+Exit: `0`.
+
+```text
+ok  github.com/jackli/frank/test/fixtures  163.518s
+ok  github.com/jackli/frank/test/invariants  1.764s
+ok  github.com/jackli/frank/test/replay  (cached)
+ok  github.com/jackli/frank/test/replay/dogfood  (cached)
+ok  github.com/jackli/frank/test/replay/zeroloss  (cached)
+?   github.com/jackli/frank/test/seatproc  [no test files]
+```

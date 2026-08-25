@@ -1,0 +1,219 @@
+# T4 SQLite store floor battery
+
+## Ruled dependency bytes
+
+The active replacement dispatch `s13-build-impl-2` binds the R6 successor bytes:
+
+```text
+go 1.25.0
+require modernc.org/sqlite v1.57.0
+no toolchain directive
+```
+
+The first `go mod tidy` after only the go.mod edit removed the unused direct requirement, proving the driver had not yet been wired. After the RED store fixture and importing the driver in the store implementation, `go mod tidy` retained the direct requirement and generated `go.sum` plus only its transitive indirect requirements.
+
+`go list -m -json modernc.org/sqlite` reports:
+
+```text
+Path: modernc.org/sqlite
+Version: v1.57.0
+GoVersion: 1.25.0
+Sum: h1:qNQP6xnx5M0ISNtlnxoOX0+cD5bJ0/gr9aMmndFczzg=
+GoModSum: h1:yCJ2cmAaIkHQ25oXWrF8H4O1lIfPYPR26yCEDj2P3pQ=
+```
+
+## RED — store API and boot behavior absent
+
+Command: `go test ./internal/appctl/store`
+
+```text
+# github.com/jackli/frank/internal/appctl/store [github.com/jackli/frank/internal/appctl/store.test]
+internal/appctl/store/store_test.go:15:16: undefined: Open
+internal/appctl/store/store_test.go:21:45: undefined: CurrentSchemaVersion
+internal/appctl/store/store_test.go:67:16: undefined: Open
+internal/appctl/store/store_test.go:77:54: undefined: ErrSchemaTooNew
+internal/appctl/store/store_test.go:88:54: undefined: ErrIntegrity
+FAIL github.com/jackli/frank/internal/appctl/store [build failed]
+```
+
+The fixture preceded the SQLite implementation and schema.
+
+## Focused GREEN
+
+Commands:
+
+```text
+go test ./internal/appctl/store
+go test -race ./internal/appctl/store
+go vet ./internal/appctl/store
+```
+
+Results:
+
+```text
+ok  github.com/jackli/frank/internal/appctl/store  0.261s
+ok  github.com/jackli/frank/internal/appctl/store  1.597s
+```
+
+The fixture proves:
+
+- `PRAGMA user_version=1` genesis and v0-to-v1 forward migration;
+- higher-version refusal with `ErrSchemaTooNew` and corrupt-file refusal with `ErrIntegrity`;
+- WAL and `synchronous=FULL` by PRAGMA readback;
+- runtime directory mode 0700 and database file mode 0600;
+- one transaction commits or rolls back as a unit, using the driver's immediate transaction mode;
+- the amended 15-table census is exact; `epoch_transitions`, `crossing_ops`, and the deferred forensic `events` table are absent;
+- closed run states, fixed-width trust counters, and the broker singleton reject invalid rows;
+- the schema includes no column named `payload` and no provider-wire payload type.
+
+## Full commit gate held on governed s8 timing repair
+
+Command: `go build ./... && go test ./... && go vet ./...`
+
+Exit: `1` in the pre-existing s8 nested dogfood fixture; all changed and fast packages were green.
+
+```text
+--- FAIL: TestS8ProductionDogfoodRejectsFalseDoneAndNamesPredicate (96.29s)
+    s8_exit_gate_test.go:311: production suite state = "rejected", want accepted
+FAIL github.com/jackli/frank/test/fixtures 144.629s
+ok   github.com/jackli/frank/test/invariants 7.175s
+FAIL
+```
+
+Systematic isolation found no changed-package edge into the fixture:
+
+```text
+go list -deps ./test/fixtures | rg 'github.com/jackli/frank/internal/(appipc|appctl)'
+# no output
+```
+
+At the failure and throughout the exact isolated retry, a foreign whole-repository battery was live:
+
+```text
+PID 30587  go test -p=1 -count=1 ./...
+cwd=/Users/jack/Programming/harness-s15-m9-worker/frank
+```
+
+The isolated command reached the already-recorded 150-second wall exactly:
+
+```text
+go test ./test/fixtures -run '^TestS8ProductionDogfoodRejectsFalseDoneAndNamesPredicate$' -count=1 -v
+s8_exit_gate_test.go:345: production false suite submit: context deadline exceeded
+--- FAIL: TestS8ProductionDogfoodRejectsFalseDoneAndNamesPredicate (150.03s)
+FAIL github.com/jackli/frank/test/fixtures 150.545s
+```
+
+No foreign process was interrupted and no out-of-lane fixture byte was authored. The s14-owned repair exists only as foreign uncommitted bytes at `/Users/jack/Programming/harness-s14-m8-connector/frank/test/fixtures/s8_exit_gate_test.go`: the governed timeout moves 150→600 seconds and adds capacity diagnostics. It is not present on `origin/main@1a25d46822fc91f4b15b0fb3ded0a7cd56c4df71` and cannot be copied directly by s13. Per master SITREP R8, this commit-gate leg is HELD pending those exact bytes banking through master.
+
+## Governed carriage consumed; R9 repair is not portable to s13's dependency closure
+
+Master carriage `step3-t4-preflight/RECONCILE-orchestrator-planner-20260821-222814.md` licensed exact-byte application of:
+
+```text
+b9b2b3c2f99405055ef1f48fb0ee57adff1ed495  s8 R8 fixture repair
+b86b8bc17ba56302d33b7aba4cf3f8af404d70ea  executor R9/R10 repair
+```
+
+The three applied files match the carriage hashes exactly:
+
+```text
+c339bc0f2b2467d29b05d1a273acd905cc1ec66b8922d741698ae05d03c1af8f  test/fixtures/s8_exit_gate_test.go
+aaa980d445f12e42adc804c2ba724574326bd7ccadee0264137eeacac5466806  internal/executor/executor.go
+02f244f56c632f0b9a89fcebb0c6abb636996f9ea7da5d1adef0cf66174119cd  internal/executor/executor_test.go
+```
+
+The repaired isolated s8 leg no longer reaches the 150-second capacity wall, but deterministically rejects in about one second:
+
+```text
+go test ./test/fixtures -run '^TestS8ProductionDogfoodRejectsFalseDoneAndNamesPredicate$' -count=1 -v
+production suite state = "rejected", want accepted
+degradation_notes: observe-machinery-fault
+body: dogfood-battery-green:observe-machinery-fault
+--- FAIL: TestS8ProductionDogfoodRejectsFalseDoneAndNamesPredicate (1.07s)
+FAIL github.com/jackli/frank/test/fixtures 1.637s
+```
+
+The failure precedes executor diagnostic retention: `seedGoModuleCache` maps the miss to `executor-module-cache-miss`, and the observe gate intentionally collapses machinery details in the relay record. A direct controlled reproduction proves the inherited-cache edge in the exact carried executor bytes:
+
+```text
+GOMODCACHE=<empty-absolute-dir> GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOWORK=off \
+  go test ./internal/executor -run '^TestSpawnPreseedsRunLocalModuleCacheWithProxyOff$' -count=1 -v
+offline verdict = observe.CheckVerdict{Outcome:"unsafe", Predicate:"blocked", FailingDetail:"executor-module-cache-miss"}
+--- FAIL: TestSpawnPreseedsRunLocalModuleCacheWithProxyOff (0.01s)
+```
+
+The same test passes against the ordinary host cache in 2.69s. The carried `goModuleCachePath` explicitly honors inherited `GOMODCACHE`. Therefore, when the dogfood executor runs the repository suite with its restricted run-local cache, the suite's executor test treats that restricted cache as its host source. s13's root `go.sum` has no `golang.org/x/text`; s14's manifest requires `golang.org/x/text v0.41.0`, so the foreign validation environment happened to preseed the test-only module while s13 lawfully does not.
+
+No workaround was authored. Adding `x/text` to s13 would be a spurious dependency and violate the ruled NFC condition; changing the carried executor bytes is outside s13's fence and would break carriage identity. T4 remains uncommitted pending an owner repair/carriage that makes the executor test independent of the consuming slice's root module closure.
+
+## Carriage v2 consumed; acceptance still RED on checksum-list overreach
+
+Master carriage v2 `step3-t4-preflight/RECONCILE-orchestrator-planner-20260821-232450.md` licensed only the executor-test successor at commit `eaf8faa1b96eae254c6788b9dd49386082a3acd5`. After `git cherry-pick -n`, the staged census remained the same three paths and the live hashes were exactly:
+
+```text
+c339bc0f2b2467d29b05d1a273acd905cc1ec66b8922d741698ae05d03c1af8f  test/fixtures/s8_exit_gate_test.go
+aaa980d445f12e42adc804c2ba724574326bd7ccadee0264137eeacac5466806  internal/executor/executor.go
+bbc9d434c030817fabc9bef26d7ee63c984bbeb3819f939a3b95b59dbd1d742f  internal/executor/executor_test.go
+```
+
+The required isolated s8 acceptance leg remained RED before any full-gate attempt:
+
+```text
+go test ./test/fixtures -run '^TestS8ProductionDogfoodRejectsFalseDoneAndNamesPredicate$' -count=1 -v
+production suite state = "rejected", want accepted
+degradation_notes: observe-machinery-fault
+--- FAIL: TestS8ProductionDogfoodRejectsFalseDoneAndNamesPredicate (1.11s)
+FAIL github.com/jackli/frank/test/fixtures 1.758s
+```
+
+R11's zero-external-closure owner test passes, but the successor's ordinary consuming-root test fails on s13 without any adversarial environment:
+
+```text
+go test ./internal/executor -run '^(TestSpawnPreseedsRunLocalModuleCacheWithProxyOff|TestSpawnNestedExecutorPackageFromZeroExternalClosure|TestSpawnNamesMissingOfflineModuleWithoutWaitingForNetwork|TestSpawnRetainsPrivateCappedTailOutsideBareFailureVerdict)$' -count=1 -v
+TestSpawnPreseedsRunLocalModuleCacheWithProxyOff: executor-module-cache-miss
+TestSpawnNestedExecutorPackageFromZeroExternalClosure: PASS
+TestSpawnNamesMissingOfflineModuleWithoutWaitingForNetwork: PASS
+TestSpawnRetainsPrivateCappedTailOutsideBareFailureVerdict: PASS
+FAIL github.com/jackli/frank/internal/executor 5.268s
+```
+
+The exact cause is no longer an out-of-closure synthetic requirement. `seedGoModuleCache` converts every non-`/go.mod` checksum line into a mandatory offline `go mod download` target. s13 has 25 such `go.sum` entries; 15 have no complete host-cache artifact even though the real `internal/appctl/store` package builds and tests green. The missing set includes `github.com/google/pprof`, `golang.org/x/{mod,sync,tools}`, and ten modernc compiler/build modules. Thus ordinary Go build/test populates the imported package closure, but not every historical or build-only checksum artifact the executor currently requires.
+
+No network cache-warm was performed: that would mask the ambient-cache dependency rather than prove portable offline execution. The unchanged full gate was not run after its mandatory isolated precursor failed. T4 remains uncommitted pending an owner successor whose normal-root battery includes extra checksum entries absent from the host artifact cache.
+
+## Carriage v4 accepted; T4 commit gate GREEN
+
+Master carriage v4 `step3-t4-preflight/RECONCILE-orchestrator-planner-20260822-041652.md` bound the final four files. After materializing only the named Git-object paths, the staged census and SHA-256s were exactly:
+
+```text
+M  frank/internal/executor/executor.go
+A  frank/internal/executor/executor_test.go
+M  frank/test/fixtures/s8_executor_test.go
+M  frank/test/fixtures/s8_exit_gate_test.go
+
+05b529fce363efbe6c22b0b164efb423870e1f32a8a1033cd24811a0387cda76  frank/internal/executor/executor.go
+858e28cfd1179bc215a3795d1eabbefaa9fa41a0a56f05e3a8a102a10a0b73cb  frank/internal/executor/executor_test.go
+93f1e94b734b3b35d05cc4fcb856d3a25f1ab151621a2f1327ef569f599be6ab  frank/test/fixtures/s8_executor_test.go
+c339bc0f2b2467d29b05d1a273acd905cc1ec66b8922d741698ae05d03c1af8f  frank/test/fixtures/s8_exit_gate_test.go
+```
+
+The required s13 consumer acceptance leg passed without any cache warm:
+
+```text
+go test ./test/fixtures -run '^TestS8ProductionDogfoodRejectsFalseDoneAndNamesPredicate$' -count=1 -v
+--- PASS: TestS8ProductionDogfoodRejectsFalseDoneAndNamesPredicate (154.12s)
+PASS
+ok github.com/jackli/frank/test/fixtures 154.877s
+```
+
+The unchanged full commit gate then passed:
+
+```text
+go build ./... && go test ./... && go vet ./...
+ok github.com/jackli/frank/internal/executor 14.778s
+ok github.com/jackli/frank/test/fixtures 191.525s
+ok github.com/jackli/frank/test/invariants 2.617s
+exit 0
+```
+
+The R8→R14 carriage thread is discharged for s13. No network cache warm, base move, or non-carried source edit occurred.

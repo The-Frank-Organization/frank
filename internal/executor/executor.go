@@ -26,6 +26,8 @@ const AmbientResidual = "same-uid ambient filesystem, network, and process acces
 
 const DefaultHardCeiling = 10 * time.Minute
 
+const diagnosticPrefix = "frank-executor-diagnostic-"
+
 type Suite struct {
 	SourceDir    string
 	Command      string
@@ -144,7 +146,7 @@ func (h *Host) Spawn(entry observe.CheckEntry, selection observe.Selection) obse
 	h.runs[key] = current
 	h.mu.Unlock()
 
-	verdict := h.execute(selection, suite, workdir)
+	verdict := h.execute(selection, suite, workdir, key)
 	h.mu.Lock()
 	current.verdict = verdict
 	close(current.done)
@@ -152,20 +154,24 @@ func (h *Host) Spawn(entry observe.CheckEntry, selection observe.Selection) obse
 	return verdict
 }
 
-func (h *Host) execute(selection observe.Selection, suite Suite, workdir string) observe.CheckVerdict {
+func (h *Host) execute(selection observe.Selection, suite Suite, workdir, runKey string) observe.CheckVerdict {
 	cleanup := true
 	defer func() {
 		if cleanup {
 			_ = os.RemoveAll(workdir)
 		}
 	}()
-	for _, dir := range []string{".tmp", ".cache/go-build", ".cache/go-mod", ".cache/gopath"} {
+	for _, dir := range []string{".tmp", ".cache/go-build", ".cache/gopath"} {
 		if err := os.MkdirAll(filepath.Join(workdir, dir), 0o700); err != nil {
 			return fault(selection, "executor-workdir-fault")
 		}
 	}
 	if !validCommand(suite.Command) {
 		return fault(selection, "executor-command-refused")
+	}
+	moduleCache, err := goModuleCachePath()
+	if err != nil {
+		return fault(selection, "executor-module-cache-miss")
 	}
 	command := filepath.Join(workdir, filepath.Clean(suite.Command))
 	cmd := exec.Command(command, append([]string(nil), suite.Args...)...)
@@ -176,8 +182,13 @@ func (h *Host) execute(selection observe.Selection, suite Suite, workdir string)
 		"HOME=" + workdir,
 		"TMPDIR=" + filepath.Join(workdir, ".tmp"),
 		"GOCACHE=" + filepath.Join(workdir, ".cache/go-build"),
-		"GOMODCACHE=" + filepath.Join(workdir, ".cache/go-mod"),
+		"GOMODCACHE=" + moduleCache,
 		"GOPATH=" + filepath.Join(workdir, ".cache/gopath"),
+		"GOPROXY=off",
+		"GOSUMDB=off",
+		"GOTOOLCHAIN=local",
+		"GOWORK=off",
+		"GOFLAGS=-mod=readonly",
 	}
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	capture := &cappedCapture{limit: h.config.OutputLimit}
@@ -194,12 +205,12 @@ func (h *Host) execute(selection observe.Selection, suite Suite, workdir string)
 	defer timer.Stop()
 	select {
 	case waitErr := <-waited:
-		return h.finalizeRun(selection, pgid, waitErr, false, false, capture, &cleanup)
+		return h.finalizeRun(selection, runKey, pgid, waitErr, false, false, capture, &cleanup)
 	case <-timer.C:
 		if h.config.OnSoftExpiry == nil {
 			_ = syscall.Kill(-pgid, syscall.SIGKILL)
 			waitErr := <-waited
-			return h.finalizeRun(selection, pgid, waitErr, true, false, capture, &cleanup)
+			return h.finalizeRun(selection, runKey, pgid, waitErr, true, false, capture, &cleanup)
 		}
 		hardCeiling := h.config.HardCeiling
 		if hardCeiling < suite.Timeout {
@@ -216,12 +227,12 @@ func (h *Host) execute(selection observe.Selection, suite Suite, workdir string)
 		select {
 		case waitErr := <-waited:
 			cancel()
-			return h.finalizeRun(selection, pgid, waitErr, false, false, capture, &cleanup)
+			return h.finalizeRun(selection, runKey, pgid, waitErr, false, false, capture, &cleanup)
 		case picked := <-decision:
 			cancel()
 			select {
 			case waitErr := <-waited:
-				return h.finalizeRun(selection, pgid, waitErr, false, false, capture, &cleanup)
+				return h.finalizeRun(selection, runKey, pgid, waitErr, false, false, capture, &cleanup)
 			default:
 			}
 			extended := picked.Action == ExpiryExtend
@@ -249,22 +260,22 @@ func (h *Host) execute(selection observe.Selection, suite Suite, workdir string)
 				_ = syscall.Kill(-pgid, syscall.SIGKILL)
 				waitErr = <-waited
 			}
-			return h.finalizeRun(selection, pgid, waitErr, timedOut, extended, capture, &cleanup)
+			return h.finalizeRun(selection, runKey, pgid, waitErr, timedOut, extended, capture, &cleanup)
 		case <-expiryCtx.Done():
 			cancel()
 			select {
 			case waitErr := <-waited:
-				return h.finalizeRun(selection, pgid, waitErr, false, false, capture, &cleanup)
+				return h.finalizeRun(selection, runKey, pgid, waitErr, false, false, capture, &cleanup)
 			default:
 			}
 			_ = syscall.Kill(-pgid, syscall.SIGKILL)
 			waitErr := <-waited
-			return h.finalizeRun(selection, pgid, waitErr, true, false, capture, &cleanup)
+			return h.finalizeRun(selection, runKey, pgid, waitErr, true, false, capture, &cleanup)
 		}
 	}
 }
 
-func (h *Host) finalizeRun(selection observe.Selection, pgid int, waitErr error, timedOut, extended bool, capture *cappedCapture, cleanup *bool) observe.CheckVerdict {
+func (h *Host) finalizeRun(selection observe.Selection, runKey string, pgid int, waitErr error, timedOut, extended bool, capture *cappedCapture, cleanup *bool) observe.CheckVerdict {
 	if !h.config.GroupGone(pgid) {
 		_ = syscall.Kill(-pgid, syscall.SIGKILL)
 		if !h.waitGroupGone(pgid) {
@@ -286,6 +297,9 @@ func (h *Host) finalizeRun(selection observe.Selection, pgid int, waitErr error,
 		verdict.Timing = "extended"
 	}
 	if exitGreen != expectGreen {
+		if err := h.retainDiagnostic(runKey, capture.tail()); err != nil {
+			return fault(selection, "executor-workdir-fault")
+		}
 		verdict.Outcome = "fail"
 		verdict.RungReached = "none"
 		verdict.Predicate = observe.Fail
@@ -312,23 +326,89 @@ func (c *cappedCapture) Write(data []byte) (int, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	original := len(data)
-	remaining := c.limit - c.buf.Len()
-	if remaining <= 0 {
+	if c.limit <= 0 {
 		c.truncated = true
 		return original, nil
 	}
-	if len(data) > remaining {
-		data = data[:remaining]
+	if len(data) >= c.limit {
+		if c.buf.Len() > 0 || len(data) > c.limit {
+			c.truncated = true
+		}
+		c.buf.Reset()
+		_, _ = c.buf.Write(data[len(data)-c.limit:])
+		return original, nil
+	}
+	if overflow := c.buf.Len() + len(data) - c.limit; overflow > 0 {
+		_ = c.buf.Next(overflow)
 		c.truncated = true
 	}
 	_, _ = c.buf.Write(data)
 	return original, nil
 }
 
+func (c *cappedCapture) tail() []byte {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return append([]byte(nil), c.buf.Bytes()...)
+}
+
 func (c *cappedCapture) wasTruncated() bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.truncated
+}
+
+func (h *Host) retainDiagnostic(runKey string, data []byte) error {
+	target := filepath.Join(h.config.TempRoot, diagnosticPrefix+runKey)
+	temporary, err := os.CreateTemp(h.config.TempRoot, diagnosticPrefix+"pending-")
+	if err != nil {
+		return err
+	}
+	temporaryName := temporary.Name()
+	keep := false
+	defer func() {
+		_ = temporary.Close()
+		if !keep {
+			_ = os.Remove(temporaryName)
+		}
+	}()
+	if err := temporary.Chmod(0o600); err != nil {
+		return err
+	}
+	if _, err := temporary.Write(data); err != nil {
+		return err
+	}
+	if err := temporary.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(temporaryName, target); err != nil {
+		return err
+	}
+	keep = true
+	return nil
+}
+
+func goModuleCachePath() (string, error) {
+	if path := os.Getenv("GOMODCACHE"); path != "" {
+		return resolvedAbsolutePath(path)
+	}
+	cmd := exec.Command("go", "env", "GOMODCACHE")
+	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + os.Getenv("HOME"), "GOTOOLCHAIN=local"}
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return resolvedAbsolutePath(strings.TrimSpace(string(output)))
+}
+
+func resolvedAbsolutePath(path string) (string, error) {
+	if path == "" || !filepath.IsAbs(path) {
+		return "", errors.New("host module cache path unavailable")
+	}
+	if resolved, err := filepath.EvalSymlinks(path); err == nil {
+		path = resolved
+	}
+	return path, nil
 }
 
 func processGroupGone(pgid int) bool {

@@ -20,7 +20,9 @@ import (
 
 func TestS10ExitLeg3FreshV8GateWakesExactlyOnceAfterLocalReobserve(t *testing.T) {
 	root := t.TempDir()
-	if err := store.Init(root, s8ConfigSources(t, false)); err != nil {
+	sources := s8ConfigSources(t, false)
+	sources["fieldspec"] = s10FieldspecV8Path(t)
+	if err := store.Init(root, sources); err != nil {
 		t.Fatalf("Init fresh v8 store: %v", err)
 	}
 	pinned, err := config.Load(store.StoreRootConfigPaths(root))

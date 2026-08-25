@@ -1,0 +1,55 @@
+# T6 manifest and serve-gate battery
+
+## RED — manifest package absent
+
+Command:
+
+```text
+go test ./internal/appctl/manifest
+```
+
+Expected first failure: the workspace-root resolver, manifest types/builder, exact eight-name constant, serve gate, freeze event, and committed reload API do not exist. The full refusal/equality/immutability fixture precedes T6 implementation.
+
+Observed result: `FAIL` at compile time on the deliberately undefined T6
+manifest API. No production manifest package existed when this fixture ran.
+
+## GREEN — focused contract battery
+
+```text
+$ go test ./internal/appctl/manifest -count=1
+ok  github.com/jackli/frank/internal/appctl/manifest  0.381s
+
+$ go test -race ./internal/appctl/manifest -count=1
+ok  github.com/jackli/frank/internal/appctl/manifest  1.351s
+
+$ go vet ./internal/appctl/manifest
+```
+
+Covered assertions:
+
+- FX-M10-WR-R ordered refusals, including no-filesystem relative input,
+  symlink-to-root, OS-length-as-unresolvable, and grammar-before-length;
+- FX-M10-WR realpath/NFC convergence and lowercase SHA-256 root identity;
+- exact eight-name construction, JCS digest over frozen bytes, staging nulls,
+  and locked relay-only mapping versions;
+- admission and every-dispatch serve gate, stored-byte tamper denial,
+  above-set denial, identity/catalog/lane/release drift denial;
+- one-transaction freeze, same-run immutability, byte-identical reload, reload
+  gate rerun, and F63 catalog mismatch refusal from the frozen row.
+
+## GREEN — mandatory commit gate
+
+```text
+$ go build ./... && go test ./... && go vet ./...
+...
+ok  github.com/jackli/frank/internal/appctl/manifest  0.179s
+ok  github.com/jackli/frank/internal/executor  13.376s
+ok  github.com/jackli/frank/test/fixtures  200.854s
+ok  github.com/jackli/frank/test/invariants  1.873s
+...
+exit 0
+```
+
+Dependency ruling exercised: NFC normalization uses exactly
+`golang.org/x/text v0.41.0`; `go.mod` remains exactly `go 1.25.0` with no
+`toolchain` directive.

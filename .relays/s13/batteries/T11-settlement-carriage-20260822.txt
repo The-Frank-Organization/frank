@@ -1,0 +1,55 @@
+# T11 settlement and carriage battery
+
+## RED
+
+```text
+$ go test ./internal/appctl/settle
+internal/appctl/settle/settle_test.go:58: undefined: ContentReadyRequest
+internal/appctl/settle/settle_test.go:59: undefined: ReceiptRecorded
+internal/appctl/settle/settle_test.go:72: undefined: DispositionRequest
+internal/appctl/settle/settle_test.go:104: undefined: Host
+internal/appctl/settle/settle_test.go:105: undefined: Producer
+FAIL github.com/jackli/frank/internal/appctl/settle [build failed]
+```
+
+## GREEN — focused, race, vet, and reduced-limit matrices
+
+```text
+$ go test -race ./internal/appctl/settle ./internal/appctl/scheduler ./internal/appctl/store -count=1
+ok github.com/jackli/frank/internal/appctl/settle    1.302s
+ok github.com/jackli/frank/internal/appctl/scheduler 1.593s
+ok github.com/jackli/frank/internal/appctl/store      1.722s
+
+$ go vet ./internal/appctl/settle ./internal/appctl/scheduler ./internal/appctl/store
+
+$ go test -tags frank_test_reduced_limits ./internal/appipc/... ./internal/appctl/... -count=1
+ok github.com/jackli/frank/internal/appctl/settle    0.909s
+ok github.com/jackli/frank/internal/appctl/scheduler 1.334s
+```
+
+The producer walks the canonical continuation ancestry and maps every tool,
+provider, and authorization-orphan row to exactly one closed class. Receipt
+presence is consulted at production time; broker events are never an input.
+Receipt and disposition folds put equivalent duplicate before stale sender,
+then preserve first-committed evidence on conflicts. Continuation admission
+inherits the predecessor admission bytes exactly and persists the manifest plus
+session path as one immutable snapshot.
+
+The B/E carrier never accepts a second source for `logical_surface_digest`:
+that required m-9 value is committed only by attempt-open. The two nullable m-8
+digests are copied verbatim, first-committed-wins, and query returns the closed
+`m10_row_state` distinction `present|not_found`. The reduced-tag runtime legs
+exercise actual encoded frame sizing, exact-fit, one-byte-over, continuation
+terminalization, initial rowless refusal, and the encoded-admission reserve.
+
+## GREEN — mandatory commit gate
+
+```text
+$ go build ./... && go test ./... && go vet ./...
+ok github.com/jackli/frank/internal/appctl/scheduler 0.982s
+ok github.com/jackli/frank/internal/appctl/settle    1.104s
+ok github.com/jackli/frank/internal/executor         16.195s
+ok github.com/jackli/frank/test/fixtures             199.014s
+ok github.com/jackli/frank/test/invariants             2.723s
+exit 0
+```

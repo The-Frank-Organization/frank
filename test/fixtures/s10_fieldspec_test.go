@@ -15,10 +15,7 @@ import (
 )
 
 func TestS10V7ReaderRefusesV8MarkerBeforeContent(t *testing.T) {
-	v8, err := os.ReadFile(filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
-	if err != nil {
-		t.Fatalf("read v8 registry: %v", err)
-	}
+	v8 := s10FieldspecV8Bytes(t)
 	var planted map[string]any
 	if err := json.Unmarshal(v8, &planted); err != nil {
 		t.Fatalf("decode v8 registry: %v", err)
@@ -56,6 +53,7 @@ func TestS10V7ReaderRefusesV8MarkerBeforeContent(t *testing.T) {
 func TestS10FreshGenesisIsBornAtV8WithoutPreV8Records(t *testing.T) {
 	root := t.TempDir()
 	sources := s8ConfigSources(t, false)
+	sources["fieldspec"] = s10FieldspecV8Path(t)
 	wantFieldspec, err := os.ReadFile(sources["fieldspec"])
 	if err != nil {
 		t.Fatalf("read v8 source: %v", err)
@@ -102,10 +100,8 @@ func TestS10FreshGenesisIsBornAtV8WithoutPreV8Records(t *testing.T) {
 func TestS10FreshGenesisRejectsV8WithCorruptedLockedPredecessorByte(t *testing.T) {
 	root := t.TempDir()
 	sources := s8ConfigSources(t, false)
-	v8, err := os.ReadFile(sources["fieldspec"])
-	if err != nil {
-		t.Fatalf("read v8 source: %v", err)
-	}
+	sources["fieldspec"] = s10FieldspecV8Path(t)
+	v8 := s10FieldspecV8Bytes(t)
 	old := []byte("non-gate-bearing records only")
 	next := []byte("non-gate-bearing recordz only")
 	if bytes.Count(v8, old) != 1 {

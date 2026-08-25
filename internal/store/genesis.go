@@ -37,6 +37,46 @@ type genesisDowngradeStep struct {
 
 var fieldspecGenesisDowngrades = []genesisDowngradeStep{
 	{
+		marker: `"version": "s12-fieldspec-v9"`,
+		exact: []string{
+			`"version": "s12-fieldspec-v9"`,
+			`  "provenance": {
+    "owner": "m-2",
+    "design_doc_id": "h16-outcome-split-design",
+    "plan_lock_id": "s12-h16-fix-plan",
+    "supersedes": "s10-fieldspec-v8",
+    "note": "s12 H-16-REG realization under the operator-opened step3-h16-h26-lane; three system-stamped header rows + the ruled record_kind tokens"
+  }`,
+			`"record_kind": ["genesis", "owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint", "odb", "resummon_command", "mint-chain-anchor", "attempt_resolution", "derived-work-attempt", "derived-work-transition"]`,
+			"    " + h16HookContractRow + ",\n",
+			"    " + h16MintPredecessorRow + ",\n",
+			"    " + h16AdminProvenanceRow + ",\n",
+			`"seat_scope": {"operator": ["owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint", "mint-chain-anchor", "attempt_resolution"], "*": ["diagnostics"]}`,
+		},
+		replacements: [][2]string{
+			{`"version": "s12-fieldspec-v9"`, `"version": "s10-fieldspec-v8"`},
+			{`  "provenance": {
+    "owner": "m-2",
+    "design_doc_id": "h16-outcome-split-design",
+    "plan_lock_id": "s12-h16-fix-plan",
+    "supersedes": "s10-fieldspec-v8",
+    "note": "s12 H-16-REG realization under the operator-opened step3-h16-h26-lane; three system-stamped header rows + the ruled record_kind tokens"
+  }`, `  "provenance": {
+    "owner": "m-2",
+    "design_doc_id": "F-S7-R2-COLGRAIN",
+    "plan_lock_id": "s7a-plan-m2",
+    "note": "s7a m-2 pair build under the operator B10 second-application ruling; restores c1 section 5 column-grain fidelity"
+  }`},
+			{`"record_kind": ["genesis", "owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint", "odb", "resummon_command", "mint-chain-anchor", "attempt_resolution", "derived-work-attempt", "derived-work-transition"]`, `"record_kind": ["genesis", "owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint", "odb", "resummon_command"]`},
+			{"    " + h16HookContractRow + ",\n", ""},
+			{"    " + h16MintPredecessorRow + ",\n", ""},
+			{"    " + h16AdminProvenanceRow + ",\n", ""},
+			{`"seat_scope": {"operator": ["owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint", "mint-chain-anchor", "attempt_resolution"], "*": ["diagnostics"]}`, `"seat_scope": {"operator": ["owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint"], "*": ["diagnostics"]}`},
+		},
+		mismatch:       "fieldspec v9 predecessor delta mismatch",
+		preserveSource: true,
+	},
+	{
 		marker: `"version": "s10-fieldspec-v8"`,
 		exact: []string{
 			`"version": "s10-fieldspec-v8"`,
@@ -75,6 +115,12 @@ var fieldspecGenesisDowngrades = []genesisDowngradeStep{
 		mismatch: "fieldspec genesis predecessor mismatch",
 	},
 }
+
+const (
+	h16HookContractRow    = `{"id": "hook_contract", "layer": "header", "owner": "system", "type": "string", "fill_constraints": "system_only", "lineage_role": "none"}`
+	h16MintPredecessorRow = `{"id": "mint_predecessor", "layer": "header", "owner": "system", "type": "string", "fill_constraints": "system_only", "lineage_role": "none"}`
+	h16AdminProvenanceRow = `{"id": "admin_provenance", "layer": "header", "owner": "system", "type": "string", "fill_constraints": "system_only", "lineage_role": "none"}`
+)
 
 type ErrDigestMismatch struct {
 	Want string

@@ -1,0 +1,57 @@
+# T9 broker-client battery
+
+## RED
+
+```text
+$ go test ./internal/appctl/brokerclient ./internal/appctl/testutil
+internal/appctl/brokerclient/brokerclient_test.go:18: undefined: NewAssignGate
+internal/appctl/brokerclient/brokerclient_test.go:26: undefined: AwaitEventOrDeadline
+internal/appctl/brokerclient/brokerclient_test.go:39: undefined: InvariantFault
+internal/appctl/brokerclient/brokerclient_test.go:56: undefined: New
+internal/appctl/brokerclient/brokerclient_test.go:65: undefined: Event
+internal/appctl/brokerclient/brokerclient_test.go:98: undefined: BrokerCommand
+FAIL github.com/jackli/frank/internal/appctl/brokerclient [build failed]
+```
+
+The establishment extension also failed before the lock/advance/dial handshake
+existed:
+
+```text
+internal/appctl/brokerclient/brokerclient_test.go:135: undefined: Session
+internal/appctl/brokerclient/brokerclient_test.go:140: client.Establish undefined
+internal/appctl/brokerclient/brokerclient_test.go:140: undefined: ControlRequest
+FAIL github.com/jackli/frank/internal/appctl/brokerclient [build failed]
+```
+
+## GREEN — focused, race, vet, and reduced-limit matrices
+
+```text
+$ go test -race ./internal/appctl/brokerclient ./internal/appctl/testutil -count=1
+ok github.com/jackli/frank/internal/appctl/brokerclient 1.375s
+ok github.com/jackli/frank/internal/appctl/testutil     1.414s
+
+$ go vet ./internal/appctl/brokerclient ./internal/appctl/testutil
+
+$ go test -tags frank_test_reduced_limits ./internal/appipc/... ./internal/appctl/... -count=1
+ok github.com/jackli/frank/internal/appctl/brokerclient 0.806s
+ok github.com/jackli/frank/internal/appctl/testutil     1.409s
+```
+
+The establishment fixture observes the padded durable control generation from
+inside the injected dialer, proving lock then durable advance then connect. The
+wire handshake presents only the control token and unpadded generation. The
+assign gate covers installed-match, installed-mismatch, transition-started,
+active-transition, stale/malformed faults, deadlines, dead correlation,
+equivalent duplicate, and tuple-matching epoch-installed evidence. Broker event
+acks are emitted only after commit and exact duplicates replay the same bytes.
+
+## GREEN — mandatory commit gate
+
+```text
+$ go build ./... && go test ./... && go vet ./...
+ok github.com/jackli/frank/internal/appctl/brokerclient 0.264s
+ok github.com/jackli/frank/internal/executor          18.761s
+ok github.com/jackli/frank/test/fixtures              212.525s
+ok github.com/jackli/frank/test/invariants              2.469s
+exit 0
+```

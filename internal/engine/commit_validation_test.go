@@ -7,7 +7,9 @@ import (
 	"testing"
 
 	"github.com/jackli/frank/internal/record"
+	"github.com/jackli/frank/internal/seat"
 	"github.com/jackli/frank/internal/store"
+	"github.com/jackli/frank/internal/tables"
 )
 
 func TestCommitRevalidationSweepsSnapshotDependentRecordKinds(t *testing.T) {
@@ -109,6 +111,72 @@ func TestCommitRevalidationSweepsSnapshotDependentRecordKinds(t *testing.T) {
 		got, _, err := revalidateAtCommit(st, candidate, nil)
 		if err != nil || got.Envelope.DeliveryState != record.Rejected || !strings.Contains(got.Body, "member:config-read-error") {
 			t.Fatalf("config commit revalidation = %#v, %v", got, err)
+		}
+	})
+
+	t.Run("mint chain anchor rejects a chain resolved after handler snapshot", func(t *testing.T) {
+		st, err := store.Open(t.TempDir())
+		if err != nil {
+			t.Fatalf("Open: %v", err)
+		}
+		commitValidationRecord(t, st, record.Record{
+			Envelope: record.Envelope{RelayID: "resolved-pivot", From: "operator", Role: "operator", DeliveryState: record.Accepted, SchemaVersion: 1},
+			Headers:  map[string]string{"record_kind": "seat_mint"},
+			Body:     `{"seat":"anchor-seat","role":"implementer","is_operator":false}`,
+		})
+		candidate := MintChainAnchorRecord("anchor-seat", "resolved-pivot")
+		candidate.Envelope.From = "operator"
+		candidate.Envelope.Role = "operator"
+		got, _, err := revalidateAtCommit(st, candidate, nil)
+		if err != nil || got.Envelope.DeliveryState != record.Rejected || got.Headers["failing_edge"] != "anchor-target-resolved" || !strings.Contains(got.Body, "anchor-target-resolved") {
+			t.Fatalf("anchor commit revalidation = %#v, %v", got, err)
+		}
+	})
+
+	t.Run("mint chain anchor must resolve the live linked branches", func(t *testing.T) {
+		for _, tc := range []struct {
+			name      string
+			selects   string
+			wantState string
+			wantClass string
+		}{
+			{name: "selected root owns linked branch", selects: "legacy-a", wantState: record.Accepted},
+			{name: "unselected root owns linked branch", selects: "legacy-b", wantState: record.Rejected, wantClass: "selects:unknown-target"},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				st, err := store.Open(t.TempDir())
+				if err != nil {
+					t.Fatalf("Open: %v", err)
+				}
+				for _, rec := range []record.Record{
+					{Envelope: record.Envelope{RelayID: "legacy-a", From: "operator", Role: "operator", DeliveryState: record.Accepted, SchemaVersion: 1}, Headers: map[string]string{"record_kind": "seat_mint"}, Body: `{"seat":"branch-seat","role":"implementer","is_operator":false}`},
+					{Envelope: record.Envelope{RelayID: "legacy-b", From: "operator", Role: "operator", DeliveryState: record.Accepted, SchemaVersion: 1}, Headers: map[string]string{"record_kind": "seat_mint"}, Body: `{"seat":"branch-seat","role":"implementer","is_operator":false}`},
+					{Envelope: record.Envelope{RelayID: "linked-child", From: "operator", Role: "operator", DeliveryState: record.Accepted, SchemaVersion: 1}, Headers: map[string]string{"record_kind": "seat_mint", "mint_predecessor": "legacy-a"}, Body: `{"seat":"branch-seat","role":"implementer","is_operator":false}`},
+				} {
+					commitValidationRecord(t, st, rec)
+				}
+				candidate := MintChainAnchorRecord("branch-seat", tc.selects)
+				candidate.Envelope.From = "operator"
+				candidate.Envelope.Role = "operator"
+				tab, err := tables.Build(st)
+				if err != nil {
+					t.Fatalf("tables.Build: %v", err)
+				}
+				admissionCandidate := candidate
+				admissionCandidate.Envelope.DeliveryState = ""
+				admission := validateRecordKind(tab, admissionCandidate, seat.SeatMeta{Name: "operator", Role: "operator", IsOperator: true})
+				got, _, err := revalidateAtCommit(st, candidate, nil)
+				if err != nil || got.Envelope.DeliveryState != tc.wantState {
+					t.Fatalf("commit state=%s body=%q admission=%+v err=%v, want %s", got.Envelope.DeliveryState, got.Body, admission, err, tc.wantState)
+				}
+				if tc.wantClass == "" {
+					if admission != nil {
+						t.Fatalf("admission violation=%+v, want nil", admission)
+					}
+				} else if admission == nil || !strings.Contains(got.Body, tc.wantClass) {
+					t.Fatalf("admission=%+v commit body=%q, want %s", admission, got.Body, tc.wantClass)
+				}
+			})
 		}
 	})
 }

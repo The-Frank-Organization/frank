@@ -63,6 +63,7 @@ func fixtureChildMode() bool {
 		"FRANK_F11_CHILD",
 		"FRANK_F11_TRACE_CHILD",
 		"FRANK_F9_CHILD",
+		"FRANK_H16_MINT_CRASH_CHILD",
 	} {
 		if os.Getenv(marker) == "1" {
 			return true
@@ -422,8 +423,8 @@ func TestFrankBinaryMintSeatAdminTimeCredential(t *testing.T) {
 	if err == nil {
 		t.Fatalf("live -mint unexpectedly succeeded with stdout=%s", stdout)
 	}
-	if len(stdout) != 0 || !bytes.Contains(stderr, []byte("conductor is serving")) {
-		t.Fatalf("live -mint stdout=%q stderr=%q, want admin-time serving error only on stderr", stdout, stderr)
+	if len(stdout) != 0 || !bytes.Contains(stderr, []byte("root-lock-held")) || bytes.Contains(stderr, []byte("conductor is serving")) {
+		t.Fatalf("live -mint stdout=%q stderr=%q, want root-lock-held before socket diagnostic", stdout, stderr)
 	}
 	if after := mustReadFile(t, bindingPath); !bytes.Equal(after, beforeLiveMint) {
 		t.Fatalf("binding table changed after live mint rejection\nbefore=%s\nafter=%s", beforeLiveMint, after)

@@ -1,0 +1,50 @@
+# T10 scheduler battery
+
+## RED
+
+```text
+$ go test ./internal/appctl/scheduler
+internal/appctl/scheduler/scheduler_test.go:25: undefined: AdmitRequest
+internal/appctl/scheduler/scheduler_test.go:31: undefined: AdmissionCommitted
+internal/appctl/scheduler/scheduler_test.go:45: undefined: AdmissionTaskOverflow
+internal/appctl/scheduler/scheduler_test.go:52: undefined: AdmissionResumeTerminal
+internal/appctl/scheduler/scheduler_test.go:68: undefined: AttemptRequest
+internal/appctl/scheduler/scheduler_test.go:72: undefined: CancellationRequest
+internal/appctl/scheduler/scheduler_test.go:94: undefined: Scheduler
+FAIL github.com/jackli/frank/internal/appctl/scheduler [build failed]
+```
+
+## GREEN — focused, race, vet, and reduced-limit matrices
+
+```text
+$ go test -race ./internal/appctl/scheduler ./internal/appctl/applier ./internal/appctl/store -count=1
+ok github.com/jackli/frank/internal/appctl/scheduler 1.510s
+ok github.com/jackli/frank/internal/appctl/applier   1.771s
+ok github.com/jackli/frank/internal/appctl/store     2.012s
+
+$ go vet ./internal/appctl/scheduler
+
+$ go test -tags frank_test_reduced_limits ./internal/appipc/... ./internal/appctl/... -count=1
+ok github.com/jackli/frank/internal/appctl/scheduler 1.195s
+```
+
+The admission event ANDs connector-ready, current epoch, leased generation,
+attach-ok, no-active-turn, and non-terminal-run gates. Its one transaction
+writes the turn, turn lease, wake disposition, and immutable parked disclosure
+snapshot; only its post-commit emission carries `turn_open`. Initial overflow is
+rowless; continuation overflow is the durable terminal triple. Attempt-open
+rejections are rowless and ordered stale/turn/lease; success writes before its
+ack and derives the disclosure live. Wake and cancellation identities are
+lifetime-idempotent, and terminal reports distinguish record, duplicate,
+conflict, stale, and unknown without rewriting terminal truth.
+
+## GREEN — mandatory commit gate
+
+```text
+$ go build ./... && go test ./... && go vet ./...
+ok github.com/jackli/frank/internal/appctl/scheduler 0.473s
+ok github.com/jackli/frank/internal/executor          14.087s
+ok github.com/jackli/frank/test/fixtures              204.254s
+ok github.com/jackli/frank/test/invariants              1.878s
+exit 0
+```

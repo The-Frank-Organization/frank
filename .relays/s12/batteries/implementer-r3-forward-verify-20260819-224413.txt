@@ -1,0 +1,39 @@
+CAPTURE_KIND=R3_FORWARD_VERIFY
+SOURCE_BRANCH=s12-h16-fix
+SOURCE_HEAD=ba3f76082ad1fea18b667f5fae0d250c119ad339
+IMPLEMENTATION_COMMIT=ba3f76082ad1fea18b667f5fae0d250c119ad339 test: require executable nested guard shape
+IMPLEMENTATION_DIFF=one landed file, frank/test/fixtures/s12_nested_scope_test.go, 93 insertions, 18 deletions
+
+R3_F1_RED_COMMAND=GOWORK=off go test ./test/fixtures -run '^TestS12OuterRunOnlyRegistryBindingRejectsNestedIneffectiveCall$' -count=1
+R3_F1_RED_RESULT=FAIL as required against the unchanged recursive inspector: synthetic TestSyntheticOuterOnly placed its only s12SkipOuterRunOnly(t) call inside an uninvoked function literal, the inspector accepted it, and the test emitted "nested ineffective s12SkipOuterRunOnly(t) call was accepted"
+R3_F1_RED_EXIT=1
+R3_F1_GREEN_MECHANISM=the inspector now accepts only the exact directly executed top-level if s12SkipOuterRunOnly(t) return guard; the startup fixture alone may carry its exact FRANK_H16_MINT_CRASH_CHILD prefix as statement zero and must carry the guard as statement one
+R3_F1_NEGATIVE_PROOF=the same inspector rejects the uninvoked-function-literal occurrence with "TestSyntheticOuterOnly: missing executable s12SkipOuterRunOnly(t) guard in synthetic_test.go"; the existing total-omission negative remains and expects the same guard-shape error class
+
+FOCUSED_STARTED_AT=2026-08-19T22:40:47-0700
+FOCUSED_COMMAND=GOWORK=off go test ./test/fixtures -run '^(TestS12OuterRunOnlyRegistryBindsNamedTestBodies|TestS12OuterRunOnlyRegistryBindingRejectsMissingCall|TestS12OuterRunOnlyRegistryBindingRejectsNestedIneffectiveCall|TestS12DogfoodNestedOuterOnlyContract|TestS8AdversarialExecutorIsolationAndVerdictIPHIntegrated|TestH16StartupFoldsRealizedMintEvidenceBeforeServing|TestH16DirtyClassGBlocksBlindClassDUntilSuccessfulPass)$' -count=1 -v
+FOCUSED_RESULT=all seven top-level tests green; fixture package 1.248s; startup F1 regression 0.58s; Class-G F2 regression 0.07s; isolation probe 0.14s; three AST binding tests and nested contract 0.00s
+FOCUSED_EXIT=0
+INVARIANT_COMMAND=GOWORK=off go test ./test/invariants -run '^TestLaw' -count=1
+INVARIANT_RESULT=green 1.417s
+INVARIANT_EXIT=0
+FOCUSED_FINISHED_AT=2026-08-19T22:40:50-0700
+
+FULL_STARTED_AT=2026-08-19T22:40:56-0700
+FULL_COMMAND=GOWORK=off go test ./... -count=1
+FULL_CONTENTION_PREFLIGHT=none; no go test, fixtures.test, dogfood-suite, or yes competitor process
+FULL_RESULT=all packages green; fixtures 181.958s; invariants 6.349s; replay 2.002s; replay/dogfood 2.050s; replay/zeroloss 3.463s
+FULL_REAL_SECONDS=183.91
+FULL_USER_SECONDS=51.27
+FULL_SYS_SECONDS=33.13
+FULL_EXIT=0
+FULL_FINISHED_AT=2026-08-19T22:44:00-0700
+
+EXACT_FENCE=663e30d99d61d89ec1958ba432389727bcf7c15f..ba3f76082ad1fea18b667f5fae0d250c119ad339
+FENCE_COUNTS=21 commits; 46 files; 6611 insertions; 136 deletions
+FENCE_DIFF_BINARY_SHA256=2897bc63d5ce8dd72fd38f0931d450daef64eeae7bb21f552b9a59f1aeae06f7
+FENCE_ORDERED_REV_LIST_SHA256=4107845d7c473b6fb6a934ab7b16d826de24325dea1b355d56d1478bc009c671
+IMPLEMENTATION_WORKTREE_STATUS=clean
+F1_F2_CLOSED_AT=8ca99650019f2ddd12d47237e1abb32fbd5895e8; unchanged by this test-only correction
+R2_F1_DISPOSITION=untouched; the open-inferred record remains governed by the filed master successor correction
+MERGE_GATE=held; no push, PR, merge, deploy, or release action

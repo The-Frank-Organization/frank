@@ -32,7 +32,7 @@ func (r *Registry) Validate(cand record.Record, seat SeatMeta, formDigest string
 	for i := range r.Fields {
 		spec := &r.Fields[i]
 		raw, present := valueForSpec(cand, spec)
-		if present && raw != "" && r.systemOwnedHeader(spec) {
+		if present && r.systemOwnedHeader(spec) {
 			violations = append(violations, Violation{Field: spec.ID, Class: "system-owned", Reason: spec.ID + " is system-owned"})
 			continue
 		}

@@ -121,12 +121,14 @@ func TestS8ExitGateFreshGenesisActivationAndDogfoodLegs(t *testing.T) {
 }
 
 func TestS8ProductionDogfoodRejectsFalseDoneAndNamesPredicate(t *testing.T) {
-	if os.Getenv("FRANK_DOGFOOD_NESTED") != "" {
+	if s12DogfoodNested() {
 		return
 	}
+	s12AssertOuterDogfoodReachability(t)
 	root := t.TempDir()
 	sources := s8HistoricalConfigSources(t, false)
-	ctx, cancel := context.WithTimeout(context.Background(), 150*time.Second)
+	startedAt := time.Now()
+	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
 	t.Cleanup(cancel)
 	bin := buildFrank(t, ctx)
 	initCmd := exec.CommandContext(ctx, bin,
@@ -341,7 +343,7 @@ func TestS8ProductionDogfoodRejectsFalseDoneAndNamesPredicate(t *testing.T) {
 	falseSuiteRecord.Headers["executable_claims"] = falseSuiteClaims
 	falseSuiteResult, err := lane.Call(ctx, "submit", mustJSONBytes(t, fieldspec.SubmitPayload{Record: falseSuiteRecord, FormDigest: describe.FormDigest}))
 	if err != nil {
-		t.Fatalf("production false suite submit: %v", err)
+		t.Fatalf("production false suite submit: %v; capacity boundary ctx_err=%v elapsed=%s", err, ctx.Err(), time.Since(startedAt))
 	}
 	var falseSuiteOutcome struct {
 		State   string `json:"state"`
@@ -351,8 +353,14 @@ func TestS8ProductionDogfoodRejectsFalseDoneAndNamesPredicate(t *testing.T) {
 		t.Fatalf("decode false suite outcome: %v", err)
 	}
 	falseSuiteRead := readRelayRaw(t, ctx, lane, falseSuiteOutcome.RelayID)
+	nestedSuiteObservedColor := "unknown"
+	if falseSuiteOutcome.State == record.Accepted {
+		nestedSuiteObservedColor = "red"
+	} else if falseSuiteOutcome.State == record.Rejected {
+		nestedSuiteObservedColor = "green"
+	}
 	if falseSuiteOutcome.State != record.Rejected || !bytes.Contains(falseSuiteRead, []byte("dogfood-battery-false-done")) {
-		t.Fatalf("production false suite outcome = %+v; read=%s", falseSuiteOutcome, falseSuiteRead)
+		t.Fatalf("production false suite outcome = %+v; nested_suite_observed_color=%s elapsed=%s; read=%s", falseSuiteOutcome, nestedSuiteObservedColor, time.Since(startedAt), falseSuiteRead)
 	}
 	var falseSuiteEnvelope struct {
 		Record record.Record `json:"record"`

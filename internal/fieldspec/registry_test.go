@@ -15,14 +15,15 @@ import (
 func TestRegistryV2MemberParsesAndExposesLockedEnums(t *testing.T) {
 	reg := loadRegistry(t)
 
-	if reg.Version != "s10-fieldspec-v8" {
-		t.Fatalf("Version = %q, want s10-fieldspec-v8", reg.Version)
+	if reg.Version != "s12-fieldspec-v9" {
+		t.Fatalf("Version = %q, want s12-fieldspec-v9", reg.Version)
 	}
 	wantProvenance := map[string]string{
 		"owner":         "m-2",
-		"design_doc_id": "F-S7-R2-COLGRAIN",
-		"plan_lock_id":  "s7a-plan-m2",
-		"note":          "s7a m-2 pair build under the operator B10 second-application ruling; restores c1 section 5 column-grain fidelity",
+		"design_doc_id": "h16-outcome-split-design",
+		"plan_lock_id":  "s12-h16-fix-plan",
+		"supersedes":    "s10-fieldspec-v8",
+		"note":          "s12 H-16-REG realization under the operator-opened step3-h16-h26-lane; three system-stamped header rows + the ruled record_kind tokens",
 	}
 	if !reflect.DeepEqual(reg.Provenance, wantProvenance) {
 		t.Fatalf("Provenance = %#v, want %#v", reg.Provenance, wantProvenance)
@@ -30,8 +31,8 @@ func TestRegistryV2MemberParsesAndExposesLockedEnums(t *testing.T) {
 	if len(reg.NamedEnums) != 25 {
 		t.Fatalf("named enum count = %d, want 25", len(reg.NamedEnums))
 	}
-	if len(reg.Fields) != 92 {
-		t.Fatalf("row count = %d, want 92", len(reg.Fields))
+	if len(reg.Fields) != 95 {
+		t.Fatalf("row count = %d, want 95", len(reg.Fields))
 	}
 
 	assertTokens(t, reg.NamedEnums["PHASE"], []string{
@@ -132,7 +133,7 @@ func TestRegistryS5MemberContainsRegistryPassRows(t *testing.T) {
 
 	recordKind := requireField(t, reg, "record_kind")
 	assertTokens(t, recordKind.SeatScope["*"], []string{"diagnostics"})
-	assertTokens(t, recordKind.SeatScope["operator"], []string{"owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint"})
+	assertTokens(t, recordKind.SeatScope["operator"], []string{"owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint", "mint-chain-anchor", "attempt_resolution"})
 }
 
 func TestRegistryS6TransportBootAndWaiverRows(t *testing.T) {

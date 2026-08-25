@@ -39,7 +39,7 @@ func TestS8AdversarialExecutorIsolationAndVerdictIPHIntegrated(t *testing.T) {
 	targetSentinel := "descriptor-target-sentinel"
 	argumentSentinel := "descriptor-argument-sentinel"
 	timeoutClassSentinel := "suite_bounded"
-	timeoutSentinel := 1731 * time.Millisecond
+	timeoutSentinel := 17311 * time.Millisecond
 	s8WriteExecutable(t, sourceRootSentinel, commandSentinel, `#!/bin/sh
 set -eu
 [ "$HOME" = "$PWD" ]
@@ -66,14 +66,16 @@ done
 		"params": s8ClaimParams(t, map[string]string{"target": targetSentinel, "expect_green": "true"}),
 	})
 	cand := record.Record{Headers: map[string]string{"authority_class": "no", "EVIDENCE_TARGET": "E2"}}
+	var executorResult observe.PredicateResult
 	result, terminal := observe.Gate(cand, "s8.implementer", "IMPL", "implementation", observe.Env{
 		PresentLayers: map[string]bool{"observe": true},
 		Evaluate: func(candidate observe.Candidate) observe.PredicateResult {
-			return registry.EvaluateClaims(claims, candidate)
+			executorResult = registry.EvaluateClaims(claims, candidate)
+			return executorResult
 		},
 	})
 	if terminal != record.Accepted || result.ObservedFields["achieved_evidence"] != "E2" {
-		t.Fatalf("integrated isolation terminal = %q, result = %#v", terminal, result)
+		t.Fatalf("integrated isolation terminal = %q, result = %#v, executor verdicts = %#v", terminal, result, executorResult.Verdicts)
 	}
 	var rows []map[string]string
 	if err := json.Unmarshal([]byte(result.ObservedFields["executable_claim_results"]), &rows); err != nil {

@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -12,6 +11,9 @@ import (
 	"sync"
 
 	"github.com/jackli/frank/internal/channel"
+	"github.com/jackli/frank/internal/fieldspec"
+	"github.com/jackli/frank/internal/seatclient/conduct"
+	"github.com/jackli/frank/internal/seatclient/formschema"
 )
 
 const (
@@ -31,10 +33,18 @@ type Options struct {
 type MCPServer struct {
 	opts         Options
 	client       *channel.Client
+	newFacade    func(*channel.Client) conductorFacade
 	submitSchema map[string]any
+	submitForm   *fieldspec.Form
+	formDigest   string
 	schemaPhase  string
 	schemaTier   string
 	mu           sync.Mutex
+}
+
+type conductorFacade interface {
+	Relay(context.Context, string, json.RawMessage) (json.RawMessage, error)
+	Describe(context.Context, channel.DescribeRequest) (channel.DescriptionResponse, error)
 }
 
 func NewMCPServer(opts Options) *MCPServer {
@@ -50,7 +60,16 @@ func NewMCPServer(opts Options) *MCPServer {
 	if opts.Stderr == nil {
 		opts.Stderr = io.Discard
 	}
-	return &MCPServer{opts: opts}
+	return &MCPServer{
+		opts: opts,
+		newFacade: func(authenticated *channel.Client) conductorFacade {
+			client, err := conduct.FromAuthenticated(authenticated)
+			if err != nil {
+				panic(err)
+			}
+			return client
+		},
+	}
 }
 
 func (s *MCPServer) Serve() error {
@@ -142,35 +161,66 @@ func (s *MCPServer) handleToolCall(params json.RawMessage) (mcpToolResult, bool)
 		args = nil
 	}
 	var submitArgs submitArguments
+	listChanged := false
 	if call.Name == "submit" {
-		if len(args) > 0 {
-			if err := json.Unmarshal(args, &submitArgs); err != nil {
-				return errorToolResult(errProtocol), false
-			}
-		}
-		payload, err := SubmitPayloadFromArguments(args)
+		parsed, err := formschema.ParseSubmitArguments(args)
 		if err != nil {
-			return errorToolResult(errProtocol), false
+			return errorToolResult(errSchemaInvalid), false
+		}
+		submitArgs = parsed
+		if containsH16SystemOwnedHeader(submitArgs.Headers) {
+			return errorToolResult(errSchemaInvalid), false
+		}
+		client, refreshed, class := s.validateSubmitWithFreshness(submitArgs, args)
+		listChanged = refreshed
+		if class != "" {
+			return errorToolResult(class), listChanged
+		}
+		payload, err := formschema.SubmitPayloadFromArguments(args)
+		if err != nil {
+			return errorToolResult(errSchemaInvalid), listChanged
 		}
 		args = payload
+		if client != nil {
+			result, client, class := s.callWithReconnect(client, call.Name, args)
+			return s.finishSubmitCall(result, client, class, submitArgs, listChanged)
+		}
+	} else {
+		var dispositions []formschema.Disposition
+		if call.Name == "project" {
+			dispositions = formschema.ValidateProjectArguments(args)
+		} else {
+			dispositions = formschema.ValidateReadArguments(args)
+		}
+		if len(dispositions) > 0 {
+			return errorToolResult(errSchemaInvalid), false
+		}
 	}
 	client, class := s.ensureClient()
 	if class != "" {
-		return errorToolResult(class), false
+		return errorToolResult(class), listChanged
 	}
 	result, client, class := s.callWithReconnect(client, call.Name, args)
+	if call.Name == "submit" {
+		return s.finishSubmitCall(result, client, class, submitArgs, listChanged)
+	}
 	if class != "" {
-		return errorToolResult(class), false
+		return errorToolResult(class), listChanged
 	}
-	if call.Name == "submit" && submitNeedsReRender(result) {
-		phase, tier := declaredPhaseTier(submitArgs)
-		return textToolResult(string(reRenderResult(result)), false), s.refreshSubmitSchema(client, phase, tier)
+	return textToolResult(string(result), false), listChanged
+}
+
+func containsH16SystemOwnedHeader(headers map[string]string) bool {
+	for _, field := range []string{"hook_contract", "mint_predecessor", "admin_provenance"} {
+		if _, present := headers[field]; present {
+			return true
+		}
 	}
-	return textToolResult(string(result), false), false
+	return false
 }
 
 func (s *MCPServer) callWithReconnect(client *channel.Client, name string, args json.RawMessage) (json.RawMessage, *channel.Client, string) {
-	result, err := client.Call(s.opts.Context, name, args)
+	result, err := s.newFacade(client).Relay(s.opts.Context, "relay."+name, args)
 	if err == nil {
 		return result, client, ""
 	}
@@ -181,7 +231,7 @@ func (s *MCPServer) callWithReconnect(client *channel.Client, name string, args 
 	}
 	// Submit retry is safe because the conductor intake layer replays by content hash
 	// instead of executing duplicate accepted commands.
-	result, err = reconnected.Call(s.opts.Context, name, args)
+	result, err = s.newFacade(reconnected).Relay(s.opts.Context, "relay."+name, args)
 	if err != nil {
 		s.closeClient()
 		return nil, nil, scrubError(err)
@@ -193,7 +243,7 @@ func (s *MCPServer) toolsListResult() map[string]any {
 	submitSchema := s.cachedSubmitSchema()
 	if submitSchema == nil {
 		if client, class := s.ensureClient(); class == "" {
-			_ = s.refreshSubmitSchema(client, "SITREP", "medium")
+			_, _ = s.refreshSubmitSchema(client, "SITREP", "medium")
 			submitSchema = s.cachedSubmitSchema()
 		}
 	}
@@ -206,73 +256,105 @@ func (s *MCPServer) cachedSubmitSchema() map[string]any {
 	return s.submitSchema
 }
 
-func (s *MCPServer) refreshSubmitSchema(client *channel.Client, phase, tier string) bool {
+func (s *MCPServer) cachedSubmitFormFor(args submitArguments) (fieldspec.Form, string, bool) {
+	phase, tier := formschema.DeclaredPhaseTier(args)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.submitForm == nil {
+		return fieldspec.Form{}, "", false
+	}
+	if s.schemaPhase != "" && s.schemaPhase != phase {
+		return fieldspec.Form{}, "", false
+	}
+	if s.schemaTier != "" && s.schemaTier != tier {
+		return fieldspec.Form{}, "", false
+	}
+	return *s.submitForm, s.formDigest, true
+}
+
+func (s *MCPServer) refreshSubmitSchema(client *channel.Client, phase, tier string) (bool, string) {
 	if phase == "" {
 		phase = "SITREP"
 	}
 	if tier == "" {
 		tier = "medium"
 	}
-	describe, err := client.DescribeTools(s.opts.Context, channel.DescribeRequest{Phase: phase, Tier: tier})
-	if err != nil || describe.SubmitSchema == nil {
-		return false
+	describe, err := s.newFacade(client).Describe(s.opts.Context, channel.DescribeRequest{Phase: phase, Tier: tier})
+	if err != nil {
+		return false, errProtocol
+	}
+	if describe.SubmitSchema == nil {
+		return false, errProtocol
 	}
 	s.mu.Lock()
 	s.submitSchema = SchemaFromForm(*describe.SubmitSchema, describe.FormDigest)
+	form := *describe.SubmitSchema
+	s.submitForm = &form
+	s.formDigest = describe.FormDigest
 	s.schemaPhase = phase
 	s.schemaTier = tier
 	s.mu.Unlock()
-	return true
+	return true, ""
 }
 
-func declaredPhaseTier(args submitArguments) (string, string) {
-	phase := args.Headers["PHASE"]
-	if phase == "" {
-		phase = "SITREP"
+func (s *MCPServer) validateSubmitWithFreshness(args submitArguments, encoded json.RawMessage) (*channel.Client, bool, string) {
+	form, digest, cached := s.cachedSubmitFormFor(args)
+	if cached && len(formschema.ValidateSubmitArguments(form, digest, encoded)) == 0 {
+		return nil, false, ""
 	}
-	tier := args.Headers["CEREMONY_TIER"]
-	if tier == "" {
-		tier = "medium"
+	client, class := s.ensureClient()
+	if class != "" {
+		return nil, false, class
 	}
-	return phase, tier
+	phase, tier := formschema.DeclaredPhaseTier(args)
+	refreshed, class := s.refreshSubmitSchema(client, phase, tier)
+	if class != "" {
+		return client, false, class
+	}
+	form, digest, cached = s.cachedSubmitFormFor(args)
+	if !cached || len(formschema.ValidateSubmitArguments(form, digest, encoded)) > 0 {
+		return client, refreshed, errSchemaInvalid
+	}
+	return client, refreshed, ""
 }
 
+func (s *MCPServer) finishSubmitCall(result json.RawMessage, client *channel.Client, class string, args submitArguments, listChanged bool) (mcpToolResult, bool) {
+	if class != "" {
+		return errorToolResult(class), listChanged
+	}
+	if !submitRejected(result) {
+		return textToolResult(string(result), false), listChanged
+	}
+	phase, tier := formschema.DeclaredPhaseTier(args)
+	refreshed, _ := s.refreshSubmitSchema(client, phase, tier)
+	listChanged = listChanged || refreshed
+	if submitNeedsReRender(result) {
+		result = formschema.ReRenderResult(result)
+	}
+	return textToolResult(string(result), false), listChanged
+}
+
+func submitRejected(result json.RawMessage) bool {
+	var outcome struct {
+		State string `json:"state"`
+	}
+	return json.Unmarshal(result, &outcome) == nil && outcome.State == "rejected"
+}
+
+// Compatibility consumer retained for the executable H16 state-only census;
+// the shared module remains the semantic owner of detail matching.
 func submitNeedsReRender(result json.RawMessage) bool {
 	var outcome struct {
-		State  string `json:"state"`
-		Detail string `json:"detail"`
+		State string `json:"state"`
 	}
 	if err := json.Unmarshal(result, &outcome); err != nil || outcome.State != "rejected" {
 		return false
 	}
-	return containsReRender([]byte(outcome.Detail))
+	return containsReRender(result)
 }
 
 func containsReRender(data []byte) bool {
-	return bytes.Contains(data, []byte("form_digest")) && bytes.Contains(data, []byte("re-render"))
-}
-
-func reRenderResult(original json.RawMessage) json.RawMessage {
-	var outcome struct {
-		RelayID  string `json:"relay_id,omitempty"`
-		IntakeID string `json:"intake_id,omitempty"`
-	}
-	_ = json.Unmarshal(original, &outcome)
-	payload := map[string]any{
-		"state": "rejected",
-		"violations": []map[string]string{{
-			"field": "form_digest",
-			"class": "re-render",
-			"hint":  "form refreshed - re-read the submit tool schema and re-submit",
-		}},
-	}
-	if outcome.RelayID != "" {
-		payload["relay_id"] = outcome.RelayID
-	}
-	if outcome.IntakeID != "" {
-		payload["intake_id"] = outcome.IntakeID
-	}
-	return mustJSON(payload)
+	return formschema.SubmitNeedsReRender(data)
 }
 
 func (s *MCPServer) ensureClient() (*channel.Client, string) {
@@ -339,25 +421,12 @@ func mcpTools(submitSchema map[string]any) []mcpTool {
 		{
 			Name:        "project",
 			Description: "Lists visible governance relay IDs (" + honesty + ").",
-			InputSchema: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"view": map[string]any{"type": "string", "enum": []string{"default", "audit", "roster"}},
-				},
-				"additionalProperties": false,
-			},
+			InputSchema: formschema.ProjectSchema(),
 		},
 		{
 			Name:        "read",
 			Description: "Reads a committed governance relay by relay_id (" + honesty + ").",
-			InputSchema: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"relay_id": map[string]any{"type": "string"},
-				},
-				"required":             []string{"relay_id"},
-				"additionalProperties": false,
-			},
+			InputSchema: formschema.ReadSchema(),
 		},
 	}
 }

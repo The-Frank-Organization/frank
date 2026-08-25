@@ -1,0 +1,40 @@
+STARTED_AT=2026-08-19T22:52:21-0700
+SEAT=s12.planner (independent verification of the R3 tip)
+SOURCE_BRANCH=s12-h16-fix
+SOURCE_HEAD=ba3f76082ad1fea18b667f5fae0d250c119ad339
+COMMAND=GOWORK=off go test ./... -count=1
+CONTENTION=QUIET WINDOW: only this planner shell, serial; pgrep 'go test' preflight: none
+?   	github.com/jackli/frank/cmd/frank	[no test files]
+ok  	github.com/jackli/frank/cmd/frank-mcp	0.570s
+ok  	github.com/jackli/frank/internal/bounce	0.235s
+ok  	github.com/jackli/frank/internal/channel	1.017s
+ok  	github.com/jackli/frank/internal/config	1.109s
+ok  	github.com/jackli/frank/internal/crashpoint	0.889s
+?   	github.com/jackli/frank/internal/derived	[no test files]
+ok  	github.com/jackli/frank/internal/egress	1.272s
+ok  	github.com/jackli/frank/internal/engine	6.981s
+?   	github.com/jackli/frank/internal/executor	[no test files]
+ok  	github.com/jackli/frank/internal/fieldspec	1.702s
+ok  	github.com/jackli/frank/internal/fsio	1.883s
+ok  	github.com/jackli/frank/internal/gate	3.405s
+ok  	github.com/jackli/frank/internal/gc	3.231s
+ok  	github.com/jackli/frank/internal/intake	7.683s
+ok  	github.com/jackli/frank/internal/lineage	2.825s
+ok  	github.com/jackli/frank/internal/migrate	3.059s
+ok  	github.com/jackli/frank/internal/obligation	4.538s
+ok  	github.com/jackli/frank/internal/observe	6.410s
+ok  	github.com/jackli/frank/internal/record	3.032s
+ok  	github.com/jackli/frank/internal/recover	6.553s
+ok  	github.com/jackli/frank/internal/seat	3.170s
+ok  	github.com/jackli/frank/internal/store	6.537s
+ok  	github.com/jackli/frank/internal/tables	3.448s
+ok  	github.com/jackli/frank/test/fixtures	167.553s
+ok  	github.com/jackli/frank/test/invariants	6.578s
+ok  	github.com/jackli/frank/test/replay	2.124s
+ok  	github.com/jackli/frank/test/replay/dogfood	2.106s
+ok  	github.com/jackli/frank/test/replay/zeroloss	3.619s
+?   	github.com/jackli/frank/test/seatproc	[no test files]
+real 169.54
+user 51.30
+sys 31.99
+EXIT_STATUS=0

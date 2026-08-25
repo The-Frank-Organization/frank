@@ -17,6 +17,7 @@ import (
 	"github.com/jackli/frank/internal/bounce"
 	"github.com/jackli/frank/internal/channel"
 	frankconfig "github.com/jackli/frank/internal/config"
+	"github.com/jackli/frank/internal/derived"
 	"github.com/jackli/frank/internal/engine"
 	"github.com/jackli/frank/internal/executor"
 	"github.com/jackli/frank/internal/fieldspec"
@@ -48,6 +49,10 @@ type config struct {
 	MintOperator   bool
 	OperatorSubmit string
 	Credential     string
+	RecoverSeat    string
+	RecoverSelect  string
+	RetryReason    string
+	RecoverHasAuth bool
 }
 
 func main() {
@@ -68,7 +73,16 @@ func main() {
 	mintOperator := flag.Bool("operator", false, "mint an operator credential")
 	operatorSubmit := flag.String("operator-submit", "", "submit a payload JSON file through an authenticated socket")
 	credential := flag.String("credential", "", "credential for operator-submit")
+	recoverSeat := flag.String("recover-seat", "", "offline recover an effectively quarantined seat")
+	recoverSelect := flag.String("select", "", "legacy mint pivot selected by offline recovery")
+	retryReason := flag.String("retry-reason", "", "operator context for an ambiguous ceremony delivery retry")
 	flag.Parse()
+	recoverHasAuth := false
+	flag.CommandLine.Visit(func(selected *flag.Flag) {
+		if selected.Name == "role" || selected.Name == "operator" {
+			recoverHasAuth = true
+		}
+	})
 	if blessCommand {
 		*blessStore = true
 	}
@@ -78,7 +92,7 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	cfg := config{Root: *root, Socket: *socket, Registry: *registry, EngineConfig: *engineConfig, Catalog: *catalog, Init: *initStore, Bless: *blessStore, MintSeat: *mintSeat, MintRole: *mintRole, MintOperator: *mintOperator, OperatorSubmit: *operatorSubmit, Credential: *credential}
+	cfg := config{Root: *root, Socket: *socket, Registry: *registry, EngineConfig: *engineConfig, Catalog: *catalog, Init: *initStore, Bless: *blessStore, MintSeat: *mintSeat, MintRole: *mintRole, MintOperator: *mintOperator, OperatorSubmit: *operatorSubmit, Credential: *credential, RecoverSeat: *recoverSeat, RecoverSelect: *recoverSelect, RetryReason: *retryReason, RecoverHasAuth: recoverHasAuth}
 	if err := run(ctx, cfg); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -86,7 +100,15 @@ func main() {
 }
 
 func run(ctx context.Context, cfg config) error {
+	if cfg.RecoverSeat != "" {
+		return runRecoveryCeremony(ctx, cfg)
+	}
 	if cfg.Init {
+		rootLock, err := store.AcquireRoot(cfg.Root)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = rootLock.Release() }()
 		if cfg.EngineConfig == "" {
 			return errors.New("engine-config required for init")
 		}
@@ -242,6 +264,7 @@ func run(ctx context.Context, cfg config) error {
 		if rec.Envelope.IntakeID == "" {
 			rec.Envelope.IntakeID = cmd.IntakeID
 		}
+		derived.Stamp(&rec)
 		relayID, err := st.Commit(rec, intents)
 		if err != nil {
 			return err
@@ -253,11 +276,16 @@ func run(ctx context.Context, cfg config) error {
 		if err := completeTurn(st); err != nil {
 			return err
 		}
-		_, err = completeSeatMint(rec, false)
-		return err
+		return completeCallerlessSeatMint(st, rec, func(rec record.Record) error {
+			_, err := completeSeatMint(rec, false)
+			return err
+		})
 	}
 	result, err := frankrecover.RunWithProcessor(cfg.Root, pinned, process)
 	if err != nil {
+		return err
+	}
+	if err := runMintUpgradeAnchors(st); err != nil {
 		return err
 	}
 	postRecoveryTables, err := publishStoreTables()
@@ -267,6 +295,11 @@ func run(ctx context.Context, cfg config) error {
 	if err := completeMissingSeatMintBindings(st, postRecoveryTables, mgr); err != nil {
 		return err
 	}
+	postRecoveryTables, err = publishStoreTables()
+	if err != nil {
+		return err
+	}
+	publishEffectiveQuarantine(mgr, postRecoveryTables)
 
 	if err := validateSocketPath(socket); err != nil {
 		return err
@@ -283,23 +316,30 @@ func run(ctx context.Context, cfg config) error {
 		loop.ServiceWhileBlocked = true
 		loop.Tables = postRecoveryTables
 		loop.CurrentAuthGeneration = currentAuthGeneration
-		loop.AfterCommit = func(st *store.Store) error {
-			if err := frankgc.Pass(st, loop.Tables, pinned.Engine); err != nil {
-				return err
-			}
-			tab, err := tables.Build(st)
-			if err != nil {
-				return err
-			}
-			loop.Tables = tab
+		loop.ClassGGC = func(st *store.Store, tab *tables.T) error {
+			return frankgc.Pass(st, tab, pinned.Engine)
+		}
+		loop.ClassGBuildTables = tables.Build
+		loop.ClassGPublishTables = func(tab *tables.T) {
 			liveTables.Publish(tab)
-			if resummonScheduler != nil {
-				return resummonScheduler.ArmParked(ctx, resummonCadence)
-			}
-			return nil
+			publishEffectiveQuarantine(mgr, tab)
+		}
+		loop.ClassGArmScheduler = func() error {
+			return resummonScheduler.ArmParked(ctx, resummonCadence)
 		}
 		loop.AfterAccepted = func(rec record.Record) (engine.OutcomeExtras, error) {
 			return completeSeatMint(rec, true)
+		}
+		loop.MintRealized = func(rec record.Record) bool {
+			if rec.Envelope.DeliveryState != record.Accepted || rec.Headers["record_kind"] != "seat_mint" {
+				return false
+			}
+			req, violation := engine.ParseSeatMintBody(rec.Body, rec.Envelope.From)
+			if violation != nil {
+				return false
+			}
+			realized, ok := mgr.RealizedMintRef(req.Seat)
+			return ok && realized == rec.Envelope.RelayID
 		}
 		writer, err = intake.NewWriter[engine.Outcome](journal, pinned.Engine, result.Ready)
 		if err != nil {
@@ -321,11 +361,13 @@ func run(ctx context.Context, cfg config) error {
 		}
 		approvalRouter.Bind(approvalPrompter)
 		loop.AfterApprovalResolution = approvalPrompter.Apply
-		go loop.Run(ctx)
-		go writer.Run(ctx, loop.In)
-		if err := resummonScheduler.ArmParked(ctx, resummonCadence); err != nil {
+		// This synchronous barrier includes the realized-mint evidence fold;
+		// no authenticated channel opens until its canonical fold is published.
+		if err := loop.DrainClassG(); err != nil {
 			return err
 		}
+		go loop.Run(ctx)
+		go writer.Run(ctx, loop.In)
 	}
 	server, err = channel.ServeAuthenticated(socket, mgr, func(meta seat.SeatMeta) channel.ToolSet {
 		meta.AuthGeneration = currentAuthGeneration(meta.Name)
@@ -575,6 +617,11 @@ func turnContextForSeat(st *store.Store, tab *tables.T, seatName string) fieldsp
 }
 
 func mintSeat(ctx context.Context, cfg config) error {
+	rootLock, err := store.AcquireRoot(cfg.Root)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = rootLock.Release() }()
 	if cfg.MintRole == "" {
 		return errors.New("role required for mint")
 	}
@@ -640,7 +687,18 @@ func completeMissingSeatMintBindings(st *store.Store, tab *tables.T, mgr *seat.M
 	}
 	sort.Strings(seats)
 	for _, seatName := range seats {
-		pivot := pivots[seatName]
+		freshTables, err := tables.Build(st)
+		if err != nil {
+			return err
+		}
+		freshPivots, err := latestSeatMintPivots(st, freshTables)
+		if err != nil {
+			return err
+		}
+		pivot, ok := freshPivots[seatName]
+		if !ok || mintCallerlessBlocked(freshTables, pivot.relayID) {
+			continue
+		}
 		if realized, ok := mgr.RealizedMintRef(seatName); ok && realized == pivot.relayID {
 			continue
 		}
@@ -652,26 +710,140 @@ func completeMissingSeatMintBindings(st *store.Store, tab *tables.T, mgr *seat.M
 }
 
 func latestSeatMintPivots(st *store.Store, tab *tables.T) (map[string]seatMintPivot, error) {
-	order, err := st.CommitOrder()
+	_ = st
+	chains, err := engine.BuildMintChains(tab.Records)
 	if err != nil {
 		return nil, err
 	}
 	pivots := map[string]seatMintPivot{}
-	for _, relayID := range order {
-		rec, ok := tab.ByRelay[relayID]
-		if !ok {
+	for seatName, chain := range chains {
+		if chain.Conflicted || chain.Tip.Envelope.RelayID == "" {
 			continue
 		}
-		if rec.Envelope.DeliveryState != record.Accepted || rec.Headers["record_kind"] != "seat_mint" {
+		req, violation := engine.ParseSeatMintBody(chain.Tip.Body, chain.Tip.Envelope.From)
+		if violation != nil {
+			return nil, fmt.Errorf("accepted seat_mint failed parse: %s:%s", violation.Field, violation.Class)
+		}
+		pivots[seatName] = seatMintPivot{relayID: chain.Tip.Envelope.RelayID, req: req}
+	}
+	return pivots, nil
+}
+
+func completeCallerlessSeatMint(st *store.Store, rec record.Record, complete func(record.Record) error) error {
+	if rec.Envelope.DeliveryState != record.Accepted || rec.Headers["record_kind"] != "seat_mint" {
+		return nil
+	}
+	tab, err := tables.Build(st)
+	if err != nil {
+		return err
+	}
+	req, violation := engine.ParseSeatMintBody(rec.Body, rec.Envelope.From)
+	if violation != nil {
+		return fmt.Errorf("accepted seat_mint failed parse: %s:%s", violation.Field, violation.Class)
+	}
+	pivots, err := latestSeatMintPivots(st, tab)
+	if err != nil {
+		return err
+	}
+	pivot, ok := pivots[req.Seat]
+	if !ok || pivot.relayID != rec.Envelope.RelayID || mintCallerlessBlocked(tab, rec.Envelope.RelayID) {
+		return nil
+	}
+	return complete(rec)
+}
+
+func mintCallerlessBlocked(tab *tables.T, relayID string) bool {
+	status, ok := tab.DerivedWork[relayID]
+	return ok && status.Status == "unknown"
+}
+
+func runMintUpgradeAnchors(st *store.Store) error {
+	records, err := st.Records()
+	if err != nil {
+		return err
+	}
+	legacy := map[string][]string{}
+	anchored := map[string]bool{}
+	for _, rec := range records {
+		if rec.Envelope.DeliveryState != record.Accepted {
+			continue
+		}
+		if rec.Headers["record_kind"] == "mint-chain-anchor" {
+			var body struct {
+				Seat string `json:"seat"`
+			}
+			if json.Unmarshal([]byte(rec.Body), &body) == nil && body.Seat != "" {
+				anchored[body.Seat] = true
+			}
+			continue
+		}
+		if rec.Headers["record_kind"] != "seat_mint" || rec.Headers["mint_predecessor"] != "" {
 			continue
 		}
 		req, violation := engine.ParseSeatMintBody(rec.Body, rec.Envelope.From)
 		if violation != nil {
-			return nil, fmt.Errorf("accepted seat_mint failed parse: %s:%s", violation.Field, violation.Class)
+			return fmt.Errorf("accepted seat_mint failed parse: %s:%s", violation.Field, violation.Class)
 		}
-		pivots[req.Seat] = seatMintPivot{relayID: rec.Envelope.RelayID, req: req}
+		legacy[req.Seat] = append(legacy[req.Seat], rec.Envelope.RelayID)
 	}
-	return pivots, nil
+	snapshot := st.RawRedo()
+	var seats []string
+	for seatName, pivots := range legacy {
+		if len(pivots) > 1 && !anchored[seatName] {
+			seats = append(seats, seatName)
+		}
+	}
+	sort.Strings(seats)
+	for _, seatName := range seats {
+		if !snapshot.Complete {
+			continue
+		}
+		members := map[string]bool{}
+		counts := map[string]int{}
+		for _, relayID := range legacy[seatName] {
+			members[relayID] = true
+		}
+		selected := ""
+		for _, relayID := range snapshot.RelayIDs {
+			if members[relayID] {
+				counts[relayID]++
+				selected = relayID
+			}
+		}
+		complete := selected != ""
+		for relayID := range members {
+			complete = complete && counts[relayID] == 1
+		}
+		if !complete {
+			continue
+		}
+		if _, err := st.Commit(engine.MintChainAnchorRecord(seatName, selected), nil); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func publishEffectiveQuarantine(mgr *seat.Manager, tab *tables.T) {
+	quarantined := map[string]bool{}
+	if mgr == nil || tab == nil {
+		return
+	}
+	chains, err := engine.BuildMintChains(tab.Records)
+	if err != nil {
+		return
+	}
+	for seatName, chain := range chains {
+		if chain.Conflicted || chain.Tip.Envelope.RelayID == "" {
+			quarantined[seatName] = true
+			continue
+		}
+		realized, ok := mgr.RealizedMintRef(seatName)
+		if !ok || realized != chain.Tip.Envelope.RelayID {
+			quarantined[seatName] = true
+		}
+	}
+	mgr.PublishQuarantine(quarantined)
 }
 
 func requireGenesisTimeMint(root string) error {

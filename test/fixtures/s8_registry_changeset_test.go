@@ -2,6 +2,8 @@ package fixtures_test
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -201,10 +203,7 @@ func s8FieldspecV6Bytes(t *testing.T) []byte {
 
 func s8FieldspecV7Bytes(t *testing.T) []byte {
 	t.Helper()
-	v8, err := os.ReadFile(filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
-	if err != nil {
-		t.Fatalf("read v8 registry: %v", err)
-	}
+	v8 := s10FieldspecV8Bytes(t)
 	v8Marker := []byte(`"version": "s10-fieldspec-v8"`)
 	v8Kinds := []byte(`"record_kind": ["genesis", "owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint", "odb", "resummon_command"]`)
 	v7Kinds := []byte(`"record_kind": ["genesis", "owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint"]`)
@@ -213,6 +212,62 @@ func s8FieldspecV7Bytes(t *testing.T) []byte {
 	}
 	v7 := bytes.Replace(v8, v8Marker, []byte(`"version": "s8-fieldspec-v7"`), 1)
 	return bytes.Replace(v7, v8Kinds, v7Kinds, 1)
+}
+
+func s10FieldspecV8Bytes(t *testing.T) []byte {
+	t.Helper()
+	v9, err := os.ReadFile(filepath.Join("..", "..", "internal", "fieldspec", "registry.json"))
+	if err != nil {
+		t.Fatalf("read live v9 registry: %v", err)
+	}
+	replaceExact := func(data []byte, old, next string) []byte {
+		t.Helper()
+		if bytes.Count(data, []byte(old)) != 1 {
+			t.Fatalf("v9-to-v8 pinned inverse count for %q = %d, want 1", old, bytes.Count(data, []byte(old)))
+		}
+		return bytes.Replace(data, []byte(old), []byte(next), 1)
+	}
+
+	v8 := replaceExact(v9, `"version": "s12-fieldspec-v9"`, `"version": "s10-fieldspec-v8"`)
+	v8 = replaceExact(v8, `  "provenance": {
+    "owner": "m-2",
+    "design_doc_id": "h16-outcome-split-design",
+    "plan_lock_id": "s12-h16-fix-plan",
+    "supersedes": "s10-fieldspec-v8",
+    "note": "s12 H-16-REG realization under the operator-opened step3-h16-h26-lane; three system-stamped header rows + the ruled record_kind tokens"
+  }`, `  "provenance": {
+    "owner": "m-2",
+    "design_doc_id": "F-S7-R2-COLGRAIN",
+    "plan_lock_id": "s7a-plan-m2",
+    "note": "s7a m-2 pair build under the operator B10 second-application ruling; restores c1 section 5 column-grain fidelity"
+  }`)
+	v8 = replaceExact(v8,
+		`"record_kind": ["genesis", "owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint", "odb", "resummon_command", "mint-chain-anchor", "attempt_resolution", "derived-work-attempt", "derived-work-transition"]`,
+		`"record_kind": ["genesis", "owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint", "odb", "resummon_command"]`)
+	for _, row := range []string{
+		`    {"id": "hook_contract", "layer": "header", "owner": "system", "type": "string", "fill_constraints": "system_only", "lineage_role": "none"},` + "\n",
+		`    {"id": "mint_predecessor", "layer": "header", "owner": "system", "type": "string", "fill_constraints": "system_only", "lineage_role": "none"},` + "\n",
+		`    {"id": "admin_provenance", "layer": "header", "owner": "system", "type": "string", "fill_constraints": "system_only", "lineage_role": "none"},` + "\n",
+	} {
+		v8 = replaceExact(v8, row, "")
+	}
+	v8 = replaceExact(v8,
+		`"seat_scope": {"operator": ["owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint", "mint-chain-anchor", "attempt_resolution"], "*": ["diagnostics"]}`,
+		`"seat_scope": {"operator": ["owed_item", "owed_disposition", "gate_resolution", "disposition", "diagnostics", "config_change", "waiver_retraction", "seat_mint"], "*": ["diagnostics"]}`)
+	sum := sha256.Sum256(v8)
+	if got := hex.EncodeToString(sum[:]); got != "f9a15c53871613015f6af8e8f937b47be51271ee9764eb4218d3be459a267599" {
+		t.Fatalf("pinned v8 registry digest=%s, want f9a15c53871613015f6af8e8f937b47be51271ee9764eb4218d3be459a267599", got)
+	}
+	return v8
+}
+
+func s10FieldspecV8Path(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "registry-v8.json")
+	if err := os.WriteFile(path, s10FieldspecV8Bytes(t), 0o644); err != nil {
+		t.Fatalf("write pinned v8 registry: %v", err)
+	}
+	return path
 }
 
 func s8FieldspecV7Path(t *testing.T) string {
