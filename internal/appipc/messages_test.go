@@ -56,7 +56,7 @@ func TestProtocolRegistryTypedRoundTripsAcrossFamilies(t *testing.T) {
 			Body: &GenesisCommittedBody{GenerationID: "generation-1"},
 		},
 		{
-			V: 1, Channel: ChannelCtrlC, Type: "connector_assign", Seq: "5", Re: &re,
+			V: 1, Channel: ChannelCtrlC, Type: "connector_assign", Seq: "5",
 			Body: &ConnectorAssignBody{
 				RunID: "run-1", TurnEpoch: "2", RunManifestDigest: digestA, PolicyDigest: digestA,
 				ProviderLaneID: "lane-1", LaneCatalogDigest: digestA, CredentialRef: "cred-1",
@@ -127,11 +127,11 @@ func TestBrokerFamiliesAreClosedWhileControlFamiliesAreAdditive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewProtocolRegistry: %v", err)
 	}
-	ctrl := []byte(`{"v":1,"chan":"ctrl-w","type":"wake_forward","seq":"0","body":{"relay_id":"r","future":"ignored"}}`)
+	ctrl := []byte(`{"body":{"future":"ignored","relay_id":"r"},"chan":"ctrl-w","seq":"0","type":"wake_forward","v":1}`)
 	if _, err := registry.Decode(ctrl); err != nil {
 		t.Fatalf("Decode additive control message: %v", err)
 	}
-	broker := []byte(`{"v":1,"chan":"broker","type":"epoch_installed","seq":"0","body":{"epoch_transition_id":"e","generation_id":"g","turn_epoch":"1","state_seq":"2","crossing_count":"removed"}}`)
+	broker := []byte(`{"body":{"crossing_count":"removed","epoch_transition_id":"e","generation_id":"g","state_seq":"2","turn_epoch":"1"},"chan":"broker","seq":"0","type":"epoch_installed","v":1}`)
 	if _, err := registry.Decode(broker); !errors.Is(err, ErrUnknownField) {
 		t.Fatalf("Decode broker message with removed field error = %v, want ErrUnknownField", err)
 	}

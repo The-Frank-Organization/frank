@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/jackli/frank/internal/worker/jcs"
+	"github.com/jackli/frank/internal/worker/wire"
 )
 
 // Code is a stable attempt disposition returned by the executor.
@@ -20,6 +21,7 @@ const (
 	CodeDuplicateRequest  Code = "DUPLICATE_REQUEST"
 	CodeIdentityMismatch  Code = "IDENTITY_MISMATCH"
 	CodeDuplicateConsume  Code = "DUPLICATE_CONSUME"
+	CodeNoReply           Code = "no_reply"
 	CodeProtocolFault     Code = "PROTOCOL_FAULT"
 )
 
@@ -49,7 +51,7 @@ type ArgumentSource interface {
 type Identity struct {
 	CanonicalToolName   string `json:"canonical_tool_name"`
 	CanonicalArgsDigest string `json:"canonical_args_digest"`
-	TurnEpoch           uint64 `json:"turn_epoch"`
+	TurnEpoch           string `json:"turn_epoch"`
 }
 
 // FullIdentity adds the run/turn/call keys frozen into an issued ticket.
@@ -80,7 +82,7 @@ type PreparedCall struct {
 }
 
 // Prepare freezes identity #1 over a canonical copy of the complete arguments.
-func Prepare(runID, turnID, toolCallID, canonicalToolName string, turnEpoch uint64, source ArgumentSource) (*PreparedCall, error) {
+func Prepare(runID, turnID, toolCallID, canonicalToolName, turnEpoch string, source ArgumentSource) (*PreparedCall, error) {
 	if runID == "" || turnID == "" || toolCallID == "" || canonicalToolName == "" {
 		return nil, errors.New("executor: prepared call identity contains an empty field")
 	}
@@ -111,10 +113,10 @@ type AuthorizeCode string
 const (
 	AuthorizeGranted          AuthorizeCode = "ticket_granted"
 	AuthorizeRejected         AuthorizeCode = "authorize_reject"
-	AuthorizeStaleEpoch       AuthorizeCode = "STALE_EPOCH"
-	AuthorizeDeniedAboveSet   AuthorizeCode = "DENIED_ABOVE_SET"
-	AuthorizeDuplicateRequest AuthorizeCode = "DUPLICATE_REQUEST"
-	AuthorizeIdentityMismatch AuthorizeCode = "IDENTITY_MISMATCH"
+	AuthorizeStaleEpoch       AuthorizeCode = "stale_epoch"
+	AuthorizeDeniedAboveSet   AuthorizeCode = "denied_above_set"
+	AuthorizeDuplicateRequest AuthorizeCode = "duplicate_request"
+	AuthorizeIdentityMismatch AuthorizeCode = "identity_mismatch"
 )
 
 // AuthorizeRejectReason is the closed lifecycle-rejection domain.
@@ -140,27 +142,93 @@ func LifecycleRejectReasons() []AuthorizeRejectReason {
 }
 
 type AuthorizeRequest struct {
-	Identity FullIdentity `json:"identity"`
+	Identity            FullIdentity `json:"-"`
+	RunID               string       `json:"run_id"`
+	TurnID              string       `json:"turn_id"`
+	TurnEpoch           string       `json:"turn_epoch"`
+	ToolCallID          string       `json:"tool_call_id"`
+	CanonicalToolName   string       `json:"canonical_tool_name"`
+	CanonicalArgsDigest string       `json:"canonical_args_digest"`
+}
+
+func newAuthorizeRequest(identity FullIdentity) AuthorizeRequest {
+	return AuthorizeRequest{
+		Identity:            identity,
+		RunID:               identity.RunID,
+		TurnID:              identity.TurnID,
+		TurnEpoch:           identity.TurnEpoch,
+		ToolCallID:          identity.ToolCallID,
+		CanonicalToolName:   identity.CanonicalToolName,
+		CanonicalArgsDigest: identity.CanonicalArgsDigest,
+	}
+}
+
+// FrozenIdentity returns the exact identity represented by the request. The
+// retained internal copy supports in-process authorities while the flat fields
+// are the registered CTRL-W body.
+func (request AuthorizeRequest) FrozenIdentity() FullIdentity {
+	if request.Identity.RunID != "" {
+		return request.Identity
+	}
+	return FullIdentity{
+		RunID: request.RunID, TurnID: request.TurnID, ToolCallID: request.ToolCallID,
+		Identity: Identity{CanonicalToolName: request.CanonicalToolName, CanonicalArgsDigest: request.CanonicalArgsDigest, TurnEpoch: request.TurnEpoch},
+	}
 }
 
 type AuthorizeReply struct {
-	Code         AuthorizeCode         `json:"code"`
-	TicketID     string                `json:"ticket_id,omitempty"`
-	RejectReason AuthorizeRejectReason `json:"reason,omitempty"`
+	Code             AuthorizeCode         `json:"code"`
+	TicketID         string                `json:"ticket_id,omitempty"`
+	RejectReason     AuthorizeRejectReason `json:"reason,omitempty"`
+	EffectDescriptor *EffectDescriptor     `json:"effect_descriptor,omitempty"`
+}
+
+// EffectDescriptor is the worker-consumed authority description frozen into a
+// granted F59 ticket. The worker verifies its invocation-binding fields before
+// it may consume the ticket or invoke a backend.
+type EffectDescriptor struct {
+	Action              string  `json:"action"`
+	CanonicalResource   *string `json:"canonical_resource,omitempty"`
+	WorkspaceRootID     *string `json:"workspace_root_id,omitempty"`
+	CWD                 *string `json:"cwd,omitempty"`
+	BackendID           string  `json:"backend_id"`
+	NetworkPolicyID     string  `json:"network_policy_id"`
+	ToolImplRef         string  `json:"tool_impl_ref"`
+	CanonicalArgsDigest string  `json:"canonical_args_digest"`
+	OneShot             bool    `json:"one_shot"`
+}
+
+// DescriptorForIdentity supplies a contract-valid descriptor to in-process E2
+// authorities. Real app-control authorities return their persisted descriptor.
+func DescriptorForIdentity(identity FullIdentity) *EffectDescriptor {
+	return &EffectDescriptor{
+		Action: identity.CanonicalToolName, CanonicalArgsDigest: identity.CanonicalArgsDigest,
+		BackendID: "in-process", NetworkPolicyID: "none", ToolImplRef: "in-process:" + identity.CanonicalToolName, OneShot: true,
+	}
+}
+
+func (descriptor EffectDescriptor) validateFor(identity Identity) error {
+	if descriptor.Action != identity.CanonicalToolName || descriptor.CanonicalArgsDigest != identity.CanonicalArgsDigest {
+		return errors.New("effect descriptor identity mismatch")
+	}
+	if descriptor.BackendID == "" || descriptor.NetworkPolicyID == "" || descriptor.ToolImplRef == "" || !descriptor.OneShot {
+		return errors.New("effect descriptor is incomplete")
+	}
+	return nil
 }
 
 func (reply AuthorizeReply) Validate() error {
 	switch reply.Code {
 	case AuthorizeGranted:
-		if reply.TicketID == "" || reply.RejectReason != "" {
-			return errors.New("ticket_granted requires only ticket_id")
+		if reply.TicketID == "" || reply.RejectReason != "" || reply.EffectDescriptor == nil {
+			return errors.New("ticket_granted requires ticket_id and effect_descriptor")
 		}
 	case AuthorizeRejected:
-		if reply.TicketID != "" || !validRejectReason(reply.RejectReason) {
+		if reply.TicketID != "" || reply.EffectDescriptor != nil || !validRejectReason(reply.RejectReason) {
 			return errors.New("authorize_reject requires one lifecycle reason")
 		}
 	case AuthorizeStaleEpoch, AuthorizeDeniedAboveSet, AuthorizeDuplicateRequest, AuthorizeIdentityMismatch:
-		if reply.TicketID != "" || reply.RejectReason != "" {
+		if reply.TicketID != "" || reply.RejectReason != "" || reply.EffectDescriptor != nil {
 			return fmt.Errorf("%s carries unexpected fields", reply.Code)
 		}
 	default:
@@ -183,14 +251,14 @@ type ConsumeCode string
 
 const (
 	ConsumeOK               ConsumeCode = "consume_ok"
-	ConsumeStaleEpoch       ConsumeCode = "STALE_EPOCH"
-	ConsumeDuplicate        ConsumeCode = "DUPLICATE_CONSUME"
-	ConsumeIdentityMismatch ConsumeCode = "IDENTITY_MISMATCH"
+	ConsumeStaleEpoch       ConsumeCode = "stale_epoch"
+	ConsumeDuplicate        ConsumeCode = "duplicate_consume"
+	ConsumeIdentityMismatch ConsumeCode = "identity_mismatch"
 )
 
 type ConsumeRequest struct {
 	TicketID            string `json:"ticket_id"`
-	TurnEpoch           uint64 `json:"turn_epoch"`
+	TurnEpoch           string `json:"turn_epoch"`
 	CanonicalToolName   string `json:"canonical_tool_name"`
 	CanonicalArgsDigest string `json:"canonical_args_digest"`
 }
@@ -222,6 +290,7 @@ type IntegrityEvidence struct {
 
 type OutcomeRecord struct {
 	TicketID           string             `json:"ticket_id"`
+	TurnEpoch          string             `json:"turn_epoch"`
 	Outcome            Outcome            `json:"outcome"`
 	InvocationIdentity *Identity          `json:"invocation_identity,omitempty"`
 	IntegrityEvidence  *IntegrityEvidence `json:"integrity_evidence,omitempty"`
@@ -230,6 +299,9 @@ type OutcomeRecord struct {
 func (record OutcomeRecord) Validate() error {
 	if record.TicketID == "" {
 		return errors.New("outcome ticket_id is empty")
+	}
+	if _, err := wire.ParseCounter(record.TurnEpoch); err != nil {
+		return errors.New("outcome turn_epoch is invalid")
 	}
 	switch record.Outcome {
 	case OutcomeExecuted:
@@ -298,15 +370,18 @@ func (executor *Executor) Execute(ctx context.Context, call *PreparedCall) (Resu
 	if err := ctx.Err(); err != nil {
 		return Result{}, err
 	}
-	authorizeReply, err := executor.authority.Authorize(ctx, AuthorizeRequest{Identity: call.identity})
+	authorizeReply, err := executor.authority.Authorize(ctx, newAuthorizeRequest(call.identity))
 	if err != nil {
-		return Result{}, err
+		return Result{}, &Error{Code: CodeNoReply, Detail: "authorize reply unavailable", Cause: err}
 	}
 	if err := authorizeReply.Validate(); err != nil {
 		return Result{}, &Error{Code: CodeProtocolFault, Detail: err.Error(), Cause: err}
 	}
 	if authorizeReply.Code != AuthorizeGranted {
 		return Result{}, authorizeError(authorizeReply)
+	}
+	if err := authorizeReply.EffectDescriptor.validateFor(call.identity.Identity); err != nil {
+		return Result{}, &Error{Code: CodeIdentityMismatch, Detail: err.Error(), Cause: err}
 	}
 	result := Result{TicketID: authorizeReply.TicketID}
 	if err := ctx.Err(); err != nil {
@@ -326,7 +401,7 @@ func (executor *Executor) Execute(ctx context.Context, call *PreparedCall) (Resu
 		CanonicalArgsDigest: preConsume.CanonicalArgsDigest,
 	})
 	if err != nil {
-		return result, err
+		return result, &Error{Code: CodeNoReply, Detail: "consume reply unavailable", Cause: err}
 	}
 	if err := consumeReply.Validate(); err != nil {
 		return result, &Error{Code: CodeProtocolFault, Detail: err.Error(), Cause: err}
@@ -345,8 +420,9 @@ func (executor *Executor) Execute(ctx context.Context, call *PreparedCall) (Resu
 	}
 	if preInvoke != call.identity.Identity {
 		record := OutcomeRecord{
-			TicketID: result.TicketID,
-			Outcome:  OutcomeNotInvokedIntegrityFault,
+			TicketID:  result.TicketID,
+			TurnEpoch: preInvoke.TurnEpoch,
+			Outcome:   OutcomeNotInvokedIntegrityFault,
 			IntegrityEvidence: &IntegrityEvidence{
 				Expected: call.identity.Identity,
 				Observed: preInvoke,
@@ -363,6 +439,7 @@ func (executor *Executor) Execute(ctx context.Context, call *PreparedCall) (Resu
 	value, invocationErr := executor.invoker.Invoke(ctx, invocation)
 	record := OutcomeRecord{
 		TicketID:           result.TicketID,
+		TurnEpoch:          preInvoke.TurnEpoch,
 		Outcome:            OutcomeExecuted,
 		InvocationIdentity: &preInvoke,
 	}
@@ -373,7 +450,10 @@ func (executor *Executor) Execute(ctx context.Context, call *PreparedCall) (Resu
 	return result, errors.Join(invocationErr, recordErr)
 }
 
-func deriveIdentity(name string, epoch uint64, source ArgumentSource) (Identity, []byte, error) {
+func deriveIdentity(name, epoch string, source ArgumentSource) (Identity, []byte, error) {
+	if _, err := wire.ParseCounter(epoch); err != nil {
+		return Identity{}, nil, err
+	}
 	snapshot := append([]byte(nil), source.Snapshot()...)
 	canonical, err := jcs.Canonicalize(snapshot)
 	if err != nil {

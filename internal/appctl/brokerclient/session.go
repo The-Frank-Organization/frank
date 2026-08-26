@@ -1,9 +1,12 @@
 package brokerclient
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"net"
 	"os"
@@ -26,18 +29,48 @@ type ControlRequest struct {
 type Session struct {
 	Conn         net.Conn
 	Generation   string
+	Outcome      ControlOutcome
 	registry     *appipc.Registry
 	mu           sync.Mutex
 	nextSeq      uint64
 	seqExhausted bool
-	lock         *os.File
+	lock         *controlLock
 }
+
+type ControlOutcome string
+
+const (
+	ControlAdopted            ControlOutcome = "adopted"
+	ControlRejectedLock       ControlOutcome = "rejected-lock"
+	ControlRejectedToken      ControlOutcome = "rejected-token"
+	ControlRejectedGeneration ControlOutcome = "rejected-generation"
+)
+
+type ControlHandshakeError struct {
+	Outcome ControlOutcome
+}
+
+func (err *ControlHandshakeError) Error() string {
+	return fmt.Sprintf("brokerclient: control handshake %s", err.Outcome)
+}
+
+var errControlLockAlreadyOpen = errors.New("brokerclient: control lock already open in this process")
+
+type controlLock struct {
+	file *os.File
+	path string
+}
+
+var processControlLocks = struct {
+	sync.Mutex
+	paths map[string]struct{}
+}{paths: make(map[string]struct{})}
 
 func (client *Client) Establish(ctx context.Context, request ControlRequest) (*Session, error) {
 	if request.RunID == "" || request.RuntimeDir == "" || request.ControlToken == "" {
 		return nil, errors.New("brokerclient: invalid control request")
 	}
-	lock, err := openControlLock(filepath.Join(request.RuntimeDir, "broker-control.lock"))
+	lock, err := openControlLock(ctx, filepath.Join(request.RuntimeDir, "broker-control.lock"))
 	if err != nil {
 		return nil, err
 	}
@@ -68,13 +101,61 @@ func (client *Client) Establish(ctx context.Context, request ControlRequest) (*S
 		_ = connection.Close()
 		return nil, err
 	}
+	outcome, err := readControlOutcome(ctx, connection)
+	if err != nil {
+		_ = connection.Close()
+		return nil, err
+	}
+	if outcome != ControlAdopted {
+		_ = connection.Close()
+		return nil, &ControlHandshakeError{Outcome: outcome}
+	}
 	registry, err := appipc.NewProtocolRegistry()
 	if err != nil {
 		_ = connection.Close()
 		return nil, err
 	}
 	closeLock = false
-	return &Session{Conn: connection, Generation: generation, registry: registry, lock: lock}, nil
+	return &Session{Conn: connection, Generation: generation, Outcome: outcome, registry: registry, lock: lock}, nil
+}
+
+func readControlOutcome(ctx context.Context, connection net.Conn) (ControlOutcome, error) {
+	if deadline, ok := ctx.Deadline(); ok {
+		if err := connection.SetReadDeadline(deadline); err != nil {
+			return "", err
+		}
+		defer connection.SetReadDeadline(time.Time{})
+	}
+	raw, err := appipc.ReadFrame(connection)
+	if err != nil {
+		return "", err
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	var reply struct {
+		Outcome ControlOutcome `json:"outcome"`
+	}
+	if decoder.Decode(&reply) != nil || requireJSONEOF(decoder) != nil {
+		return "", errors.New("brokerclient: invalid control handshake reply")
+	}
+	canonical, err := appipc.MarshalJCS(map[string]any{"outcome": string(reply.Outcome)})
+	if err != nil || !bytes.Equal(canonical, raw) {
+		return "", errors.New("brokerclient: non-canonical control handshake reply")
+	}
+	switch reply.Outcome {
+	case ControlAdopted, ControlRejectedLock, ControlRejectedToken, ControlRejectedGeneration:
+		return reply.Outcome, nil
+	default:
+		return "", errors.New("brokerclient: unknown control handshake outcome")
+	}
+}
+
+func requireJSONEOF(decoder *json.Decoder) error {
+	var extra any
+	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
+		return errors.New("brokerclient: trailing control handshake reply")
+	}
+	return nil
 }
 
 // Propose publishes one durable tuple and applies the total proposal-result
@@ -189,26 +270,70 @@ func (session *Session) Close() error {
 	return connectionError
 }
 
-func openControlLock(path string) (*os.File, error) {
-	lock, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o600)
+func openControlLock(ctx context.Context, path string) (*controlLock, error) {
+	canonicalPath, err := filepath.Abs(path)
 	if err != nil {
 		return nil, err
 	}
-	if err := os.Chmod(path, 0o600); err != nil {
-		_ = lock.Close()
+	canonicalPath = filepath.Clean(canonicalPath)
+	processControlLocks.Lock()
+	if _, exists := processControlLocks.paths[canonicalPath]; exists {
+		processControlLocks.Unlock()
+		return nil, errControlLockAlreadyOpen
+	}
+	processControlLocks.paths[canonicalPath] = struct{}{}
+	processControlLocks.Unlock()
+	registered := true
+	defer func() {
+		if registered {
+			forgetControlLock(canonicalPath)
+		}
+	}()
+
+	file, err := os.OpenFile(canonicalPath, os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
 		return nil, err
 	}
-	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		_ = lock.Close()
+	if err := file.Chmod(0o600); err != nil {
+		_ = file.Close()
 		return nil, err
 	}
-	return lock, nil
+	record := syscall.Flock_t{Type: syscall.F_WRLCK, Whence: 0, Start: 0, Len: 0}
+	for {
+		err = syscall.FcntlFlock(file.Fd(), syscall.F_SETLK, &record)
+		if err == nil {
+			registered = false
+			return &controlLock{file: file, path: canonicalPath}, nil
+		}
+		if !errors.Is(err, syscall.EACCES) && !errors.Is(err, syscall.EAGAIN) {
+			_ = file.Close()
+			return nil, err
+		}
+		timer := time.NewTimer(10 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			if !timer.Stop() {
+				<-timer.C
+			}
+			_ = file.Close()
+			return nil, ctx.Err()
+		case <-timer.C:
+		}
+	}
 }
 
-func unlockControl(lock *os.File) {
+func unlockControl(lock *controlLock) {
 	if lock == nil {
 		return
 	}
-	_ = syscall.Flock(int(lock.Fd()), syscall.LOCK_UN)
-	_ = lock.Close()
+	record := syscall.Flock_t{Type: syscall.F_UNLCK, Whence: 0, Start: 0, Len: 0}
+	_ = syscall.FcntlFlock(lock.file.Fd(), syscall.F_SETLK, &record)
+	_ = lock.file.Close()
+	forgetControlLock(lock.path)
+}
+
+func forgetControlLock(path string) {
+	processControlLocks.Lock()
+	delete(processControlLocks.paths, path)
+	processControlLocks.Unlock()
 }

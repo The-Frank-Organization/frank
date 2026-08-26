@@ -205,6 +205,9 @@ func (registry *Registry) Encode(envelope Envelope) ([]byte, error) {
 	if err := validateRegisteredBody(body, spec); err != nil {
 		return nil, err
 	}
+	if err := validateEnvelopeBodyIdentity(envelope, body); err != nil {
+		return nil, err
+	}
 	wire := map[string]any{
 		"v":    envelope.V,
 		"chan": string(envelope.Channel),
@@ -227,6 +230,9 @@ func (registry *Registry) Encode(envelope Envelope) ([]byte, error) {
 func (registry *Registry) Decode(payload []byte) (Envelope, error) {
 	if !utf8.Valid(payload) {
 		return Envelope{}, fmt.Errorf("%w: payload is not UTF-8", ErrMalformedEnvelope)
+	}
+	if err := requireCanonicalEnvelope(payload); err != nil {
+		return Envelope{}, err
 	}
 	type rawEnvelope struct {
 		V         int             `json:"v"`
@@ -271,6 +277,9 @@ func (registry *Registry) Decode(payload []byte) (Envelope, error) {
 	if err := validateRegisteredBody(body, spec); err != nil {
 		return Envelope{}, err
 	}
+	if err := validateEnvelopeBodyIdentity(envelope, body); err != nil {
+		return Envelope{}, err
+	}
 	if spec.newBody != nil {
 		typed := spec.newBody()
 		if typed == nil {
@@ -288,6 +297,49 @@ func (registry *Registry) Decode(payload []byte) (Envelope, error) {
 		envelope.Body = body
 	}
 	return envelope, nil
+}
+
+func validateEnvelopeBodyIdentity(envelope Envelope, body map[string]any) error {
+	for _, field := range []struct {
+		name     string
+		envelope *string
+	}{
+		{name: "run_id", envelope: envelope.RunID},
+		{name: "turn_epoch", envelope: envelope.TurnEpoch},
+	} {
+		if field.envelope == nil {
+			continue
+		}
+		value, present := body[field.name]
+		if !present {
+			continue
+		}
+		bodyValue, ok := value.(string)
+		if !ok || bodyValue != *field.envelope {
+			return fmt.Errorf("%w: envelope/body %s mismatch", ErrInvalidMessageBody, field.name)
+		}
+	}
+	return nil
+}
+
+func requireCanonicalEnvelope(payload []byte) error {
+	var value any
+	decoder := json.NewDecoder(bytes.NewReader(payload))
+	decoder.UseNumber()
+	if err := decoder.Decode(&value); err != nil {
+		return fmt.Errorf("%w: %v", ErrMalformedEnvelope, err)
+	}
+	if err := requireJSONEOF(decoder); err != nil {
+		return fmt.Errorf("%w: %v", ErrMalformedEnvelope, err)
+	}
+	canonical, err := MarshalJCS(value)
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrMalformedEnvelope, err)
+	}
+	if !bytes.Equal(payload, canonical) {
+		return fmt.Errorf("%w: payload is not canonical JSON", ErrMalformedEnvelope)
+	}
+	return nil
 }
 
 func (registry *Registry) validateEnvelope(envelope Envelope) (registeredMessage, error) {
@@ -326,6 +378,13 @@ func (registry *Registry) validateEnvelope(envelope Envelope) (registeredMessage
 			Fault: FaultUnknownMessage,
 			Cause: ErrMalformedEnvelope,
 			Text:  "appipc: reply-class message lacks re",
+		}
+	}
+	if !spec.reply && envelope.Re != nil {
+		return registeredMessage{}, &ProtocolError{
+			Fault: FaultUnknownMessage,
+			Cause: ErrMalformedEnvelope,
+			Text:  "appipc: non-reply message carries re",
 		}
 	}
 	if spec.requireRunID && (envelope.RunID == nil || *envelope.RunID == "") {

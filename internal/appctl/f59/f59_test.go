@@ -217,24 +217,24 @@ func TestConsumeTotalOrderAndOneShot(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mismatch := ConsumeRequest{TicketID: issued.TicketID, TurnEpoch: "1", CanonicalToolName: "read", CanonicalArgsDigest: digest("changed"), GenerationID: fixture.generationID}
-	if got, err := fixture.f59.Consume(fixture.ctx, mismatch); err != nil || got.Kind != IdentityMismatch || fixture.authorization("call").State != "ISSUED" {
+	mismatch := ConsumeRequest{TicketID: issued.TicketID, TurnEpoch: "1", CanonicalToolName: "read", CanonicalArgsDigest: digest("changed")}
+	if got, err := fixture.consume(mismatch); err != nil || got.Kind != IdentityMismatch || fixture.authorization("call").State != "ISSUED" {
 		t.Fatalf("mismatched consume = %#v err=%v row=%#v", got, err, fixture.authorization("call"))
 	}
 	matched := mismatch
 	matched.CanonicalArgsDigest = request.CanonicalArgsDigest
-	if got, err := fixture.f59.Consume(fixture.ctx, matched); err != nil || got.Kind != ConsumeOK {
+	if got, err := fixture.consume(matched); err != nil || got.Kind != ConsumeOK {
 		t.Fatalf("consume = %#v err=%v", got, err)
 	}
 	if got := fixture.toolCallCount(); got != 0 {
 		t.Fatalf("tool_calls materialized at consume: %d", got)
 	}
-	if got, err := fixture.f59.Consume(fixture.ctx, matched); err != nil || got.Kind != DuplicateConsume {
+	if got, err := fixture.consume(matched); err != nil || got.Kind != DuplicateConsume {
 		t.Fatalf("duplicate consume = %#v err=%v", got, err)
 	}
 	unknown := matched
 	unknown.TicketID = "never-minted"
-	if got, err := fixture.f59.Consume(fixture.ctx, unknown); err != nil || got.Kind != NoReply || !got.Fault {
+	if got, err := fixture.consume(unknown); err != nil || got.Kind != NoReply || !got.Fault {
 		t.Fatalf("unknown consume = %#v err=%v", got, err)
 	}
 }
@@ -246,8 +246,8 @@ func TestExpireAndOutcomeRecordsKeepCrashTruth(t *testing.T) {
 	consumedRequest := fixture.issue("consumed", "bash")
 	consumedRequest.Operands = Operands{CWD: stringPointer(".")}
 	consumed, _ := fixture.f59.Issue(fixture.ctx, consumedRequest)
-	consume := ConsumeRequest{TicketID: consumed.TicketID, TurnEpoch: "1", CanonicalToolName: "bash", CanonicalArgsDigest: consumedRequest.CanonicalArgsDigest, GenerationID: fixture.generationID}
-	if _, err := fixture.f59.Consume(fixture.ctx, consume); err != nil {
+	consume := ConsumeRequest{TicketID: consumed.TicketID, TurnEpoch: "1", CanonicalToolName: "bash", CanonicalArgsDigest: consumedRequest.CanonicalArgsDigest}
+	if _, err := fixture.consume(consume); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := fixture.f59.Expire(fixture.ctx, fixture.runID, fixture.turnID, 99); err != nil {
@@ -263,16 +263,16 @@ func TestExpireAndOutcomeRecordsKeepCrashTruth(t *testing.T) {
 	executedFixture := newFixture(t, "executed")
 	req := executedFixture.issue("executed", "read")
 	ticket, _ := executedFixture.f59.Issue(executedFixture.ctx, req)
-	_, _ = executedFixture.f59.Consume(executedFixture.ctx, ConsumeRequest{TicketID: ticket.TicketID, TurnEpoch: "1", CanonicalToolName: "read", CanonicalArgsDigest: req.CanonicalArgsDigest, GenerationID: executedFixture.generationID})
+	_, _ = executedFixture.consume(ConsumeRequest{TicketID: ticket.TicketID, TurnEpoch: "1", CanonicalToolName: "read", CanonicalArgsDigest: req.CanonicalArgsDigest})
 	identity := Identity{CanonicalToolName: "read", CanonicalArgsDigest: req.CanonicalArgsDigest, TurnEpoch: "1"}
-	result, err := executedFixture.f59.RecordOutcome(executedFixture.ctx, OutcomeRequest{TicketID: ticket.TicketID, TurnEpoch: "1", GenerationID: executedFixture.generationID, Outcome: Executed, InvocationIdentity: &identity})
+	result, err := executedFixture.recordOutcome(OutcomeRequest{TicketID: ticket.TicketID, TurnEpoch: "1", Outcome: Executed, InvocationIdentity: &identity})
 	if err != nil || result.Kind != NoReply || result.Fault {
 		t.Fatalf("executed outcome = %#v err=%v", result, err)
 	}
 	if row := executedFixture.authorization("executed"); row.State != "OUTCOME_RECORDED" {
 		t.Fatalf("outcome row = %#v", row)
 	}
-	duplicate, err := executedFixture.f59.RecordOutcome(executedFixture.ctx, OutcomeRequest{TicketID: ticket.TicketID, TurnEpoch: "1", GenerationID: executedFixture.generationID, Outcome: Executed, InvocationIdentity: &identity})
+	duplicate, err := executedFixture.recordOutcome(OutcomeRequest{TicketID: ticket.TicketID, TurnEpoch: "1", Outcome: Executed, InvocationIdentity: &identity})
 	if err != nil || duplicate.Fault || !duplicate.Idempotent {
 		t.Fatalf("outcome duplicate = %#v err=%v", duplicate, err)
 	}
@@ -280,11 +280,11 @@ func TestExpireAndOutcomeRecordsKeepCrashTruth(t *testing.T) {
 	faultFixture := newFixture(t, "integrity")
 	faultReq := faultFixture.issue("integrity", "edit")
 	faultTicket, _ := faultFixture.f59.Issue(faultFixture.ctx, faultReq)
-	_, _ = faultFixture.f59.Consume(faultFixture.ctx, ConsumeRequest{TicketID: faultTicket.TicketID, TurnEpoch: "1", CanonicalToolName: "edit", CanonicalArgsDigest: faultReq.CanonicalArgsDigest, GenerationID: faultFixture.generationID})
+	_, _ = faultFixture.consume(ConsumeRequest{TicketID: faultTicket.TicketID, TurnEpoch: "1", CanonicalToolName: "edit", CanonicalArgsDigest: faultReq.CanonicalArgsDigest})
 	expected := Identity{CanonicalToolName: "edit", CanonicalArgsDigest: faultReq.CanonicalArgsDigest, TurnEpoch: "1"}
 	observed := expected
 	observed.CanonicalArgsDigest = digest("post-consume-mutation")
-	result, err = faultFixture.f59.RecordOutcome(faultFixture.ctx, OutcomeRequest{TicketID: faultTicket.TicketID, TurnEpoch: "1", GenerationID: faultFixture.generationID, Outcome: NotInvokedIntegrityFault, IntegrityEvidence: &IntegrityEvidence{Expected: expected, Observed: observed}})
+	result, err = faultFixture.recordOutcome(OutcomeRequest{TicketID: faultTicket.TicketID, TurnEpoch: "1", Outcome: NotInvokedIntegrityFault, IntegrityEvidence: &IntegrityEvidence{Expected: expected, Observed: observed}})
 	if err != nil || result.Fault {
 		t.Fatalf("integrity outcome = %#v err=%v", result, err)
 	}
@@ -305,6 +305,14 @@ type fixture struct {
 	turnID        string
 	generationID  string
 	ticketCounter int
+}
+
+func (fixture *fixture) consume(request ConsumeRequest) (Decision, error) {
+	return fixture.f59.Consume(fixture.ctx, ChannelIdentity{GenerationID: fixture.generationID}, request)
+}
+
+func (fixture *fixture) recordOutcome(request OutcomeRequest) (Decision, error) {
+	return fixture.f59.RecordOutcome(fixture.ctx, ChannelIdentity{GenerationID: fixture.generationID}, request)
 }
 
 func newFixture(t *testing.T, suffix string) *fixture {

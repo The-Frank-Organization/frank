@@ -13,6 +13,7 @@ import (
 	"os"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/jackli/frank/internal/connector/catalog"
 	"github.com/jackli/frank/internal/connector/credentials"
@@ -47,6 +48,12 @@ type Config struct {
 	HandshakeBound time.Duration
 }
 
+type BuildInfo struct {
+	Version string `json:"version"`
+	Commit  string `json:"commit"`
+	BuiltAt string `json:"built_at"`
+}
+
 // Assign is the seven-field connector bootstrap body. It intentionally has no
 // generation identifier: m-8 is generation-blind.
 type Assign struct {
@@ -57,6 +64,22 @@ type Assign struct {
 	ProviderLaneID    string        `json:"provider_lane_id"`
 	LaneCatalogDigest string        `json:"lane_catalog_digest"`
 	CredentialRef     string        `json:"credential_ref"`
+}
+
+type verificationComparands struct {
+	RunManifestDigest string
+	PolicyDigest      string
+	LaneCatalogDigest string
+}
+
+// comparands returns the received bytes without normalization or
+// re-derivation; bootstrap verifies loaded artifacts against this exact view.
+func (assignment Assign) comparands() verificationComparands {
+	return verificationComparands{
+		RunManifestDigest: assignment.RunManifestDigest,
+		PolicyDigest:      assignment.PolicyDigest,
+		LaneCatalogDigest: assignment.LaneCatalogDigest,
+	}
 }
 
 type FenceResult string
@@ -87,7 +110,7 @@ type Session struct {
 }
 
 func Bootstrap(ctx context.Context, connection io.ReadWriteCloser, config Config) (*Session, error) {
-	if connection == nil || config.BuildInfo == "" || config.PID <= 0 {
+	if connection == nil || config.BuildInfo == "" || len(config.BuildInfo) > 64 || !utf8.ValidString(config.BuildInfo) || config.PID <= 0 {
 		return nil, fmt.Errorf("%w: invalid bootstrap configuration", ErrHandshake)
 	}
 	store, err := credentials.Load(config.Artifacts.CredentialPath)
@@ -128,9 +151,9 @@ func Bootstrap(ctx context.Context, connection io.ReadWriteCloser, config Config
 		}
 	}()
 	if err := session.send(ctx, "hello", "", nil, nil, struct {
-		PID       int    `json:"pid"`
-		BuildInfo string `json:"build_info"`
-	}{PID: config.PID, BuildInfo: config.BuildInfo}); err != nil {
+		PID       int       `json:"pid"`
+		BuildInfo BuildInfo `json:"build_info"`
+	}{PID: config.PID, BuildInfo: BuildInfo{Version: config.BuildInfo, Commit: "unknown", BuiltAt: "unknown"}}); err != nil {
 		return nil, fmt.Errorf("%w: hello: %v", ErrHandshake, err)
 	}
 
@@ -169,8 +192,9 @@ func verifyAssignment(store *credentials.Store, loadedCatalog *catalog.Catalog, 
 	if err := json.Unmarshal(envelope.Body, &assignment); err != nil || assignment.RunID == "" || assignment.ProviderLaneID == "" {
 		return Assign{}, catalog.Lane{}, nil, fmt.Errorf("%w: invalid connector_assign body", ErrHandshake)
 	}
-	if assignment.RunID != envelope.RunID || assignment.TurnEpoch != *envelope.TurnEpoch || !validDigest(assignment.RunManifestDigest) ||
-		!validDigest(assignment.PolicyDigest) || assignment.PolicyDigest != digestBytes(policyRaw) || !validDigest(assignment.LaneCatalogDigest) || assignment.LaneCatalogDigest != loadedCatalog.Digest {
+	comparands := assignment.comparands()
+	if assignment.RunID != envelope.RunID || assignment.TurnEpoch != *envelope.TurnEpoch || !validDigest(comparands.RunManifestDigest) ||
+		!validDigest(comparands.PolicyDigest) || comparands.PolicyDigest != digestBytes(policyRaw) || !validDigest(comparands.LaneCatalogDigest) || comparands.LaneCatalogDigest != loadedCatalog.Digest {
 		return Assign{}, catalog.Lane{}, nil, fmt.Errorf("%w: connector_assign comparand mismatch", ErrHandshake)
 	}
 	var lane catalog.Lane
@@ -189,7 +213,7 @@ func verifyAssignment(store *credentials.Store, loadedCatalog *catalog.Catalog, 
 	if err != nil {
 		return Assign{}, catalog.Lane{}, nil, err
 	}
-	if err := loadedPolicy.VerifyDigest(assignment.PolicyDigest); err != nil {
+	if err := loadedPolicy.VerifyDigest(comparands.PolicyDigest); err != nil {
 		return Assign{}, catalog.Lane{}, nil, err
 	}
 	if err := loadedCatalog.ValidateDeniedHeaders(loadedPolicy.DeniedHeaderNames); err != nil {

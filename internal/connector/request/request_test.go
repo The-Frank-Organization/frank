@@ -26,7 +26,7 @@ const validRequestJSON = `{
     {"kind":"reasoning_replay","envelope":{"origin_provider_lane_id":"lane-codex-1","origin_turn_id":"turn-1","payload":"eyJlbmNyeXB0ZWRfY29udGVudCI6Im9wYXF1ZSIsImlkIjoicnNfMSIsInN1bW1hcnkiOltdLCJ0eXBlIjoicmVhc29uaW5nIn0="}}
   ],
   "tools":[{"name":"read","description":"","parameters":{"additionalProperties":false,"type":"object"}}],
-  "sampling":{"max_output_tokens":1024,"temperature":0.2},
+  "sampling":{"max_output_tokens":1024},
   "reasoning":{"effort":"high"}
 }`
 

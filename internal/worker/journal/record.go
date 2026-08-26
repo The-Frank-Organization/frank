@@ -3,6 +3,7 @@ package journal
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -100,7 +101,7 @@ var schemas = map[string]schema{
 		required: []string{"tool_call_id", "content", "truncated"}, turnID: presenceRequired, roundIndex: presenceRequired,
 	},
 	KindProviderOutput: {
-		required: []string{"attempt_id", "item_index", "content"}, turnID: presenceRequired, roundIndex: presenceRequired,
+		required: []string{"attempt_id", "item_index"}, optional: []string{"verbatim", "raw_b64", "usage"}, turnID: presenceRequired, roundIndex: presenceRequired,
 	},
 	KindCompactionEvent: {
 		required: []string{"tier", "template_id", "template_version", "affected_seq"}, optional: []string{"summary_item_index"}, turnID: presenceRequired, roundIndex: presenceRequired,
@@ -205,6 +206,26 @@ func VerifyRecordDigest(record Record) (bool, error) {
 		return false, err
 	}
 	return digest == stored, nil
+}
+
+// ProviderItemCarrier chooses the sole lossless journal representation. Exact
+// JCS bytes remain a JSON value; every other byte sequence uses canonical
+// RFC 4648 standard base64.
+func ProviderItemCarrier(item []byte) map[string]json.RawMessage {
+	canonical, err := jcs.Canonicalize(item)
+	if err == nil && bytes.Equal(item, canonical) {
+		return map[string]json.RawMessage{"verbatim": append(json.RawMessage(nil), item...)}
+	}
+	return map[string]json.RawMessage{"raw_b64": marshalString(base64.StdEncoding.EncodeToString(item))}
+}
+
+// ProviderItemBytes reverses the closed provider-output carrier after record
+// decoding and rechecks the branch-specific canonical form.
+func ProviderItemBytes(record Record) ([]byte, error) {
+	if record.Kind != KindProviderOutput {
+		return nil, errors.New("record is not provider_output")
+	}
+	return decodeProviderItemCarrier(record.Fields)
 }
 
 func marshalRecordObject(record Record, includeDigest bool) ([]byte, error) {
@@ -387,6 +408,15 @@ func validatePayload(record Record) error {
 		if _, err := stringMember("attempt_id"); err != nil {
 			return err
 		}
+		if _, err := decodeProviderItemCarrier(record.Fields); err != nil {
+			return err
+		}
+		if usage, ok := record.Fields["usage"]; ok {
+			canonical, err := jcs.Canonicalize(usage)
+			if err != nil || len(canonical) == 0 || canonical[0] != '{' {
+				return errors.New("provider_output usage must be a JSON object")
+			}
+		}
 		return counterMember("item_index")
 	case KindCompactionEvent:
 		tier, err := stringMember("tier")
@@ -422,6 +452,30 @@ func validatePayload(record Record) error {
 		}
 	}
 	return nil
+}
+
+func decodeProviderItemCarrier(fields map[string]json.RawMessage) ([]byte, error) {
+	verbatim, hasVerbatim := fields["verbatim"]
+	rawBase64, hasRawBase64 := fields["raw_b64"]
+	if hasVerbatim == hasRawBase64 {
+		return nil, errors.New("provider_output requires exactly one item carrier")
+	}
+	if hasVerbatim {
+		canonical, err := jcs.Canonicalize(verbatim)
+		if err != nil || !bytes.Equal(verbatim, canonical) {
+			return nil, errors.New("provider_output verbatim is not exact JCS")
+		}
+		return append([]byte(nil), verbatim...), nil
+	}
+	encoded, err := rawStringValue(rawBase64, "raw_b64")
+	if err != nil {
+		return nil, err
+	}
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil || base64.StdEncoding.EncodeToString(decoded) != encoded {
+		return nil, errors.New("provider_output raw_b64 is not canonical RFC 4648 standard base64")
+	}
+	return decoded, nil
 }
 
 func takeString(object map[string]json.RawMessage, name string, required bool) (string, error) {

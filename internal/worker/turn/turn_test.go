@@ -94,24 +94,20 @@ func TestEveryCompiledBoundTerminatesExhausted(t *testing.T) {
 		}
 		t.Fatal("attempt bound did not trip")
 	})
-	t.Run("tool calls and denials count", func(t *testing.T) {
+	t.Run("tool calls and denials have no worker-local ceiling", func(t *testing.T) {
 		m := New()
 		_ = m.Admit(validOpen(nil), time.Now())
 		_ = m.BeginAssembly(7)
 		_ = m.AttemptOpenOK(7, nil)
 		_ = m.Observe(7)
-		for i := 0; i <= MaxToolCalls; i++ {
+		for i := 0; i <= 64; i++ {
 			_ = m.ToolRound(7, "unique-"+string(rune(i)), true)
 			state, term, _, _ := m.Snapshot()
 			if state == StateTerminal {
-				if term != TurnExhausted {
-					t.Fatal(term)
-				}
-				return
+				t.Fatalf("worker imposed a local tool ceiling: %s", term)
 			}
 			m.state = StateObserving
 		}
-		t.Fatal("tool bound did not trip")
 	})
 	t.Run("doom loop", func(t *testing.T) {
 		m := New()

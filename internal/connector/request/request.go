@@ -25,6 +25,11 @@ const (
 	InternalIntegrityFault RejectReason = "internal_integrity_fault"
 )
 
+// RejectReasons exports the connector-owned closed local-rejection enum.
+func RejectReasons() []RejectReason {
+	return []RejectReason{MalformedRequest, LaneCapabilityMismatch, ReplayScopeViolation, InternalIntegrityFault}
+}
+
 func (reason RejectReason) Error() string { return string(reason) }
 
 type Request struct {

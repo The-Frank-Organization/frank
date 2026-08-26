@@ -64,7 +64,7 @@ func TestRecoveryContentTrustClassifiesExternalAndModelBytesDifferently(t *testi
 	}
 
 	external := withSeqFinalized(t, recordForKind(t, KindProviderOutput), "1")
-	external.Fields["content"] = rawString(t, "changed external bytes")
+	external.Fields["verbatim"] = rawString(t, "changed external bytes")
 	externalMarker, err := BuildRoundMarker("2", "generation-a", "turn-1", "0", "2", []Record{external})
 	if err != nil {
 		t.Fatalf("BuildRoundMarker(external): %v", err)

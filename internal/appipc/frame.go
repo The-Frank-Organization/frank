@@ -7,11 +7,17 @@ import (
 	"io"
 )
 
-var ErrFrameTooLarge = errors.New("appipc: frame exceeds FRAME_MAX")
+var (
+	ErrEmptyFrame    = errors.New("appipc: frame payload is empty")
+	ErrFrameTooLarge = errors.New("appipc: frame exceeds FRAME_MAX")
+)
 
 // WriteFrame writes uint32_be(length) followed by the payload. Oversized
 // payloads are rejected before any bytes reach the writer.
 func WriteFrame(writer io.Writer, payload []byte) error {
+	if len(payload) == 0 {
+		return ErrEmptyFrame
+	}
 	if len(payload) > FrameMax {
 		return fmt.Errorf("%w: %d > %d", ErrFrameTooLarge, len(payload), FrameMax)
 	}

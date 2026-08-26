@@ -1,12 +1,16 @@
 package brokerclient
 
 import (
+	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"syscall"
 	"testing"
 	"time"
 
@@ -15,6 +19,132 @@ import (
 	"github.com/jackli/frank/internal/appctl/testutil"
 	"github.com/jackli/frank/internal/appipc"
 )
+
+func TestControlLockUsesBoundedPOSIXRecordLockAndOneDescriptor(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "broker-control.lock")
+	holder := startControlLockHolder(t, path)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+	defer cancel()
+	if lock, err := openControlLock(ctx, path); !errors.Is(err, context.DeadlineExceeded) {
+		if lock != nil {
+			unlockControl(lock)
+		}
+		t.Fatalf("contended acquisition err = %v, want deadline", err)
+	}
+	holder.release(t)
+
+	lock, err := openControlLock(context.Background(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unlockControl(lock)
+	before, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if controlLockAvailableInChild(t, path) {
+		t.Fatal("child acquired controller-held record lock")
+	}
+	if duplicate, err := openControlLock(context.Background(), path); !errors.Is(err, errControlLockAlreadyOpen) {
+		if duplicate != nil {
+			unlockControl(duplicate)
+		}
+		t.Fatalf("second same-process open err = %v, want duplicate refusal", err)
+	}
+	if controlLockAvailableInChild(t, path) {
+		t.Fatal("second same-process acquisition attempt dropped the live lock")
+	}
+	after, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !os.SameFile(before, after) {
+		t.Fatal("controller lock inode changed during its lifetime")
+	}
+}
+
+func TestControlLockProcessHelper(t *testing.T) {
+	mode, path := os.Getenv("FRANK_CONTROL_LOCK_HELPER"), os.Getenv("FRANK_CONTROL_LOCK_PATH")
+	if mode == "" {
+		return
+	}
+	file, err := os.OpenFile(path, os.O_RDWR, 0)
+	if err != nil {
+		os.Exit(2)
+	}
+	defer file.Close()
+	record := syscall.Flock_t{Type: syscall.F_WRLCK, Whence: 0, Start: 0, Len: 0}
+	if err := syscall.FcntlFlock(file.Fd(), syscall.F_SETLK, &record); err != nil {
+		os.Exit(10)
+	}
+	if mode == "probe" {
+		_ = syscall.FcntlFlock(file.Fd(), syscall.F_UNLCK, &record)
+		return
+	}
+	if _, err := fmt.Fprintln(os.Stdout, "locked"); err != nil {
+		os.Exit(3)
+	}
+	_, _ = io.Copy(io.Discard, os.Stdin)
+	_ = syscall.FcntlFlock(file.Fd(), syscall.F_UNLCK, &record)
+}
+
+type controlLockHolder struct {
+	command *exec.Cmd
+	stdin   io.Closer
+}
+
+func startControlLockHolder(t *testing.T, path string) controlLockHolder {
+	t.Helper()
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = file.Close()
+	command := exec.Command(os.Args[0], "-test.run=^TestControlLockProcessHelper$")
+	command.Env = append(os.Environ(), "FRANK_CONTROL_LOCK_HELPER=hold", "FRANK_CONTROL_LOCK_PATH="+path)
+	stdout, err := command.StdoutPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	stdin, err := command.StdinPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := command.Start(); err != nil {
+		t.Fatal(err)
+	}
+	if line, err := bufio.NewReader(stdout).ReadString('\n'); err != nil || line != "locked\n" {
+		t.Fatalf("lock helper ready = %q err=%v", line, err)
+	}
+	return controlLockHolder{command: command, stdin: stdin}
+}
+
+func (holder controlLockHolder) release(t *testing.T) {
+	t.Helper()
+	if err := holder.stdin.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := holder.command.Wait(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func controlLockAvailableInChild(t *testing.T, path string) bool {
+	t.Helper()
+	command := exec.Command(os.Args[0], "-test.run=^TestControlLockProcessHelper$")
+	command.Env = append(os.Environ(), "FRANK_CONTROL_LOCK_HELPER=probe", "FRANK_CONTROL_LOCK_PATH="+path)
+	err := command.Run()
+	if err == nil {
+		return true
+	}
+	var exitError *exec.ExitError
+	if errors.As(err, &exitError) && exitError.ExitCode() == 10 {
+		return false
+	}
+	t.Fatalf("control lock probe failed: %v", err)
+	return false
+}
 
 func TestProposalFoldAndTwoFormGate(t *testing.T) {
 	tuple := appipc.EpochStateBody{RunID: "run", GenerationID: "generation", TurnEpoch: "2", LeaseState: appipc.LeaseLeased, StateSeq: "8"}
@@ -98,8 +228,14 @@ func TestFakeBrokerUsesRealFramesAndSpawnIsDetached(t *testing.T) {
 	if err != nil || envelope.Type != "state_proposal" || <-done != nil {
 		t.Fatalf("fakebroker real frame = %#v err=%v", envelope, err)
 	}
-	command, err := BrokerCommand("/bin/frank-broker", nil, t.TempDir(), nil)
-	if err != nil || command.SysProcAttr == nil || !command.SysProcAttr.Setsid {
+	tokenRead, tokenWrite, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tokenRead.Close()
+	defer tokenWrite.Close()
+	command, err := BrokerCommand("/bin/frank-broker", []string{"--config-home", "/private/config"}, t.TempDir(), tokenRead)
+	if err != nil || command.SysProcAttr == nil || !command.SysProcAttr.Setsid || len(command.ExtraFiles) != 1 || len(command.Env) != 0 || fmt.Sprint(command.Args) != "[/bin/frank-broker --config-home /private/config]" {
 		t.Fatalf("BrokerCommand = %#v err=%v", command, err)
 	}
 }
@@ -240,6 +376,10 @@ func TestEstablishLocksAdvancesBeforeDialAndPresentsControl(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	reply, err := appipc.MarshalJCS(map[string]any{"outcome": "adopted"})
+	if err != nil || appipc.WriteFrame(connection, reply) != nil {
+		t.Fatalf("write handshake reply: %v", err)
+	}
 	got := <-result
 	if got.err != nil {
 		t.Fatal(got.err)
@@ -254,8 +394,38 @@ func TestEstablishLocksAdvancesBeforeDialAndPresentsControl(t *testing.T) {
 	if got.session.Generation != "1" {
 		t.Fatalf("session generation = %q", got.session.Generation)
 	}
+	if got.session.Outcome != ControlAdopted {
+		t.Fatalf("session outcome = %q", got.session.Outcome)
+	}
 	if _, err := io.WriteString(got.session.Conn, "x"); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestEstablishReturnsTypedRejectedHandshake(t *testing.T) {
+	ctx := context.Background()
+	runtimeDir := t.TempDir()
+	db, err := store.Open(ctx, filepath.Join(runtimeDir, "state"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	host := applier.New(db, applier.Config{})
+	t.Cleanup(func() { _ = host.Close(); _ = db.Close() })
+	seedBrokerRun(t, ctx, host)
+	left, right := net.Pipe()
+	defer right.Close()
+	go func() {
+		_, _ = appipc.ReadFrame(right)
+		reply, _ := appipc.MarshalJCS(map[string]any{"outcome": "rejected-lock"})
+		_ = appipc.WriteFrame(right, reply)
+	}()
+	_, err = New(host).Establish(ctx, ControlRequest{
+		RunID: "run", RuntimeDir: runtimeDir, ControlToken: "token", At: 20,
+		Dial: func(context.Context, string, string) (net.Conn, error) { return left, nil },
+	})
+	var rejection *ControlHandshakeError
+	if !errors.As(err, &rejection) || rejection.Outcome != ControlRejectedLock {
+		t.Fatalf("typed rejection = %#v err=%v", rejection, err)
 	}
 }
 

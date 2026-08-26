@@ -14,7 +14,7 @@ func TestExpectedCatalogDigest(t *testing.T) {
 	if digest != ExpectedDigest {
 		t.Fatalf("Digest = %q, want %q", digest, ExpectedDigest)
 	}
-	if ExpectedDigest != "7fae5fc1dd8f91c48828beaf0cfba45a1da4c297bf82f790ec2912b0a168c9d4" {
+	if ExpectedDigest != "151a7e614abd6b25e643062b26cb9c6af60b0eadedf8e03c1f12b1850458913d" {
 		t.Fatalf("ExpectedDigest drifted: %q", ExpectedDigest)
 	}
 }

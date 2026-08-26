@@ -65,6 +65,7 @@ func NewFakeConnector(connection net.Conn) (*FakeConnector, error) {
 	if err != nil {
 		return nil, err
 	}
+	peer.nextSeq = 1
 	return &FakeConnector{Peer: peer}, nil
 }
 

@@ -11,12 +11,12 @@ import (
 
 func TestM10TicketIsOneShotAndWakeIsDuplicateSafe(t *testing.T) {
 	peer := NewM10(workerruntime.Assignment{})
-	identity := executor.FullIdentity{RunID: "r", TurnID: "t", ToolCallID: "c", Identity: executor.Identity{CanonicalToolName: "read", CanonicalArgsDigest: strings.Repeat("a", 64), TurnEpoch: 1}}
+	identity := executor.FullIdentity{RunID: "r", TurnID: "t", ToolCallID: "c", Identity: executor.Identity{CanonicalToolName: "read", CanonicalArgsDigest: strings.Repeat("a", 64), TurnEpoch: "1"}}
 	authorized, err := peer.Authorize(context.Background(), executor.AuthorizeRequest{Identity: identity})
 	if err != nil {
 		t.Fatal(err)
 	}
-	request := executor.ConsumeRequest{TicketID: authorized.TicketID, TurnEpoch: 1, CanonicalToolName: "read", CanonicalArgsDigest: strings.Repeat("a", 64)}
+	request := executor.ConsumeRequest{TicketID: authorized.TicketID, TurnEpoch: "1", CanonicalToolName: "read", CanonicalArgsDigest: strings.Repeat("a", 64)}
 	first, _ := peer.Consume(context.Background(), request)
 	second, _ := peer.Consume(context.Background(), request)
 	if first.Code != executor.ConsumeOK || second.Code != executor.ConsumeDuplicate {

@@ -70,9 +70,12 @@ type ConsumeRequest struct {
 	TurnEpoch           string
 	CanonicalToolName   string
 	CanonicalArgsDigest string
-	GenerationID        string
 	ConsumedAt          int64
 }
+
+// ChannelIdentity is assigned by the authenticated CTRL-W receiver. It is
+// deliberately separate from worker-authored request bodies.
+type ChannelIdentity struct{ GenerationID string }
 
 type Identity struct {
 	CanonicalToolName   string `json:"canonical_tool_name"`
@@ -95,7 +98,6 @@ const (
 type OutcomeRequest struct {
 	TicketID           string
 	TurnEpoch          string
-	GenerationID       string
 	Outcome            Outcome
 	InvocationIdentity *Identity
 	IntegrityEvidence  *IntegrityEvidence

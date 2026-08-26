@@ -19,16 +19,16 @@ const (
 	RelayProjectSchemaDigest = "be5c41ec848bd7f6a7afd16af5acc56c65cf39bc113041941bb6747153bd582a"
 	RelayReadSchemaDigest    = "a84645cb3f57ea1172661ddcc42e8a710f5a320ee3ed6c944f5e469026b3036e"
 
-	ExpectedDigest = "7fae5fc1dd8f91c48828beaf0cfba45a1da4c297bf82f790ec2912b0a168c9d4"
+	ExpectedDigest = "151a7e614abd6b25e643062b26cb9c6af60b0eadedf8e03c1f12b1850458913d"
 )
 
-// Identity is the complete identity vector compared by the m-10 serve gate.
-// FormSchemaMappingVersion is absent from JSON for local tools.
+// Identity is the complete manifest-tool identity vector compared by the m-10
+// serve gate. MappingVersion is absent from JSON for local tools.
 type Identity struct {
-	CanonicalName            string `json:"canonical_name"`
-	FormSchemaMappingVersion string `json:"form_schema_mapping_version,omitempty"`
-	ToolImplCatalogVersion   string `json:"tool_impl_catalog_version"`
-	ToolSchemaDigest         string `json:"tool_schema_digest"`
+	CanonicalName            string `json:"name"`
+	FormSchemaMappingVersion string `json:"mapping_version,omitempty"`
+	ToolImplCatalogVersion   string `json:"catalog_version"`
+	ToolSchemaDigest         string `json:"schema_digest"`
 }
 
 var localSchemas = map[string]json.RawMessage{

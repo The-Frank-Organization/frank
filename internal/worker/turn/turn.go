@@ -34,7 +34,6 @@ const (
 
 const (
 	MaxProviderAttempts = 16
-	MaxToolCalls        = 64
 	MaxWallClock        = 30 * time.Minute
 	MaxStreamedOutput   = 8 << 20
 	MaxCapturedOutput   = 1 << 20
@@ -91,11 +90,11 @@ func (item ParkedUnknown) validate() error {
 }
 
 type Open struct {
-	RunID         string
-	TurnID        string
-	TurnEpoch     string
-	AdmissionRef  AdmissionRef
-	ParkedUnknown []ParkedUnknown
+	RunID         string          `json:"run_id"`
+	TurnID        string          `json:"turn_id"`
+	TurnEpoch     string          `json:"turn_epoch"`
+	AdmissionRef  AdmissionRef    `json:"admission_ref"`
+	ParkedUnknown []ParkedUnknown `json:"parked_unknown"`
 }
 
 type Machine struct {
@@ -179,7 +178,7 @@ func (machine *Machine) ToolRound(epoch uint64, callKey string, denied bool) err
 	} else {
 		machine.lastCallKey, machine.repeated = callKey, 1
 	}
-	if machine.toolCalls > MaxToolCalls || machine.repeated >= DoomLoopThreshold {
+	if machine.repeated >= DoomLoopThreshold {
 		machine.state, machine.terminal = StateTerminal, TurnExhausted
 		return nil
 	}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -22,7 +23,7 @@ import (
 
 const (
 	childModeEnv = "FRANK_CONNECTOR_TEST_CHILD"
-	mainCatalog  = `{"lanes":[{"auth":{"auth_header_name":"x-openai-auth","auth_scheme":"bearer"},"compat_mode":"openai-responses","cost":{"effective_time":"2026-07-17T00:00:00Z","input":1.25,"output":10},"endpoint":"https://api.openai.com/v1/responses","lane_id":"lane-codex-1","limits":{"context":200000,"max_output":100000},"method":"POST","model_id":"gpt-5","observed_at":"2026-07-17T00:00:00Z","profile_facts":{"endpoint_kind":"coding","region":"us-east"},"provider_id":"openai","reasoning":{"effort_levels":["low","medium","high"],"replay_kind":"opaque_item","supported":true},"serving_profile_id":"codex-default","source":"seeded","tool_use":{"strict_schema":true,"supported":true},"wire":{"max_output_tokens_field":"max_output_tokens","server_retention":false,"streaming":true,"usage_in_streaming":true}}],"schema":"m8.lane_catalog.v1"}`
+	mainCatalog  = `{"lanes":[{"auth":{"auth_header_name":"x-openai-auth","auth_scheme":"bearer"},"compat_mode":"openai-responses","cost":{"effective_time":"2026-07-17T00:00:00Z","input":1,"output":10},"endpoint":"https://api.openai.com/v1/responses","lane_id":"lane-codex-1","limits":{"context":200000,"max_output":100000},"method":"POST","model_id":"gpt-5","observed_at":"2026-07-17T00:00:00Z","profile_facts":{"endpoint_kind":"coding","region":"us-east"},"provider_id":"openai","reasoning":{"effort_levels":["low","medium","high"],"replay_kind":"opaque_item","supported":true},"serving_profile_id":"codex-default","source":"seeded","tool_use":{"strict_schema":true,"supported":true},"wire":{"max_output_tokens_field":"max_output_tokens","server_retention":false,"streaming":true,"usage_in_streaming":true}}],"schema":"m8.lane_catalog.v1"}`
 	mainPolicy   = `{"denied_header_names":["authorization","cookie","proxy-authorization","x-api-key","x-openai-auth"],"egress_class":"provider-request","endpoint_allowlist":["https://api.openai.com/v1/responses"],"pinned_lane":"lane-codex-1","schema":"m3.egress_policy.v1"}`
 	mainSecret   = "S14_MAIN_SENTINEL_SECRET"
 )
@@ -40,21 +41,21 @@ func TestParseConfigAcceptsPathsAndInheritedDescriptorsOnly(t *testing.T) {
 		"-credential", "/runtime/private/credentials.json",
 		"-catalog", "/runtime/private/catalog.json",
 		"-policy", "/runtime/private/policy.json",
-		"-control-fd", "3", "-data-fd", "4",
+		"-control-fd", "3", "-data-fd", "4", "-death-fd", "5",
 		"-runtime-dir", "/runtime/private", "-build-info", "s14-test",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if config.controlFD != 3 || config.dataFD != 4 || config.credentialPath == "" || config.catalogPath == "" || config.policyPath == "" || config.runtimeDir == "" || config.buildInfo != "s14-test" {
+	if config.controlFD != 3 || config.dataFD != 4 || config.deathFD != 5 || config.credentialPath == "" || config.catalogPath == "" || config.policyPath == "" || config.runtimeDir == "" || config.buildInfo != "s14-test" {
 		t.Fatalf("parsed config = %+v", config)
 	}
 	for _, args := range [][]string{
 		{"-credential", "inline-secret"},
-		{"-credential", "/a", "-catalog", "/b", "-policy", "/c", "-control-fd", "2", "-data-fd", "4", "-runtime-dir", "/r", "-build-info", "b"},
-		{"-credential", "/a", "-catalog", "/b", "-policy", "/c", "-control-fd", "3", "-data-fd", "3", "-runtime-dir", "/r", "-build-info", "b"},
-		{"-credential", "/runtime/private/../secret", "-catalog", "/runtime/private/catalog", "-policy", "/runtime/private/policy", "-control-fd", "3", "-data-fd", "4", "-runtime-dir", "/runtime/private", "-build-info", "b"},
-		{"-credential", "/runtime/secret", "-catalog", "/runtime/private/catalog", "-policy", "/runtime/private/policy", "-control-fd", "3", "-data-fd", "4", "-runtime-dir", "/runtime/private", "-build-info", "b"},
+		{"-credential", "/a", "-catalog", "/b", "-policy", "/c", "-control-fd", "2", "-data-fd", "4", "-death-fd", "5", "-runtime-dir", "/r", "-build-info", "b"},
+		{"-credential", "/a", "-catalog", "/b", "-policy", "/c", "-control-fd", "3", "-data-fd", "3", "-death-fd", "5", "-runtime-dir", "/r", "-build-info", "b"},
+		{"-credential", "/runtime/private/../secret", "-catalog", "/runtime/private/catalog", "-policy", "/runtime/private/policy", "-control-fd", "3", "-data-fd", "4", "-death-fd", "5", "-runtime-dir", "/runtime/private", "-build-info", "b"},
+		{"-credential", "/runtime/secret", "-catalog", "/runtime/private/catalog", "-policy", "/runtime/private/policy", "-control-fd", "3", "-data-fd", "4", "-death-fd", "5", "-runtime-dir", "/runtime/private", "-build-info", "b"},
 	} {
 		if _, err := parseConfig(args); err == nil {
 			t.Fatalf("invalid argv accepted: %v", args)
@@ -83,6 +84,24 @@ func TestValidateRuntimeDirRequiresOwnedPrivateRealDirectory(t *testing.T) {
 	}
 	if err := validateRuntimeDir(link); !errors.Is(err, errRuntimeDir) {
 		t.Fatalf("symlink runtime dir error = %v", err)
+	}
+}
+
+func TestParentDeathPipeCancelsConnectorContext(t *testing.T) {
+	readEnd, writeEnd, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer readEnd.Close()
+	ctx, cancel := cancelOnParentDeath(context.Background(), readEnd)
+	defer cancel()
+	if err := writeEnd.Close(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-ctx.Done():
+	case <-time.After(time.Second):
+		t.Fatal("connector context remained live after parent death EOF")
 	}
 }
 
@@ -142,6 +161,11 @@ func TestSpawnHandshakeAndCleanShutdownExposeNoSecret(t *testing.T) {
 
 	controlFiles := socketFiles(t, "control")
 	dataFiles := socketFiles(t, "data")
+	deathChild, deathParent, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer deathParent.Close()
 	controlConnection, err := net.FileConn(controlFiles[0])
 	if err != nil {
 		t.Fatal(err)
@@ -155,9 +179,9 @@ func TestSpawnHandshakeAndCleanShutdownExposeNoSecret(t *testing.T) {
 	}
 	command := exec.Command(executable,
 		"-credential", credentialPath, "-catalog", catalogPath, "-policy", policyPath,
-		"-control-fd", "3", "-data-fd", "4", "-runtime-dir", runtimeDir, "-build-info", "s14-test",
+		"-control-fd", "3", "-data-fd", "4", "-death-fd", "5", "-runtime-dir", runtimeDir, "-build-info", "s14-test",
 	)
-	command.ExtraFiles = []*os.File{controlFiles[1], dataFiles[1]}
+	command.ExtraFiles = []*os.File{controlFiles[1], dataFiles[1], deathChild}
 	command.Env = append(os.Environ(), childModeEnv+"=1")
 	var output bytes.Buffer
 	command.Stdout = &output
@@ -167,6 +191,7 @@ func TestSpawnHandshakeAndCleanShutdownExposeNoSecret(t *testing.T) {
 	}
 	_ = controlFiles[1].Close()
 	_ = dataFiles[1].Close()
+	_ = deathChild.Close()
 
 	if err := controlConnection.SetDeadline(time.Now().Add(2 * time.Second)); err != nil {
 		t.Fatal(err)

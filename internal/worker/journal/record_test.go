@@ -60,7 +60,7 @@ func TestRecordDigestIsSelfExcludingAndDetectsContentDrift(t *testing.T) {
 	if ok, err := VerifyRecordDigest(record); err != nil || !ok {
 		t.Fatalf("VerifyRecordDigest(clean) = %v, %v", ok, err)
 	}
-	record.Fields["content"] = rawString(t, "changed opaque bytes")
+	record.Fields["verbatim"] = rawString(t, "changed opaque bytes")
 	if ok, err := VerifyRecordDigest(record); err != nil || ok {
 		t.Fatalf("VerifyRecordDigest(mutated) = %v, %v", ok, err)
 	}
@@ -69,13 +69,65 @@ func TestRecordDigestIsSelfExcludingAndDetectsContentDrift(t *testing.T) {
 func TestOpaqueProviderItemPassesThroughBytePreservedAndUnparsed(t *testing.T) {
 	opaque := rawString(t, `opaque_item_passthrough:{"provider_native":true}`)
 	record := recordForKind(t, KindProviderOutput)
-	record.Fields["content"] = append(json.RawMessage(nil), opaque...)
+	record.Fields["verbatim"] = append(json.RawMessage(nil), opaque...)
 	decoded, err := DecodeRecord(mustMarshal(t, mustFinalized(t, record)))
 	if err != nil {
 		t.Fatalf("DecodeRecord: %v", err)
 	}
-	if !bytes.Equal(decoded.Fields["content"], opaque) {
-		t.Fatalf("opaque content changed: got %s, want %s", decoded.Fields["content"], opaque)
+	restored, err := ProviderItemBytes(decoded)
+	if err != nil || !bytes.Equal(restored, opaque) {
+		t.Fatalf("opaque content changed: got %s, want %s, err=%v", restored, opaque, err)
+	}
+}
+
+func TestProviderItemCarrierIsClosedAndLossless(t *testing.T) {
+	canonical := []byte(`{"a":1,"b":true}`)
+	invalid := []byte{0xff, 0xfe, 0x00, 'x'}
+	for name, item := range map[string][]byte{"verbatim": canonical, "raw_b64": invalid} {
+		record := recordForKind(t, KindProviderOutput)
+		delete(record.Fields, "verbatim")
+		for member, raw := range ProviderItemCarrier(item) {
+			record.Fields[member] = raw
+		}
+		decoded, err := DecodeRecord(mustMarshal(t, mustFinalized(t, record)))
+		if err != nil {
+			t.Fatalf("%s DecodeRecord: %v", name, err)
+		}
+		restored, err := ProviderItemBytes(decoded)
+		if err != nil || !bytes.Equal(restored, item) {
+			t.Fatalf("%s round trip = %x, %v", name, restored, err)
+		}
+		if _, present := decoded.Fields[name]; !present {
+			t.Fatalf("%s branch absent: %+v", name, decoded.Fields)
+		}
+	}
+	nonCanonicalJSON := []byte(`{"b":true,"a":1}`)
+	nonCanonicalCarrier := ProviderItemCarrier(nonCanonicalJSON)
+	if _, raw := nonCanonicalCarrier["raw_b64"]; !raw {
+		t.Fatalf("valid non-canonical JSON did not select raw_b64: %+v", nonCanonicalCarrier)
+	}
+	if _, verbatim := nonCanonicalCarrier["verbatim"]; verbatim {
+		t.Fatalf("valid non-canonical JSON selected verbatim: %+v", nonCanonicalCarrier)
+	}
+
+	record := recordForKind(t, KindProviderOutput)
+	record.Fields["raw_b64"] = rawString(t, "eA==")
+	if _, err := FinalizeRecord(record); err == nil {
+		t.Fatal("both carrier branches were accepted")
+	}
+	delete(record.Fields, "verbatim")
+	delete(record.Fields, "raw_b64")
+	if _, err := FinalizeRecord(record); err == nil {
+		t.Fatal("missing carrier branch was accepted")
+	}
+	record.Fields["verbatim"] = json.RawMessage(`{ "a": 1 }`)
+	if _, err := FinalizeRecord(record); err == nil {
+		t.Fatal("non-canonical verbatim branch was accepted")
+	}
+	delete(record.Fields, "verbatim")
+	record.Fields["raw_b64"] = rawString(t, "eA")
+	if _, err := FinalizeRecord(record); err == nil {
+		t.Fatal("unpadded raw_b64 branch was accepted")
 	}
 }
 
@@ -197,7 +249,7 @@ func recordForKind(t *testing.T, kind string) Record {
 		record.Fields = map[string]json.RawMessage{
 			"attempt_id": rawString(t, "attempt-1"),
 			"item_index": rawString(t, "0"),
-			"content":    rawString(t, "opaque-provider-item"),
+			"verbatim":   rawString(t, "opaque-provider-item"),
 		}
 	case KindCompactionEvent:
 		record.TurnID, record.RoundIndex = "turn-1", "0"

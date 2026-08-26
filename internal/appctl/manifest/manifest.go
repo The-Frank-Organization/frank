@@ -90,6 +90,22 @@ type Frozen struct {
 	Digest   string
 }
 
+// ConnectorAssign carries the frozen digest comparands byte-for-byte. The
+// remaining lifecycle fields are populated by the supervisor when it binds a
+// connector incarnation to an epoch.
+func (frozen Frozen) ConnectorAssign() (appipc.ConnectorAssignBody, error) {
+	if frozen.Manifest.RunID == "" || digestBytes(frozen.Bytes) != frozen.Digest || !validDigest(frozen.Digest) || !validDigest(frozen.Manifest.PolicyDigest) || !validDigest(frozen.Manifest.ProviderLane.LaneCatalogDigest) || !validCredentialReference(frozen.Manifest.ProviderLane.CredentialRef) {
+		return appipc.ConnectorAssignBody{}, ErrMalformedManifest
+	}
+	return appipc.ConnectorAssignBody{
+		RunID:             frozen.Manifest.RunID,
+		RunManifestDigest: frozen.Digest,
+		PolicyDigest:      frozen.Manifest.PolicyDigest,
+		LaneCatalogDigest: frozen.Manifest.ProviderLane.LaneCatalogDigest,
+		CredentialRef:     frozen.Manifest.ProviderLane.CredentialRef,
+	}, nil
+}
+
 func StagingToolSet() []ToolIdentity {
 	tools := make([]ToolIdentity, len(RatifiedToolNames))
 	for i, name := range RatifiedToolNames {
@@ -108,7 +124,7 @@ func ToolNames(tools []ToolIdentity) []string {
 }
 
 func Build(input BuildInput) (Frozen, error) {
-	if input.RunID == "" || input.PolicySourceRef == "" || input.ProviderLane.CredentialRef == "" {
+	if input.RunID == "" || input.PolicySourceRef == "" || !validCredentialReference(input.ProviderLane.CredentialRef) {
 		return Frozen{}, ErrMalformedManifest
 	}
 	if digestBytes(input.PolicyBytes) != input.PolicyDigest {
@@ -282,6 +298,25 @@ func validDigest(value string) bool {
 		}
 	}
 	return true
+}
+
+// validCredentialReference mirrors the connector-owned opaque-reference
+// grammar at the app-control admission boundary. It deliberately validates
+// only the reference, never credential bytes.
+func validCredentialReference(value string) bool {
+	if len(value) == 0 || len(value) > 64 || !lowerAlnum(value[0]) {
+		return false
+	}
+	for index := 1; index < len(value); index++ {
+		if !lowerAlnum(value[index]) && value[index] != '-' {
+			return false
+		}
+	}
+	return true
+}
+
+func lowerAlnum(value byte) bool {
+	return value >= 'a' && value <= 'z' || value >= '0' && value <= '9'
 }
 
 func digestBytes(value []byte) string {

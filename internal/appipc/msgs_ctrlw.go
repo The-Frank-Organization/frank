@@ -76,6 +76,20 @@ type SettlementManifest struct {
 	Entries           []SettlementEntry `json:"entries"`
 }
 
+var settlementVoidReasons = map[string]struct{}{
+	"run_not_admitted": {},
+	"turn_inactive":    {},
+	"lease_invalid":    {},
+	"denied_above_set": {},
+	"expired":          {},
+}
+
+// Validate applies the closed settlement-manifest contract at consumers that
+// receive a decoded turn_open outside the protocol registry.
+func (manifest SettlementManifest) Validate() error {
+	return validateSettlementManifest(&manifest)
+}
+
 type TurnOpenBody struct {
 	TurnID             string              `json:"turn_id"`
 	AdmissionRef       AdmissionRef        `json:"admission_ref"`
@@ -233,6 +247,10 @@ type AdmissionRefusedBody struct {
 
 func registerCtrlW(registry *Registry) error {
 	add := AdditiveFamily
+	contentReadyReplies := []string{
+		"content_ready_recorded", "content_ready_duplicate", "content_ready_conflict",
+		"content_ready_stale_epoch", "content_ready_unknown_attempt", "content_ready_future_epoch_fault",
+	}
 	registrations := []func() error{
 		func() error {
 			return registerBody[HelloBody](registry, ChannelCtrlW, "hello", false, add, nil, validateHello)
@@ -336,7 +354,17 @@ func registerCtrlW(registry *Registry) error {
 			return err
 		}
 	}
+	for _, messageType := range contentReadyReplies {
+		if err := registerBody[EmptyBody](registry, ChannelCtrlW, messageType, true, add, nil, nil); err != nil {
+			return err
+		}
+	}
 	for _, messageType := range []string{"turn_open", "genesis_committed", "content_ready", "report_resume_disposition", "receipt", "disposition_conflict"} {
+		if err := registry.requireEnvelope(ChannelCtrlW, messageType, true, true); err != nil {
+			return err
+		}
+	}
+	for _, messageType := range contentReadyReplies {
 		if err := registry.requireEnvelope(ChannelCtrlW, messageType, true, true); err != nil {
 			return err
 		}
@@ -421,6 +449,9 @@ func validateSettlementManifest(manifest *SettlementManifest) error {
 			if entry.Terminal == "VOID" {
 				if entry.VoidReason == nil {
 					return fmt.Errorf("orphan VOID entry requires void_reason")
+				}
+				if _, known := settlementVoidReasons[*entry.VoidReason]; !known {
+					return fmt.Errorf("unknown void_reason %q", *entry.VoidReason)
 				}
 			} else if entry.VoidReason != nil {
 				return fmt.Errorf("non-VOID tool entry forbids void_reason")

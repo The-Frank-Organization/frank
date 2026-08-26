@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/jackli/frank/internal/appipc"
 	"github.com/jackli/frank/internal/worker/executor"
 	"github.com/jackli/frank/internal/worker/provider"
 	workerruntime "github.com/jackli/frank/internal/worker/runtime"
@@ -54,6 +55,7 @@ type M10 struct {
 	ConsumeCalls   int
 	Outcomes       []executor.OutcomeRecord
 	Wakes          []string
+	Genesis        []appipc.GenesisCommittedBody
 	Terminal       turn.Terminal
 	tickets        map[string]*ticket
 	nextTicket     int
@@ -68,6 +70,14 @@ func NewM10(assignment workerruntime.Assignment) *M10 {
 func (peer *M10) Hello(context.Context, workerruntime.Hello) (workerruntime.Assignment, error) {
 	peer.trace.add("hello")
 	return peer.Assignment, nil
+}
+
+func (peer *M10) GenesisCommitted(_ context.Context, body appipc.GenesisCommittedBody) error {
+	peer.mu.Lock()
+	peer.Genesis = append(peer.Genesis, body)
+	peer.mu.Unlock()
+	peer.trace.add("genesis_committed")
+	return nil
 }
 
 func (peer *M10) ReportAttach(_ context.Context, _ string, _ string, result workerruntime.AttachResult) error {
@@ -105,15 +115,22 @@ func (peer *M10) RecordStreamEnd(_ context.Context, _ string, _ provider.StreamE
 	return nil
 }
 
+func (peer *M10) EvaluateProviderE0(_ context.Context, events []provider.Event) error {
+	if len(events) != 0 {
+		peer.trace.add("provider_e0")
+	}
+	return nil
+}
+
 func (peer *M10) Authorize(_ context.Context, request executor.AuthorizeRequest) (executor.AuthorizeReply, error) {
 	peer.mu.Lock()
 	defer peer.mu.Unlock()
 	peer.AuthorizeCalls++
 	peer.nextTicket++
 	id := "ticket-" + strconv.Itoa(peer.nextTicket)
-	peer.tickets[id] = &ticket{identity: request.Identity, state: executor.TicketIssued}
+	peer.tickets[id] = &ticket{identity: request.FrozenIdentity(), state: executor.TicketIssued}
 	peer.trace.add("authorize")
-	return executor.AuthorizeReply{Code: executor.AuthorizeGranted, TicketID: id}, nil
+	return executor.AuthorizeReply{Code: executor.AuthorizeGranted, TicketID: id, EffectDescriptor: executor.DescriptorForIdentity(request.FrozenIdentity())}, nil
 }
 
 func (peer *M10) Consume(_ context.Context, request executor.ConsumeRequest) (executor.ConsumeReply, error) {
@@ -191,7 +208,7 @@ func (peer *M8) Attempt(context.Context, provider.Request) (provider.Disposition
 	return peer.Disposition, items, peer.Err
 }
 
-func (peer *M8) Cancel(context.Context, string, uint64) (provider.Disposition, error) {
+func (peer *M8) Cancel(context.Context, string, string) (provider.Disposition, error) {
 	return provider.CancelledPre, nil
 }
 

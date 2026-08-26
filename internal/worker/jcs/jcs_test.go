@@ -6,14 +6,13 @@ import (
 	"testing"
 )
 
-func TestCanonicalizeRFC8785PrimitiveVector(t *testing.T) {
+func TestCanonicalizeStrictIntegerPrimitiveVector(t *testing.T) {
 	input := []byte(`{
-  "numbers": [333333333.33333329, 1E30, 4.50,
-              2e-3, 0.000000000000000000000000001],
+	"numbers": [0, -1, 9007199254740993, 123456789012345678901234567890],
   "string": "\u20ac$\u000F\u000aA'\u0042\u0022\u005c\\\"\/",
   "literals": [null, true, false]
 }`)
-	want := []byte(`{"literals":[null,true,false],"numbers":[333333333.3333333,1e+30,4.5,0.002,1e-27],"string":"€$\u000f\nA'B\"\\\\\"/"}`)
+	want := []byte(`{"literals":[null,true,false],"numbers":[0,-1,9007199254740993,123456789012345678901234567890],"string":"€$\u000f\nA'B\"\\\\\"/"}`)
 
 	got, err := Canonicalize(input)
 	if err != nil {
@@ -71,16 +70,11 @@ func TestCanonicalizeRecursesThroughObjectsInArrays(t *testing.T) {
 	}
 }
 
-func TestCanonicalizeUsesECMAScriptNumberThresholds(t *testing.T) {
-	input := []byte(`[1e21,1e20,1e-6,1e-7,-0,4.50]`)
-	want := []byte(`[1e+21,100000000000000000000,0.000001,1e-7,0,4.5]`)
-
-	got, err := Canonicalize(input)
-	if err != nil {
-		t.Fatalf("Canonicalize: %v", err)
-	}
-	if !bytes.Equal(got, want) {
-		t.Fatalf("number serialization: got %s, want %s", got, want)
+func TestCanonicalizeRejectsNonIntegerNumbers(t *testing.T) {
+	for _, input := range []string{"1e21", "1e-6", "-0", "4.50"} {
+		if got, err := Canonicalize([]byte(input)); err == nil {
+			t.Fatalf("Canonicalize(%q) = %s, want refusal", input, got)
+		}
 	}
 }
 
@@ -137,7 +131,7 @@ func TestDigestIsLowercaseSHA256AndInputOrderInvariant(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Digest left: %v", err)
 	}
-	right, err := Digest([]byte(`{ "a": 1.0, "b": 2e0 }`))
+	right, err := Digest([]byte(`{ "a": 1, "b": 2 }`))
 	if err != nil {
 		t.Fatalf("Digest right: %v", err)
 	}

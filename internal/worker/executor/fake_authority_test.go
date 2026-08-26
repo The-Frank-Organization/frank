@@ -42,13 +42,13 @@ func (authority *fakeAuthority) Authorize(_ context.Context, request AuthorizeRe
 	}
 	authority.nextTicket++
 	ticketID := fmt.Sprintf("ticket-%d", authority.nextTicket)
-	authority.tickets[ticketID] = &fakeTicket{identity: request.Identity, state: TicketIssued}
+	authority.tickets[ticketID] = &fakeTicket{identity: request.FrozenIdentity(), state: TicketIssued}
 	hook := authority.afterAuthorize
 	authority.mu.Unlock()
 	if hook != nil {
 		hook()
 	}
-	return AuthorizeReply{Code: AuthorizeGranted, TicketID: ticketID}, nil
+	return AuthorizeReply{Code: AuthorizeGranted, TicketID: ticketID, EffectDescriptor: DescriptorForIdentity(request.FrozenIdentity())}, nil
 }
 
 func (authority *fakeAuthority) Consume(_ context.Context, request ConsumeRequest) (ConsumeReply, error) {
@@ -130,7 +130,7 @@ func (authority *fakeAuthority) outcome(ticketID string) OutcomeRecord {
 	return authority.tickets[ticketID].outcome
 }
 
-func (authority *fakeAuthority) retireEpoch(epoch uint64) {
+func (authority *fakeAuthority) retireEpoch(epoch string) {
 	authority.mu.Lock()
 	defer authority.mu.Unlock()
 	for _, ticket := range authority.tickets {

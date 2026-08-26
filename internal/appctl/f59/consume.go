@@ -9,14 +9,15 @@ import (
 )
 
 type consumeEvent struct {
-	runID   string
-	request ConsumeRequest
+	runID        string
+	generationID string
+	request      ConsumeRequest
 }
 
 func (event consumeEvent) RunID() string { return event.runID }
 
-func (host *Host) Consume(ctx context.Context, request ConsumeRequest) (Decision, error) {
-	if host == nil || host.applier == nil || request.TicketID == "" || request.GenerationID == "" || !validDigest(request.CanonicalArgsDigest) {
+func (host *Host) Consume(ctx context.Context, channel ChannelIdentity, request ConsumeRequest) (Decision, error) {
+	if host == nil || host.applier == nil || request.TicketID == "" || channel.GenerationID == "" || !validDigest(request.CanonicalArgsDigest) {
 		return Decision{}, ErrInvalidRequest
 	}
 	runID, found, err := host.ticketRunID(ctx, request.TicketID)
@@ -26,7 +27,7 @@ func (host *Host) Consume(ctx context.Context, request ConsumeRequest) (Decision
 	if !found {
 		return Decision{Kind: NoReply, Fault: true}, nil
 	}
-	result, err := host.applier.Apply(ctx, consumeEvent{runID: runID, request: request})
+	result, err := host.applier.Apply(ctx, consumeEvent{runID: runID, generationID: channel.GenerationID, request: request})
 	if err != nil {
 		return Decision{}, err
 	}
@@ -59,7 +60,7 @@ func (event consumeEvent) Apply(ctx context.Context, tx *store.Tx) (applier.Resu
 	if relation > 0 {
 		return noMutation(Decision{Kind: NoReply, Fault: true}), nil
 	}
-	lease, err := holdsBothLeases(ctx, tx, runID, request.GenerationID, current)
+	lease, err := holdsBothLeases(ctx, tx, runID, event.generationID, current)
 	if err != nil {
 		return applier.Result{}, err
 	}

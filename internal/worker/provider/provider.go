@@ -6,6 +6,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"strings"
+
+	"github.com/jackli/frank/internal/worker/wire"
 )
 
 type Disposition string
@@ -22,6 +26,15 @@ const (
 	EpochAhead      Disposition = "EPOCH_AHEAD"
 )
 
+type RejectReason string
+
+const (
+	MalformedRequest       RejectReason = "malformed_request"
+	LaneCapabilityMismatch RejectReason = "lane_capability_mismatch"
+	ReplayScopeViolation   RejectReason = "replay_scope_violation"
+	InternalIntegrityFault RejectReason = "internal_integrity_fault"
+)
+
 type StreamEnd string
 
 const (
@@ -34,7 +47,7 @@ const (
 type Request struct {
 	AttemptID     string
 	TurnID        string
-	TurnEpoch     uint64
+	TurnEpoch     string
 	ProviderLane  string
 	OpaqueRequest json.RawMessage
 }
@@ -42,6 +55,55 @@ type Request struct {
 type Event struct {
 	Kind   string
 	Opaque json.RawMessage
+}
+
+const NormalizedEventSchemaV2 = "m8.provider_event.v2"
+
+type ToolCall struct {
+	ID            string
+	CanonicalName string
+	Arguments     json.RawMessage
+}
+
+// ToolCallFromEvents applies the uniform v2 normalized-event gate and lowers
+// the single complete tool_call_end, if present. Opaque non-event items remain
+// opaque and are not rejected merely because their bytes are not JSON.
+func ToolCallFromEvents(events []Event) (*ToolCall, error) {
+	var result *ToolCall
+	for _, event := range events {
+		var header struct {
+			Schema string          `json:"schema"`
+			Kind   string          `json:"kind"`
+			Type   string          `json:"type"`
+			Body   json.RawMessage `json:"body"`
+		}
+		if err := json.Unmarshal(event.Opaque, &header); err != nil || header.Schema == "" {
+			continue
+		}
+		if header.Schema != NormalizedEventSchemaV2 {
+			return nil, fmt.Errorf("provider: unsupported normalized event schema %q", header.Schema)
+		}
+		kind := header.Kind
+		if kind == "" {
+			kind = header.Type
+		}
+		if kind != "tool_call_end" {
+			continue
+		}
+		if result != nil {
+			return nil, errors.New("provider: multiple complete tool calls in one turn")
+		}
+		var body struct {
+			ToolCallID string          `json:"tool_call_id"`
+			Name       string          `json:"name"`
+			Arguments  json.RawMessage `json:"arguments"`
+		}
+		if err := json.Unmarshal(header.Body, &body); err != nil || body.ToolCallID == "" || body.Name == "" || len(body.Arguments) == 0 {
+			return nil, errors.New("provider: malformed tool_call_end")
+		}
+		result = &ToolCall{ID: body.ToolCallID, CanonicalName: strings.ToLower(body.Name), Arguments: append(json.RawMessage(nil), body.Arguments...)}
+	}
+	return result, nil
 }
 
 type Outcome struct {
@@ -58,32 +120,50 @@ type Gate interface {
 
 type Connector interface {
 	Attempt(context.Context, Request) (Disposition, []json.RawMessage, error)
-	Cancel(context.Context, string, uint64) (Disposition, error)
+	Cancel(context.Context, string, string) (Disposition, error)
 }
 
 type Cycle struct {
 	gate      Gate
 	connector Connector
-	epoch     uint64
+	epoch     string
 }
 
-func New(gate Gate, connector Connector, epoch uint64) (*Cycle, error) {
+func New(gate Gate, connector Connector, epoch string) (*Cycle, error) {
 	if gate == nil || connector == nil {
 		return nil, errors.New("provider: gate and connector are required")
+	}
+	if _, err := wire.ParseCounter(epoch); err != nil {
+		return nil, fmt.Errorf("provider: turn epoch: %w", err)
 	}
 	return &Cycle{gate: gate, connector: connector, epoch: epoch}, nil
 }
 
 func (cycle *Cycle) Run(ctx context.Context, request Request) (Outcome, error) {
-	if request.AttemptID == "" || request.TurnID == "" || request.ProviderLane == "" || request.TurnEpoch != cycle.epoch {
+	requestEpoch, err := wire.ParseCounter(request.TurnEpoch)
+	if err != nil {
+		return Outcome{}, fmt.Errorf("provider: request turn epoch: %w", err)
+	}
+	if request.AttemptID == "" || request.TurnID == "" || request.ProviderLane == "" {
+		return Outcome{}, errors.New("provider: attempt id, turn id, and provider lane are required")
+	}
+	cycleEpoch, _ := wire.ParseCounter(cycle.epoch)
+	if requestEpoch < cycleEpoch {
 		return Outcome{Disposition: StaleEpoch}, nil
+	}
+	if requestEpoch > cycleEpoch {
+		return Outcome{Disposition: EpochAhead}, nil
 	}
 	if err := cycle.gate.AttemptOpen(ctx, request); err != nil {
 		return Outcome{}, err
 	}
 	disposition, items, err := cycle.connector.Attempt(ctx, request)
 	if err != nil {
-		return Outcome{Disposition: StreamLost}, err
+		return Outcome{}, err
+	}
+	disposition, err = normalizeDisposition(disposition)
+	if err != nil {
+		return Outcome{}, err
 	}
 	outcome := Outcome{Disposition: disposition}
 	for _, item := range items {
@@ -111,7 +191,41 @@ func (cycle *Cycle) Run(ctx context.Context, request Request) (Outcome, error) {
 	return outcome, nil
 }
 
-func (cycle *Cycle) Cancel(ctx context.Context, attemptID string, epoch uint64) (Outcome, error) {
+func normalizeDisposition(disposition Disposition) (Disposition, error) {
+	switch disposition {
+	case Completed, "sent_completed":
+		return Completed, nil
+	case EgressDenied, "denied", "denied(policy-unavailable)":
+		return EgressDenied, nil
+	case RejectedLocal:
+		return RejectedLocal, nil
+	case TransportFailed:
+		return TransportFailed, nil
+	case StreamLost, "unknown":
+		return StreamLost, nil
+	case CancelledPre, "cancelled", "cancelled(pre_transport)":
+		return CancelledPre, nil
+	case CancelledPost, "cancelled(post_invocation)":
+		return CancelledPost, nil
+	case StaleEpoch, EpochAhead:
+		return disposition, nil
+	}
+	const rejectedPrefix = "rejected_local("
+	text := string(disposition)
+	if strings.HasPrefix(text, rejectedPrefix) && strings.HasSuffix(text, ")") {
+		reason := RejectReason(strings.TrimSuffix(strings.TrimPrefix(text, rejectedPrefix), ")"))
+		switch reason {
+		case MalformedRequest, LaneCapabilityMismatch, ReplayScopeViolation, InternalIntegrityFault:
+			return RejectedLocal, nil
+		}
+	}
+	return "", errors.New("provider: unknown attempt disposition")
+}
+
+func (cycle *Cycle) Cancel(ctx context.Context, attemptID string, epoch string) (Outcome, error) {
+	if _, err := wire.ParseCounter(epoch); err != nil {
+		return Outcome{}, fmt.Errorf("provider: cancellation turn epoch: %w", err)
+	}
 	if attemptID == "" || epoch != cycle.epoch {
 		return Outcome{Disposition: StaleEpoch}, nil
 	}

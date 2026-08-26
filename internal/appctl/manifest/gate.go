@@ -33,7 +33,7 @@ func (gate Gate) Validate(frozen Frozen) error {
 		return ErrManifestIntegrity
 	}
 	manifest := frozen.Manifest
-	if manifest.ManifestSchema != ManifestSchema || manifest.RunID == "" || !equalStrings(ToolNames(manifest.ToolSet), RatifiedToolNames) {
+	if manifest.ManifestSchema != ManifestSchema || manifest.RunID == "" || !validCredentialReference(manifest.ProviderLane.CredentialRef) || !equalStrings(ToolNames(manifest.ToolSet), RatifiedToolNames) {
 		return ErrServeGate
 	}
 	if manifest.ToolCatalogDigest == nil || manifest.ReleaseBinding == nil {

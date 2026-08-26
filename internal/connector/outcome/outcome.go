@@ -33,6 +33,12 @@ const (
 	Cancelled       Kind = "cancelled"
 )
 
+// DispositionKinds exports the connector-owned closed outcome-kind enum for
+// consumers that must prove total handling without duplicating ownership.
+func DispositionKinds() []Kind {
+	return []Kind{RejectedLocal, Denied, SentCompleted, TransportFailed, Unknown, Cancelled}
+}
+
 type RefusalStage string
 
 const (

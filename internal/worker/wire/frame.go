@@ -200,15 +200,8 @@ func (codec *Codec) validateFrame(frame Frame) error {
 	if _, err := ParseCounter(frame.Seq); err != nil {
 		return fmt.Errorf("malformed seq: %w", err)
 	}
-	if spec.reply {
-		if frame.ReplyTo == "" {
-			return fmt.Errorf("reply-class message %q lacks re", frame.Type)
-		}
-		if _, err := ParseCounter(frame.ReplyTo); err != nil {
-			return fmt.Errorf("malformed re: %w", err)
-		}
-	} else if frame.ReplyTo != "" {
-		return fmt.Errorf("non-reply message %q carries re", frame.Type)
+	if err := validateReplyCorrelation(frame, spec); err != nil {
+		return err
 	}
 	if frame.TurnEpoch != "" {
 		if _, err := ParseCounter(frame.TurnEpoch); err != nil {
@@ -235,6 +228,22 @@ func (codec *Codec) validateFrame(frame Frame) error {
 				return fmt.Errorf("unknown member %q in closed body for %q", member, frame.Type)
 			}
 		}
+	}
+	return nil
+}
+
+func validateReplyCorrelation(frame Frame, spec compiledSpec) error {
+	if spec.reply {
+		if frame.ReplyTo == "" {
+			return fmt.Errorf("reply-class message %q lacks re", frame.Type)
+		}
+		if _, err := ParseCounter(frame.ReplyTo); err != nil {
+			return fmt.Errorf("malformed re: %w", err)
+		}
+		return nil
+	}
+	if frame.ReplyTo != "" {
+		return fmt.Errorf("non-reply message %q carries re", frame.Type)
 	}
 	return nil
 }

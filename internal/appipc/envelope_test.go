@@ -7,7 +7,7 @@ import (
 
 func TestEnvelopeRegistryRejectsUnknownMessageWithPinnedFault(t *testing.T) {
 	registry := NewRegistry()
-	payload := []byte(`{"v":1,"chan":"ctrl-w","type":"not_registered","seq":"0","body":{}}`)
+	payload := []byte(`{"body":{},"chan":"ctrl-w","seq":"0","type":"not_registered","v":1}`)
 	if _, err := registry.Decode(payload); !errors.Is(err, ErrUnknownMessage) {
 		t.Fatalf("Decode unknown type error = %v, want ErrUnknownMessage", err)
 	} else if got := FaultCode(err); got != FaultUnknownMessage {
@@ -17,26 +17,26 @@ func TestEnvelopeRegistryRejectsUnknownMessageWithPinnedFault(t *testing.T) {
 
 func TestEnvelopeReplyClassRequiresCanonicalRe(t *testing.T) {
 	registry := testEnvelopeRegistry(t, AdditiveFamily, true)
-	withoutRe := []byte(`{"v":1,"chan":"ctrl-w","type":"sample","seq":"2","body":{"known":"ok"}}`)
+	withoutRe := []byte(`{"body":{"known":"ok"},"chan":"ctrl-w","seq":"2","type":"sample","v":1}`)
 	if _, err := registry.Decode(withoutRe); !errors.Is(err, ErrMalformedEnvelope) {
 		t.Fatalf("Decode reply without re error = %v, want ErrMalformedEnvelope", err)
 	} else if got := FaultCode(err); got != FaultUnknownMessage {
 		t.Fatalf("Decode reply without re fault = %q, want %q", got, FaultUnknownMessage)
 	}
 
-	badRe := []byte(`{"v":1,"chan":"ctrl-w","type":"sample","seq":"2","re":"01","body":{"known":"ok"}}`)
+	badRe := []byte(`{"body":{"known":"ok"},"chan":"ctrl-w","re":"01","seq":"2","type":"sample","v":1}`)
 	if _, err := registry.Decode(badRe); !errors.Is(err, ErrMalformedEnvelope) {
 		t.Fatalf("Decode reply with noncanonical re error = %v, want ErrMalformedEnvelope", err)
 	}
 
-	valid := []byte(`{"v":1,"chan":"ctrl-w","type":"sample","seq":"2","re":"1","turn_epoch":"0","body":{"known":"ok"}}`)
+	valid := []byte(`{"body":{"known":"ok"},"chan":"ctrl-w","re":"1","seq":"2","turn_epoch":"0","type":"sample","v":1}`)
 	if _, err := registry.Decode(valid); err != nil {
 		t.Fatalf("Decode valid reply: %v", err)
 	}
 }
 
 func TestEnvelopeFamilyEvolutionIsAdditiveOrClosed(t *testing.T) {
-	payload := []byte(`{"v":1,"chan":"ctrl-w","type":"sample","seq":"0","body":{"known":"kept","future":"ignored"}}`)
+	payload := []byte(`{"body":{"future":"ignored","known":"kept"},"chan":"ctrl-w","seq":"0","type":"sample","v":1}`)
 
 	additive := testEnvelopeRegistry(t, AdditiveFamily, false)
 	envelope, err := additive.Decode(payload)

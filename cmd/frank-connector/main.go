@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,6 +22,7 @@ type config struct {
 	policyPath     string
 	controlFD      int
 	dataFD         int
+	deathFD        int
 	runtimeDir     string
 	buildInfo      string
 }
@@ -41,6 +43,7 @@ func parseConfig(arguments []string) (config, error) {
 	set.StringVar(&result.policyPath, "policy", "", "egress policy path")
 	set.IntVar(&result.controlFD, "control-fd", -1, "inherited CTRL-C descriptor")
 	set.IntVar(&result.dataFD, "data-fd", -1, "inherited DATA-P descriptor")
+	set.IntVar(&result.deathFD, "death-fd", -1, "inherited parent-death descriptor")
 	set.StringVar(&result.runtimeDir, "runtime-dir", "", "private runtime directory")
 	set.StringVar(&result.buildInfo, "build-info", "", "build identity")
 	if err := set.Parse(arguments); err != nil || set.NArg() != 0 {
@@ -58,7 +61,7 @@ func parseConfig(arguments []string) (config, error) {
 			return config{}, errors.New("connector: artifact path escapes private runtime directory")
 		}
 	}
-	if result.controlFD < 3 || result.dataFD < 3 || result.controlFD == result.dataFD || result.buildInfo == "" {
+	if result.controlFD < 3 || result.dataFD < 3 || result.deathFD < 3 || result.controlFD == result.dataFD || result.controlFD == result.deathFD || result.dataFD == result.deathFD || result.buildInfo == "" {
 		return config{}, errors.New("connector: invalid descriptor or build identity")
 	}
 	return result, nil
@@ -77,13 +80,20 @@ func run(ctx context.Context, config config) error {
 	if err := markCloseOnExec(config.dataFD); err != nil {
 		return err
 	}
+	if err := markCloseOnExec(config.deathFD); err != nil {
+		return err
+	}
 	controlFile := os.NewFile(uintptr(config.controlFD), "frank-ctrl-c")
 	dataFile := os.NewFile(uintptr(config.dataFD), "frank-data-p")
-	if controlFile == nil || dataFile == nil {
+	deathFile := os.NewFile(uintptr(config.deathFD), "frank-parent-death")
+	if controlFile == nil || dataFile == nil || deathFile == nil {
 		return errors.New("connector: inherited descriptor unavailable")
 	}
 	defer controlFile.Close()
 	defer dataFile.Close()
+	defer deathFile.Close()
+	ctx, cancel := cancelOnParentDeath(ctx, deathFile)
+	defer cancel()
 	os.Clearenv()
 	session, err := control.Bootstrap(ctx, controlFile, control.Config{
 		Artifacts: control.Artifacts{
@@ -107,6 +117,16 @@ func run(ctx context.Context, config config) error {
 		return nil
 	}
 	return err
+}
+
+func cancelOnParentDeath(parent context.Context, death io.Reader) (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(parent)
+	go func() {
+		var signal [1]byte
+		_, _ = death.Read(signal[:])
+		cancel()
+	}()
+	return ctx, cancel
 }
 
 func disableCoreDumps() error {

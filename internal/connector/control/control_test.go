@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -21,7 +22,7 @@ import (
 )
 
 const (
-	testCatalog = `{"lanes":[{"auth":{"auth_header_name":"x-openai-auth","auth_scheme":"bearer"},"compat_mode":"openai-responses","cost":{"effective_time":"2026-07-17T00:00:00Z","input":1.25,"output":10},"endpoint":"https://api.openai.com/v1/responses","lane_id":"lane-codex-1","limits":{"context":200000,"max_output":100000},"method":"POST","model_id":"gpt-5","observed_at":"2026-07-17T00:00:00Z","profile_facts":{"endpoint_kind":"coding","region":"us-east"},"provider_id":"openai","reasoning":{"effort_levels":["low","medium","high"],"replay_kind":"opaque_item","supported":true},"serving_profile_id":"codex-default","source":"seeded","tool_use":{"strict_schema":true,"supported":true},"wire":{"max_output_tokens_field":"max_output_tokens","server_retention":false,"streaming":true,"usage_in_streaming":true}}],"schema":"m8.lane_catalog.v1"}`
+	testCatalog = `{"lanes":[{"auth":{"auth_header_name":"x-openai-auth","auth_scheme":"bearer"},"compat_mode":"openai-responses","cost":{"effective_time":"2026-07-17T00:00:00Z","input":1,"output":10},"endpoint":"https://api.openai.com/v1/responses","lane_id":"lane-codex-1","limits":{"context":200000,"max_output":100000},"method":"POST","model_id":"gpt-5","observed_at":"2026-07-17T00:00:00Z","profile_facts":{"endpoint_kind":"coding","region":"us-east"},"provider_id":"openai","reasoning":{"effort_levels":["low","medium","high"],"replay_kind":"opaque_item","supported":true},"serving_profile_id":"codex-default","source":"seeded","tool_use":{"strict_schema":true,"supported":true},"wire":{"max_output_tokens_field":"max_output_tokens","server_retention":false,"streaming":true,"usage_in_streaming":true}}],"schema":"m8.lane_catalog.v1"}`
 	testPolicy  = `{"denied_header_names":["authorization","cookie","proxy-authorization","x-api-key","x-openai-auth"],"egress_class":"provider-request","endpoint_allowlist":["https://api.openai.com/v1/responses"],"pinned_lane":"lane-codex-1","schema":"m3.egress_policy.v1"}`
 )
 
@@ -44,7 +45,7 @@ func TestBootstrapLoadsInOrderAndEmitsHelloThenReady(t *testing.T) {
 	if len(out) != 2 || out[0].Type != "hello" || out[1].Type != "connector_ready" {
 		t.Fatalf("outbound handshake = %+v", out)
 	}
-	assertBodyFields(t, out[0].Body, map[string]any{"pid": float64(42), "build_info": "s14-test"})
+	assertBodyFields(t, out[0].Body, map[string]any{"pid": float64(42), "build_info": map[string]any{"version": "s14-test", "commit": "unknown", "built_at": "unknown"}})
 	assertBodyFields(t, out[1].Body, map[string]any{"run_id": "run-1", "turn_epoch": "7"})
 }
 
@@ -294,7 +295,7 @@ func assertBodyFields(t *testing.T, raw []byte, want map[string]any) {
 		t.Fatal(err)
 	}
 	for key, value := range want {
-		if got[key] != value {
+		if !reflect.DeepEqual(got[key], value) {
 			t.Fatalf("body[%s] = %#v, want %#v in %s", key, got[key], value, raw)
 		}
 	}

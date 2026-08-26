@@ -119,7 +119,7 @@ func TestPrefixOracleStopsAtFrozenFullKeyAndExcludesRecordDigest(t *testing.T) {
 		mustRecord(t, journal.KindToolCall, "1", "turn-old", "0", map[string]any{"tool_call_id": "c0", "canonical_tool_name": "read", "canonical_args_digest": digest("args0"), "args": map[string]any{}}),
 	}
 	records = append(records, mustMarker(t, "2", "turn-old", "0", records[1:2]))
-	records = append(records, mustRecord(t, journal.KindProviderOutput, "3", "turn-target", "0", map[string]any{"attempt_id": "a1", "item_index": "0", "content": map[string]any{"opaque": true}}))
+	records = append(records, mustRecord(t, journal.KindProviderOutput, "3", "turn-target", "0", map[string]any{"attempt_id": "a1", "item_index": "0", "verbatim": map[string]any{"opaque": true}}))
 	records = append(records, mustMarker(t, "4", "turn-target", "0", records[3:4]))
 	targetCount := len(records)
 	records = append(records, mustRecord(t, journal.KindInputItem, "5", "later-turn", "0", map[string]any{"role": "user", "item_index": "0", "content": "later"}))
@@ -141,7 +141,7 @@ func TestPrefixOracleStopsAtFrozenFullKeyAndExcludesRecordDigest(t *testing.T) {
 }
 
 func TestEditedSessionClassDistinctnessAndNonPromotion(t *testing.T) {
-	external := mustRecord(t, journal.KindProviderOutput, "1", "turn", "0", map[string]any{"attempt_id": "a", "item_index": "0", "content": "opaque"})
+	external := mustRecord(t, journal.KindProviderOutput, "1", "turn", "0", map[string]any{"attempt_id": "a", "item_index": "0", "verbatim": "opaque"})
 	model := mustRecord(t, journal.KindToolCall, "1", "turn", "0", map[string]any{"tool_call_id": "c", "canonical_tool_name": "read", "canonical_args_digest": digest("x"), "args": map[string]any{}})
 
 	if result, err := AssessJournalEdit(external, external); err != nil || result.Disposition != DispositionDegraded || result.ResumeAction != ResumeActionReDerive || result.PresentAsOriginalTruth {

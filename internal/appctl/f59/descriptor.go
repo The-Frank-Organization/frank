@@ -142,9 +142,14 @@ func findTool(tools []manifest.ToolIdentity, name string) (manifest.ToolIdentity
 }
 
 func toolReference(tool manifest.ToolIdentity) string {
-	value := map[string]any{"name": tool.Name, "schema_digest": tool.SchemaDigest, "catalog_version": tool.CatalogVersion}
-	if tool.MappingVersion != nil {
-		value["mapping_version"] = tool.MappingVersion
+	value := struct {
+		Name           string  `json:"name"`
+		SchemaDigest   *string `json:"schema_digest"`
+		CatalogVersion *string `json:"catalog_version"`
+		MappingVersion *string `json:"mapping_version,omitempty"`
+	}{
+		Name: tool.Name, SchemaDigest: tool.SchemaDigest,
+		CatalogVersion: tool.CatalogVersion, MappingVersion: tool.MappingVersion,
 	}
 	encoded, err := appipc.MarshalJCS(value)
 	if err != nil {

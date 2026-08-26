@@ -59,6 +59,7 @@ var schemaV1 = []string{
 		frozen_core_digest TEXT CHECK(frozen_core_digest IS NULL OR (length(frozen_core_digest)=64 AND frozen_core_digest NOT GLOB '*[^0-9a-f]*')),
 		provider_lowered_tools_digest TEXT CHECK(provider_lowered_tools_digest IS NULL OR (length(provider_lowered_tools_digest)=64 AND provider_lowered_tools_digest NOT GLOB '*[^0-9a-f]*')),
 		cancel_point TEXT CHECK(cancel_point IN ('pre_transport','post_invocation')),
+		refusal_stage TEXT CHECK(refusal_stage IN ('pre_freeze','post_freeze')),
 		cancellation_id TEXT REFERENCES cancellations(cancellation_id),
 		created_at INTEGER NOT NULL,
 		updated_at INTEGER,

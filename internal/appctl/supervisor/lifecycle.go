@@ -24,7 +24,7 @@ func (machine *Machine) Transition(next WorkerState) error {
 	allowed := map[WorkerState]map[WorkerState]bool{
 		WorkerAllocated: {WorkerSpawning: true, WorkerFailed: true},
 		WorkerSpawning:  {WorkerReady: true, WorkerFailed: true},
-		WorkerReady:     {WorkerLeased: true, WorkerFailed: true},
+		WorkerReady:     {WorkerLeased: true, WorkerRetiring: true, WorkerFailed: true},
 		WorkerLeased:    {WorkerRetiring: true, WorkerFailed: true},
 		WorkerRetiring:  {WorkerTerminated: true},
 		WorkerFailed:    {WorkerRetiring: true, WorkerTerminated: true},

@@ -33,7 +33,7 @@ func (connector *fakeConnector) Attempt(context.Context, Request) (Disposition, 
 	connector.attempts++
 	return connector.disposition, connector.items, connector.err
 }
-func (connector *fakeConnector) Cancel(context.Context, string, uint64) (Disposition, error) {
+func (connector *fakeConnector) Cancel(context.Context, string, string) (Disposition, error) {
 	connector.cancels++
 	return connector.disposition, connector.err
 }
@@ -50,8 +50,8 @@ func TestAttemptOrderingTotalTerminalMappingAndNoRetry(t *testing.T) {
 		t.Run(string(test.d), func(t *testing.T) {
 			g := &fakeGate{}
 			c := &fakeConnector{disposition: test.d}
-			cycle, _ := New(g, c, 7)
-			out, err := cycle.Run(context.Background(), request(7))
+			cycle, _ := New(g, c, "7")
+			out, err := cycle.Run(context.Background(), request("7"))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -71,8 +71,8 @@ func TestAttemptOrderingTotalTerminalMappingAndNoRetry(t *testing.T) {
 func TestEpochRejectIsAttemptInert(t *testing.T) {
 	g := &fakeGate{}
 	c := &fakeConnector{disposition: Completed}
-	cycle, _ := New(g, c, 8)
-	out, err := cycle.Run(context.Background(), request(7))
+	cycle, _ := New(g, c, "8")
+	out, err := cycle.Run(context.Background(), request("7"))
 	if err != nil || out.Disposition != StaleEpoch || g.opens != 0 || c.attempts != 0 {
 		t.Fatalf("out=%+v opens=%d attempts=%d err=%v", out, g.opens, c.attempts, err)
 	}
@@ -82,8 +82,8 @@ func TestBothCancellationCuts(t *testing.T) {
 	for _, d := range []Disposition{CancelledPre, CancelledPost} {
 		g := &fakeGate{}
 		c := &fakeConnector{disposition: d}
-		cycle, _ := New(g, c, 7)
-		out, err := cycle.Cancel(context.Background(), "attempt", 7)
+		cycle, _ := New(g, c, "7")
+		out, err := cycle.Cancel(context.Background(), "attempt", "7")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -100,17 +100,18 @@ func TestOpaqueResponseItemRoundTripsThroughJournalBytePreserved(t *testing.T) {
 	opaque := json.RawMessage(`{"type":"reasoning","provider_native":{"encrypted":"opaque_item_passthrough"}}`)
 	g := &fakeGate{}
 	c := &fakeConnector{disposition: Completed, items: []json.RawMessage{opaque}}
-	cycle, _ := New(g, c, 7)
-	out, err := cycle.Run(context.Background(), request(7))
+	cycle, _ := New(g, c, "7")
+	out, err := cycle.Run(context.Background(), request("7"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(out.Events) != 1 || !bytes.Equal(out.Events[0].Opaque, opaque) {
 		t.Fatalf("event=%+v", out.Events)
 	}
-	carrier, _ := json.Marshal(string(out.Events[0].Opaque))
-	record := journal.Record{Seq: "1", Kind: journal.KindProviderOutput, GenerationID: "gen", TurnID: "turn", RoundIndex: "0", TSMonotonic: "1", Fields: map[string]json.RawMessage{"attempt_id": json.RawMessage(`"attempt"`), "item_index": json.RawMessage(`"0"`), "content": append(json.RawMessage(nil), out.Events[0].Opaque...)}}
-	record.Fields["content"] = carrier
+	record := journal.Record{Seq: "1", Kind: journal.KindProviderOutput, GenerationID: "gen", TurnID: "turn", RoundIndex: "0", TSMonotonic: "1", Fields: map[string]json.RawMessage{"attempt_id": json.RawMessage(`"attempt"`), "item_index": json.RawMessage(`"0"`)}}
+	for member, raw := range journal.ProviderItemCarrier(out.Events[0].Opaque) {
+		record.Fields[member] = raw
+	}
 	finalized, err := journal.FinalizeRecord(record)
 	if err != nil {
 		t.Fatal(err)
@@ -123,23 +124,23 @@ func TestOpaqueResponseItemRoundTripsThroughJournalBytePreserved(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var restored string
-	if err := json.Unmarshal(decoded.Fields["content"], &restored); err != nil || !bytes.Equal([]byte(restored), opaque) {
-		t.Fatalf("opaque changed: %s err=%v", decoded.Fields["content"], err)
+	restored, err := journal.ProviderItemBytes(decoded)
+	if err != nil || !bytes.Equal(restored, opaque) {
+		t.Fatalf("opaque changed: %s err=%v", restored, err)
 	}
 }
 
 func TestConnectorFaultDoesNotAutoRetry(t *testing.T) {
 	g := &fakeGate{}
 	c := &fakeConnector{err: errors.New("lost")}
-	cycle, _ := New(g, c, 7)
-	out, err := cycle.Run(context.Background(), request(7))
-	if err == nil || out.Disposition != StreamLost || c.attempts != 1 {
+	cycle, _ := New(g, c, "7")
+	out, err := cycle.Run(context.Background(), request("7"))
+	if err == nil || out.Disposition != "" || len(out.Events) != 0 || c.attempts != 1 {
 		t.Fatalf("out=%+v attempts=%d err=%v", out, c.attempts, err)
 	}
 }
 
-func request(epoch uint64) Request {
+func request(epoch string) Request {
 	return Request{AttemptID: "attempt", TurnID: "turn", TurnEpoch: epoch, ProviderLane: "lane", OpaqueRequest: json.RawMessage(`{"opaque":true}`)}
 }
 func ptr(value StreamEnd) *StreamEnd { return &value }

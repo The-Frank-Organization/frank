@@ -9,14 +9,15 @@ import (
 )
 
 type outcomeEvent struct {
-	runID   string
-	request OutcomeRequest
+	runID        string
+	generationID string
+	request      OutcomeRequest
 }
 
 func (event outcomeEvent) RunID() string { return event.runID }
 
-func (host *Host) RecordOutcome(ctx context.Context, request OutcomeRequest) (Decision, error) {
-	if host == nil || host.applier == nil || !validOutcomeShape(request) {
+func (host *Host) RecordOutcome(ctx context.Context, channel ChannelIdentity, request OutcomeRequest) (Decision, error) {
+	if host == nil || host.applier == nil || channel.GenerationID == "" || !validOutcomeShape(request) {
 		return Decision{Kind: NoReply, Fault: true}, nil
 	}
 	runID, found, err := host.ticketRunID(ctx, request.TicketID)
@@ -26,7 +27,7 @@ func (host *Host) RecordOutcome(ctx context.Context, request OutcomeRequest) (De
 	if !found {
 		return Decision{Kind: NoReply, Fault: true}, nil
 	}
-	result, err := host.applier.Apply(ctx, outcomeEvent{runID: runID, request: request})
+	result, err := host.applier.Apply(ctx, outcomeEvent{runID: runID, generationID: channel.GenerationID, request: request})
 	if err != nil {
 		return Decision{}, err
 	}
@@ -53,7 +54,7 @@ func (event outcomeEvent) Apply(ctx context.Context, tx *store.Tx) (applier.Resu
 	if row.State == "OUTCOME_RECORDED" && outcomeEquivalent(row, request) {
 		return noMutation(Decision{Kind: NoReply, Idempotent: true}), nil
 	}
-	lease, err := holdsBothLeases(ctx, tx, row.RunID, request.GenerationID, current)
+	lease, err := holdsBothLeases(ctx, tx, row.RunID, event.generationID, current)
 	if err != nil {
 		return applier.Result{}, err
 	}
@@ -138,7 +139,7 @@ func outcomeEquivalent(row storedOutcome, request OutcomeRequest) bool {
 }
 
 func validOutcomeShape(request OutcomeRequest) bool {
-	if request.TicketID == "" || request.GenerationID == "" {
+	if request.TicketID == "" {
 		return false
 	}
 	switch request.Outcome {

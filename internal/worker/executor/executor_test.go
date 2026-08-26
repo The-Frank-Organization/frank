@@ -13,7 +13,7 @@ import (
 
 func TestPreparedCallIsInertWithoutAuthorityPath(t *testing.T) {
 	source := &mutableArguments{value: []byte(`{"path":"a"}`)}
-	call, err := Prepare("run-1", "turn-1", "call-1", "read", 7, source)
+	call, err := Prepare("run-1", "turn-1", "call-1", "read", "7", source)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,18 +102,18 @@ func TestExecutedOutcomeCarriesActualInvocationIdentity(t *testing.T) {
 }
 
 func TestOutcomeRecordDomainIsClosed(t *testing.T) {
-	identity := Identity{CanonicalToolName: "read", CanonicalArgsDigest: digestOf(t, `{"path":"a"}`), TurnEpoch: 7}
+	identity := Identity{CanonicalToolName: "read", CanonicalArgsDigest: digestOf(t, `{"path":"a"}`), TurnEpoch: "7"}
 	tests := []struct {
 		name   string
 		record OutcomeRecord
 		ok     bool
 	}{
-		{"executed", OutcomeRecord{TicketID: "ticket-1", Outcome: OutcomeExecuted, InvocationIdentity: &identity}, true},
-		{"integrity", OutcomeRecord{TicketID: "ticket-1", Outcome: OutcomeNotInvokedIntegrityFault, IntegrityEvidence: &IntegrityEvidence{Expected: identity, Observed: Identity{CanonicalToolName: "read", CanonicalArgsDigest: digestOf(t, `{"path":"b"}`), TurnEpoch: 7}}}, true},
-		{"unknown member", OutcomeRecord{TicketID: "ticket-1", Outcome: "partial"}, false},
-		{"executed lacks identity", OutcomeRecord{TicketID: "ticket-1", Outcome: OutcomeExecuted}, false},
-		{"integrity equal", OutcomeRecord{TicketID: "ticket-1", Outcome: OutcomeNotInvokedIntegrityFault, IntegrityEvidence: &IntegrityEvidence{Expected: identity, Observed: identity}}, false},
-		{"integrity carries invocation", OutcomeRecord{TicketID: "ticket-1", Outcome: OutcomeNotInvokedIntegrityFault, InvocationIdentity: &identity, IntegrityEvidence: &IntegrityEvidence{Expected: identity, Observed: Identity{CanonicalToolName: "write", CanonicalArgsDigest: identity.CanonicalArgsDigest, TurnEpoch: 7}}}, false},
+		{"executed", OutcomeRecord{TicketID: "ticket-1", TurnEpoch: "7", Outcome: OutcomeExecuted, InvocationIdentity: &identity}, true},
+		{"integrity", OutcomeRecord{TicketID: "ticket-1", TurnEpoch: "7", Outcome: OutcomeNotInvokedIntegrityFault, IntegrityEvidence: &IntegrityEvidence{Expected: identity, Observed: Identity{CanonicalToolName: "read", CanonicalArgsDigest: digestOf(t, `{"path":"b"}`), TurnEpoch: "7"}}}, true},
+		{"unknown member", OutcomeRecord{TicketID: "ticket-1", TurnEpoch: "7", Outcome: "partial"}, false},
+		{"executed lacks identity", OutcomeRecord{TicketID: "ticket-1", TurnEpoch: "7", Outcome: OutcomeExecuted}, false},
+		{"integrity equal", OutcomeRecord{TicketID: "ticket-1", TurnEpoch: "7", Outcome: OutcomeNotInvokedIntegrityFault, IntegrityEvidence: &IntegrityEvidence{Expected: identity, Observed: identity}}, false},
+		{"integrity carries invocation", OutcomeRecord{TicketID: "ticket-1", TurnEpoch: "7", Outcome: OutcomeNotInvokedIntegrityFault, InvocationIdentity: &identity, IntegrityEvidence: &IntegrityEvidence{Expected: identity, Observed: Identity{CanonicalToolName: "write", CanonicalArgsDigest: identity.CanonicalArgsDigest, TurnEpoch: "7"}}}, false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -171,12 +171,34 @@ func TestAuthorizeRejectsAndEpochMismatchAreAttemptInert(t *testing.T) {
 	}
 }
 
+func TestGrantedEffectDescriptorBindsInvocationBeforeConsume(t *testing.T) {
+	for _, test := range []struct {
+		name       string
+		descriptor *EffectDescriptor
+		wantCode   Code
+	}{
+		{name: "absent", wantCode: CodeProtocolFault},
+		{name: "mismatched", descriptor: &EffectDescriptor{Action: "write", CanonicalArgsDigest: digestOf(t, `{"path":"a"}`), BackendID: "in-process", NetworkPolicyID: "none", ToolImplRef: "in-process:write", OneShot: true}, wantCode: CodeIdentityMismatch},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			authority := newFakeAuthority()
+			authority.authorizeOverride = &AuthorizeReply{Code: AuthorizeGranted, TicketID: "ticket", EffectDescriptor: test.descriptor}
+			backend := &recordingInvoker{}
+			_, err := mustExecutor(t, authority, backend).Execute(context.Background(), mustPrepare(t, staticArguments(`{"path":"a"}`)))
+			assertCode(t, err, test.wantCode)
+			if backend.calls() != 0 || authority.consumeCalls != 0 {
+				t.Fatalf("forbidden path advanced: backend=%d consume=%d", backend.calls(), authority.consumeCalls)
+			}
+		})
+	}
+}
+
 func TestEveryCatalogToolUsesUniformAuthorityPath(t *testing.T) {
 	for _, tool := range catalog.ExpectedIdentities() {
 		t.Run(tool.CanonicalName, func(t *testing.T) {
 			authority := newFakeAuthority()
 			backend := &recordingInvoker{}
-			call, err := Prepare("run-1", "turn-1", "call-1", tool.CanonicalName, 7, staticArguments(`{}`))
+			call, err := Prepare("run-1", "turn-1", "call-1", tool.CanonicalName, "7", staticArguments(`{}`))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -195,12 +217,12 @@ func TestEveryCatalogToolUsesUniformAuthorityPath(t *testing.T) {
 
 func TestDoubleConsumeIsRejected(t *testing.T) {
 	authority := newFakeAuthority()
-	identity := FullIdentity{RunID: "run-1", TurnID: "turn-1", ToolCallID: "call-1", Identity: Identity{CanonicalToolName: "read", CanonicalArgsDigest: digestOf(t, `{"path":"a"}`), TurnEpoch: 7}}
+	identity := FullIdentity{RunID: "run-1", TurnID: "turn-1", ToolCallID: "call-1", Identity: Identity{CanonicalToolName: "read", CanonicalArgsDigest: digestOf(t, `{"path":"a"}`), TurnEpoch: "7"}}
 	reply, err := authority.Authorize(context.Background(), AuthorizeRequest{Identity: identity})
 	if err != nil {
 		t.Fatal(err)
 	}
-	request := ConsumeRequest{TicketID: reply.TicketID, TurnEpoch: 7, CanonicalToolName: "read", CanonicalArgsDigest: identity.CanonicalArgsDigest}
+	request := ConsumeRequest{TicketID: reply.TicketID, TurnEpoch: "7", CanonicalToolName: "read", CanonicalArgsDigest: identity.CanonicalArgsDigest}
 	if got, err := authority.Consume(context.Background(), request); err != nil || got.Code != ConsumeOK {
 		t.Fatalf("first consume = %#v, %v", got, err)
 	}
@@ -212,16 +234,16 @@ func TestDoubleConsumeIsRejected(t *testing.T) {
 func TestConsumeEpochMismatchIsAttemptInert(t *testing.T) {
 	for _, test := range []struct {
 		name      string
-		epoch     uint64
+		epoch     string
 		wantCode  ConsumeCode
 		wantError bool
 	}{
-		{"stale", 6, ConsumeStaleEpoch, false},
-		{"future", 8, "", true},
+		{"stale", "6", ConsumeStaleEpoch, false},
+		{"future", "8", "", true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			authority := newFakeAuthority()
-			identity := FullIdentity{RunID: "run-1", TurnID: "turn-1", ToolCallID: "call-1", Identity: Identity{CanonicalToolName: "read", CanonicalArgsDigest: digestOf(t, `{}`), TurnEpoch: 7}}
+			identity := FullIdentity{RunID: "run-1", TurnID: "turn-1", ToolCallID: "call-1", Identity: Identity{CanonicalToolName: "read", CanonicalArgsDigest: digestOf(t, `{}`), TurnEpoch: "7"}}
 			reply, err := authority.Authorize(context.Background(), AuthorizeRequest{Identity: identity})
 			if err != nil {
 				t.Fatal(err)
@@ -267,7 +289,7 @@ func TestExecutorSerializesSettlement(t *testing.T) {
 		wait.Add(1)
 		go func(index int) {
 			defer wait.Done()
-			call, err := Prepare("run-1", "turn-1", string(rune('a'+index)), "read", 7, staticArguments(`{"path":"a"}`))
+			call, err := Prepare("run-1", "turn-1", string(rune('a'+index)), "read", "7", staticArguments(`{"path":"a"}`))
 			if err != nil {
 				t.Errorf("prepare: %v", err)
 				return
@@ -297,22 +319,22 @@ func TestExecutorSerializesSettlement(t *testing.T) {
 func TestAuthorityCrashWindowsAreTotal(t *testing.T) {
 	t.Run("issued becomes void", func(t *testing.T) {
 		authority := newFakeAuthority()
-		identity := FullIdentity{RunID: "run-1", TurnID: "turn-1", ToolCallID: "call-1", Identity: Identity{CanonicalToolName: "read", CanonicalArgsDigest: digestOf(t, `{}`), TurnEpoch: 7}}
+		identity := FullIdentity{RunID: "run-1", TurnID: "turn-1", ToolCallID: "call-1", Identity: Identity{CanonicalToolName: "read", CanonicalArgsDigest: digestOf(t, `{}`), TurnEpoch: "7"}}
 		reply, err := authority.Authorize(context.Background(), AuthorizeRequest{Identity: identity})
 		if err != nil {
 			t.Fatal(err)
 		}
-		authority.retireEpoch(7)
+		authority.retireEpoch("7")
 		if got := authority.state(reply.TicketID); got != TicketVoid {
 			t.Fatalf("state = %q, want VOID", got)
 		}
 	})
 	t.Run("consumed without outcome becomes unknown", func(t *testing.T) {
 		authority := newFakeAuthority()
-		identity := FullIdentity{RunID: "run-1", TurnID: "turn-1", ToolCallID: "call-1", Identity: Identity{CanonicalToolName: "read", CanonicalArgsDigest: digestOf(t, `{}`), TurnEpoch: 7}}
+		identity := FullIdentity{RunID: "run-1", TurnID: "turn-1", ToolCallID: "call-1", Identity: Identity{CanonicalToolName: "read", CanonicalArgsDigest: digestOf(t, `{}`), TurnEpoch: "7"}}
 		reply, _ := authority.Authorize(context.Background(), AuthorizeRequest{Identity: identity})
-		_, _ = authority.Consume(context.Background(), ConsumeRequest{TicketID: reply.TicketID, TurnEpoch: 7, CanonicalToolName: "read", CanonicalArgsDigest: identity.CanonicalArgsDigest})
-		authority.retireEpoch(7)
+		_, _ = authority.Consume(context.Background(), ConsumeRequest{TicketID: reply.TicketID, TurnEpoch: "7", CanonicalToolName: "read", CanonicalArgsDigest: identity.CanonicalArgsDigest})
+		authority.retireEpoch("7")
 		if got := authority.state(reply.TicketID); got != TicketUnknownToolOutcome {
 			t.Fatalf("state = %q, want UNKNOWN_TOOL_OUTCOME", got)
 		}
@@ -328,7 +350,7 @@ func TestAuthorityCrashWindowsAreTotal(t *testing.T) {
 		if state := authority.state(result.TicketID); state != TicketConsumed {
 			t.Fatalf("pre-retirement state = %q, want CONSUMED", state)
 		}
-		authority.retireEpoch(7)
+		authority.retireEpoch("7")
 		if state := authority.state(result.TicketID); state != TicketUnknownToolOutcome {
 			t.Fatalf("retired state = %q, want UNKNOWN_TOOL_OUTCOME", state)
 		}
@@ -343,7 +365,7 @@ func TestAuthorityCrashWindowsAreTotal(t *testing.T) {
 		if state := authority.state(result.TicketID); state != TicketOutcomeRecorded {
 			t.Fatalf("state = %q, want OUTCOME_RECORDED", state)
 		}
-		authority.retireEpoch(7)
+		authority.retireEpoch("7")
 		if state := authority.state(result.TicketID); state != TicketOutcomeRecorded {
 			t.Fatalf("terminal state changed on retirement: %q", state)
 		}
@@ -411,7 +433,7 @@ func (backend *recordingInvoker) calls() int {
 
 func mustPrepare(t *testing.T, source ArgumentSource) *PreparedCall {
 	t.Helper()
-	call, err := Prepare("run-1", "turn-1", "call-1", "read", 7, source)
+	call, err := Prepare("run-1", "turn-1", "call-1", "read", "7", source)
 	if err != nil {
 		t.Fatal(err)
 	}
