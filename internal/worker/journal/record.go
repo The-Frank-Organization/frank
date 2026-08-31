@@ -40,9 +40,10 @@ var recordKinds = []string{
 	KindRoundMarker,
 }
 
-// Record holds the common envelope and the kind-specific top-level members.
-// Fields remain raw canonical JSON so content values are not interpreted by
-// the journal.
+// Record holds the common envelope and the kind-specific payload members.
+// On the wire each record is the common envelope with one "payload" object
+// carrying the kind-specific members (reader contract §2.7). Fields remain
+// raw canonical JSON so content values are not interpreted by the journal.
 type Record struct {
 	Seq          string
 	Kind         string
@@ -167,6 +168,8 @@ func DecodeRecord(input []byte) (Record, error) {
 		if record.RoundIndex, err = takeString(object, "round_index", false); err != nil {
 			return Record{}, err
 		}
+	} else if _, exists := object["round_index"]; exists {
+		return Record{}, errors.New("round_marker round_index belongs in the payload")
 	}
 	if record.TSMonotonic, err = takeString(object, "ts_monotonic", true); err != nil {
 		return Record{}, err
@@ -174,15 +177,24 @@ func DecodeRecord(input []byte) (Record, error) {
 	if record.RecordDigest, err = takeString(object, "record_digest", true); err != nil {
 		return Record{}, err
 	}
-	for member, raw := range object {
-		_, common := commonMembers[member]
-		if record.Kind == KindRoundMarker && member == "round_index" {
-			common = false
-		}
-		if common {
+	rawPayload, exists := object["payload"]
+	if !exists {
+		return Record{}, errors.New("record lacks payload")
+	}
+	var payload map[string]json.RawMessage
+	if err := json.Unmarshal(rawPayload, &payload); err != nil || payload == nil {
+		return Record{}, errors.New("payload must be a JSON object")
+	}
+	for member, raw := range payload {
+		record.Fields[member] = append(json.RawMessage(nil), raw...)
+	}
+	for member := range object {
+		if member == "payload" {
 			continue
 		}
-		record.Fields[member] = append(json.RawMessage(nil), raw...)
+		if _, common := commonMembers[member]; !common {
+			return Record{}, fmt.Errorf("unknown envelope member %q", member)
+		}
 	}
 	if err := validateRecord(record, true); err != nil {
 		return Record{}, err
@@ -229,7 +241,15 @@ func ProviderItemBytes(record Record) ([]byte, error) {
 }
 
 func marshalRecordObject(record Record, includeDigest bool) ([]byte, error) {
-	object := make(map[string]json.RawMessage, len(record.Fields)+7)
+	payload := make(map[string]json.RawMessage, len(record.Fields))
+	for member, raw := range record.Fields {
+		payload[member] = append(json.RawMessage(nil), raw...)
+	}
+	rawPayload, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("marshal record payload: %w", err)
+	}
+	object := make(map[string]json.RawMessage, 8)
 	object["seq"] = marshalString(record.Seq)
 	object["kind"] = marshalString(record.Kind)
 	object["generation_id"] = marshalString(record.GenerationID)
@@ -243,9 +263,7 @@ func marshalRecordObject(record Record, includeDigest bool) ([]byte, error) {
 	if includeDigest {
 		object["record_digest"] = marshalString(record.RecordDigest)
 	}
-	for member, raw := range record.Fields {
-		object[member] = append(json.RawMessage(nil), raw...)
-	}
+	object["payload"] = rawPayload
 	raw, err := json.Marshal(object)
 	if err != nil {
 		return nil, fmt.Errorf("marshal record: %w", err)
