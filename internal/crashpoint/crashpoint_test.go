@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/jackli/frank/internal/crashpoint"
+	"github.com/The-Frank-Organization/frank/internal/crashpoint"
 )
 
 func TestNamesAndNoopHitWithoutEnv(t *testing.T) {

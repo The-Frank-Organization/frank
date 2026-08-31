@@ -15,12 +15,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackli/frank/internal/connector/authorize"
-	"github.com/jackli/frank/internal/connector/catalog"
-	"github.com/jackli/frank/internal/connector/credentials"
-	"github.com/jackli/frank/internal/connector/freeze"
-	"github.com/jackli/frank/internal/connector/policy"
-	"github.com/jackli/frank/internal/connector/translate"
+	"github.com/The-Frank-Organization/frank/internal/connector/authorize"
+	"github.com/The-Frank-Organization/frank/internal/connector/catalog"
+	"github.com/The-Frank-Organization/frank/internal/connector/credentials"
+	"github.com/The-Frank-Organization/frank/internal/connector/freeze"
+	"github.com/The-Frank-Organization/frank/internal/connector/policy"
+	"github.com/The-Frank-Organization/frank/internal/connector/translate"
 )
 
 func TestOnWireCaptureEqualsFrozenEnvelopePlusOneAttachedCredential(t *testing.T) {

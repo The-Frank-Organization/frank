@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/jackli/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/record"
 )
 
 const IntentConfig = "config"

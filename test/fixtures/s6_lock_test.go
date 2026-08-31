@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackli/frank/internal/store"
+	"github.com/The-Frank-Organization/frank/internal/store"
 )
 
 func TestS6StoreLockSecondConductorRefusesTyped(t *testing.T) {

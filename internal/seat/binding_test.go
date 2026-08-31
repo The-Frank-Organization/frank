@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jackli/frank/internal/record"
-	"github.com/jackli/frank/internal/seat"
+	"github.com/The-Frank-Organization/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/seat"
 )
 
 func TestMintResolveAndRejectUnknownCredential(t *testing.T) {

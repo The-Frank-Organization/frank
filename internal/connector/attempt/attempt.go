@@ -11,9 +11,9 @@ import (
 	"io"
 	"sync"
 
-	"github.com/jackli/frank/internal/connector/frame"
-	"github.com/jackli/frank/internal/connector/outcome"
-	"github.com/jackli/frank/internal/connector/stream"
+	"github.com/The-Frank-Organization/frank/internal/connector/frame"
+	"github.com/The-Frank-Organization/frank/internal/connector/outcome"
+	"github.com/The-Frank-Organization/frank/internal/connector/stream"
 )
 
 var (

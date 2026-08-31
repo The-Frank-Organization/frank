@@ -4,9 +4,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jackli/frank/internal/engine"
-	"github.com/jackli/frank/internal/fieldspec"
-	"github.com/jackli/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/engine"
+	"github.com/The-Frank-Organization/frank/internal/fieldspec"
+	"github.com/The-Frank-Organization/frank/internal/record"
 )
 
 func TestH16PresencePinnedRejectsPresentEmptySystemHeader(t *testing.T) {

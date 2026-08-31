@@ -12,7 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/jackli/frank/internal/appctl/brokerclient"
+	"github.com/The-Frank-Organization/frank/internal/appctl/brokerclient"
 )
 
 const BrokerReadyDeadline = 10 * time.Second

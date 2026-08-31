@@ -8,13 +8,13 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/jackli/frank/internal/fieldspec"
-	"github.com/jackli/frank/internal/intake"
-	"github.com/jackli/frank/internal/obligation"
-	"github.com/jackli/frank/internal/observe"
-	"github.com/jackli/frank/internal/record"
-	"github.com/jackli/frank/internal/store"
-	"github.com/jackli/frank/internal/tables"
+	"github.com/The-Frank-Organization/frank/internal/fieldspec"
+	"github.com/The-Frank-Organization/frank/internal/intake"
+	"github.com/The-Frank-Organization/frank/internal/obligation"
+	"github.com/The-Frank-Organization/frank/internal/observe"
+	"github.com/The-Frank-Organization/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/store"
+	"github.com/The-Frank-Organization/frank/internal/tables"
 )
 
 type ApprovalPromptInput struct {

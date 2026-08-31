@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackli/frank/internal/channel"
-	"github.com/jackli/frank/internal/seat"
-	"github.com/jackli/frank/internal/store"
+	"github.com/The-Frank-Organization/frank/internal/channel"
+	"github.com/The-Frank-Organization/frank/internal/seat"
+	"github.com/The-Frank-Organization/frank/internal/store"
 )
 
 func TestH16ResolveTypedQuarantineDoesNotLeakToNonmatchingCredential(t *testing.T) {

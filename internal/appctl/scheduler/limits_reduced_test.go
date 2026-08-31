@@ -6,8 +6,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/jackli/frank/internal/appctl/store"
-	"github.com/jackli/frank/internal/appipc"
+	"github.com/The-Frank-Organization/frank/internal/appctl/store"
+	"github.com/The-Frank-Organization/frank/internal/appipc"
 )
 
 func TestReducedRuntimeOverflowBoundaries(t *testing.T) {

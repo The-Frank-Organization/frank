@@ -7,10 +7,10 @@ import (
 	"encoding/hex"
 	"strings"
 
-	"github.com/jackli/frank/internal/connector/catalog"
-	"github.com/jackli/frank/internal/connector/endpoint"
-	"github.com/jackli/frank/internal/connector/frame"
-	"github.com/jackli/frank/internal/connector/policy"
+	"github.com/The-Frank-Organization/frank/internal/connector/catalog"
+	"github.com/The-Frank-Organization/frank/internal/connector/endpoint"
+	"github.com/The-Frank-Organization/frank/internal/connector/frame"
+	"github.com/The-Frank-Organization/frank/internal/connector/policy"
 )
 
 type DenyReason string

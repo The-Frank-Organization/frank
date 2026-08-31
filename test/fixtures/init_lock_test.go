@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	frankconfig "github.com/jackli/frank/internal/config"
-	"github.com/jackli/frank/internal/store"
+	frankconfig "github.com/The-Frank-Organization/frank/internal/config"
+	"github.com/The-Frank-Organization/frank/internal/store"
 )
 
 func TestInitLockRefusesHeldRootBeforeAnyInitWrite(t *testing.T) {

@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"sort"
 
-	"github.com/jackli/frank/internal/record"
-	"github.com/jackli/frank/internal/seat"
+	"github.com/The-Frank-Organization/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/seat"
 )
 
 const GenesisAuthGeneration = "genesis"

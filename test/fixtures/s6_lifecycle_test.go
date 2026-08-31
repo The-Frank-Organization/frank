@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackli/frank/internal/channel"
-	"github.com/jackli/frank/internal/fieldspec"
-	"github.com/jackli/frank/internal/record"
-	"github.com/jackli/frank/internal/seat"
+	"github.com/The-Frank-Organization/frank/internal/channel"
+	"github.com/The-Frank-Organization/frank/internal/fieldspec"
+	"github.com/The-Frank-Organization/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/seat"
 )
 
 func TestS6LiveMintBootActivationAndRoster(t *testing.T) {

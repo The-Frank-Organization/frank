@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/jackli/frank/internal/connector/jcs"
+	"github.com/The-Frank-Organization/frank/internal/connector/jcs"
 )
 
 const (

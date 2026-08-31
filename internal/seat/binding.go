@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/jackli/frank/internal/fsio"
-	"github.com/jackli/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/fsio"
+	"github.com/The-Frank-Organization/frank/internal/record"
 )
 
 var (

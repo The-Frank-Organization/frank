@@ -1,8 +1,8 @@
 # usage data
 
-transport/provenance only; done-state and `record_integrity` remain `self_reported` until Step-2 observe.
+The observe layer stamps per-field `evidence_integrity` (`observed` vs `self_reported`) at send; fields it does not observe remain `self_reported`.
 
-The frank store is the usage record. There is no analytics side channel in this slice.
+The frank store is the usage record. There is no analytics side channel.
 
 Read usage through the same governance surfaces:
 
@@ -11,4 +11,4 @@ Read usage through the same governance surfaces:
 - `records/` contains canonical sealed records.
 - `projections/INDEX.md` and mailbox projections are derived read views.
 
-Aggregation, dashboards, and cross-seat usage summaries are s5 work. This slice only documents where the durable record already lives.
+There is no aggregation, dashboard, or cross-seat usage summary layer today; the surfaces above are where the durable record lives.

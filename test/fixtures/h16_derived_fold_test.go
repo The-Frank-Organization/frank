@@ -10,13 +10,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jackli/frank/internal/config"
-	"github.com/jackli/frank/internal/derived"
-	"github.com/jackli/frank/internal/engine"
-	"github.com/jackli/frank/internal/intake"
-	"github.com/jackli/frank/internal/record"
-	frankrecover "github.com/jackli/frank/internal/recover"
-	"github.com/jackli/frank/internal/store"
+	"github.com/The-Frank-Organization/frank/internal/config"
+	"github.com/The-Frank-Organization/frank/internal/derived"
+	"github.com/The-Frank-Organization/frank/internal/engine"
+	"github.com/The-Frank-Organization/frank/internal/intake"
+	"github.com/The-Frank-Organization/frank/internal/record"
+	frankrecover "github.com/The-Frank-Organization/frank/internal/recover"
+	"github.com/The-Frank-Organization/frank/internal/store"
 )
 
 func TestH16DerivedFoldIsPerRecordAcceptedOnlyAndOrderFree(t *testing.T) {

@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackli/frank/internal/connector/frame"
-	"github.com/jackli/frank/internal/connector/transport"
+	"github.com/The-Frank-Organization/frank/internal/connector/frame"
+	"github.com/The-Frank-Organization/frank/internal/connector/transport"
 )
 
 func TestParseEachReleasesEventsBeforeProviderTerminal(t *testing.T) {

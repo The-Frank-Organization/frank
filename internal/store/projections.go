@@ -8,10 +8,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jackli/frank/internal/crashpoint"
-	"github.com/jackli/frank/internal/fieldspec"
-	"github.com/jackli/frank/internal/fsio"
-	"github.com/jackli/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/crashpoint"
+	"github.com/The-Frank-Organization/frank/internal/fieldspec"
+	"github.com/The-Frank-Organization/frank/internal/fsio"
+	"github.com/The-Frank-Organization/frank/internal/record"
 )
 
 func (s *Store) AppendIndex(row string) error {

@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/jackli/frank/internal/worker/jcs"
-	"github.com/jackli/frank/internal/worker/wire"
+	"github.com/The-Frank-Organization/frank/internal/worker/jcs"
+	"github.com/The-Frank-Organization/frank/internal/worker/wire"
 )
 
 // Code is a stable attempt disposition returned by the executor.

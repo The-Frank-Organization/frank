@@ -6,11 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jackli/frank/internal/egress"
-	"github.com/jackli/frank/internal/gate"
-	"github.com/jackli/frank/internal/obligation"
-	"github.com/jackli/frank/internal/record"
-	"github.com/jackli/frank/internal/store"
+	"github.com/The-Frank-Organization/frank/internal/egress"
+	"github.com/The-Frank-Organization/frank/internal/gate"
+	"github.com/The-Frank-Organization/frank/internal/obligation"
+	"github.com/The-Frank-Organization/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/store"
 )
 
 func TestS5EgressDrainAcceptanceThroughRealOutboxPath(t *testing.T) {
@@ -116,7 +116,7 @@ func TestS5EgressPackageIsDormantInProduction(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if strings.Contains(string(data), "github.com/jackli/frank/internal/egress") {
+		if strings.Contains(string(data), "github.com/The-Frank-Organization/frank/internal/egress") {
 			offenders = append(offenders, path)
 		}
 		return nil

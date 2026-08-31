@@ -11,7 +11,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jackli/frank/internal/appipc"
+	"github.com/The-Frank-Organization/frank/internal/appipc"
 )
 
 const ManifestSchema = 1

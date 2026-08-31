@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jackli/frank/internal/config"
-	"github.com/jackli/frank/internal/store"
+	"github.com/The-Frank-Organization/frank/internal/config"
+	"github.com/The-Frank-Organization/frank/internal/store"
 )
 
 func initFixtureStore(t *testing.T, root string) *config.Pinned {

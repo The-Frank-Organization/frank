@@ -11,7 +11,7 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/jackli/frank/internal/worker/wire"
+	"github.com/The-Frank-Organization/frank/internal/worker/wire"
 )
 
 const (

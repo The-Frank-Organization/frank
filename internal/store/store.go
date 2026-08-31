@@ -15,9 +15,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/jackli/frank/internal/crashpoint"
-	"github.com/jackli/frank/internal/fsio"
-	"github.com/jackli/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/crashpoint"
+	"github.com/The-Frank-Organization/frank/internal/fsio"
+	"github.com/The-Frank-Organization/frank/internal/record"
 )
 
 const defaultSegmentRotateBytes int64 = 4 * 1024 * 1024

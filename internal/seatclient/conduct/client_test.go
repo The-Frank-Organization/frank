@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/jackli/frank/internal/channel"
+	"github.com/The-Frank-Organization/frank/internal/channel"
 )
 
 func TestClientExposesOnlyCanonicalRelayVerbs(t *testing.T) {

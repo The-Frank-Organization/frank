@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackli/frank/internal/config"
-	"github.com/jackli/frank/internal/intake"
-	"github.com/jackli/frank/internal/record"
-	"github.com/jackli/frank/internal/store"
-	"github.com/jackli/frank/internal/tables"
+	"github.com/The-Frank-Organization/frank/internal/config"
+	"github.com/The-Frank-Organization/frank/internal/intake"
+	"github.com/The-Frank-Organization/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/store"
+	"github.com/The-Frank-Organization/frank/internal/tables"
 )
 
 func TestS10ResummonTimerCrashRefireDedupesBySeatDecisionAndCadenceSlot(t *testing.T) {

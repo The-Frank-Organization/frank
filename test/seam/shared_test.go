@@ -15,9 +15,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jackli/frank/internal/appipc"
-	connectorjcs "github.com/jackli/frank/internal/connector/jcs"
-	workerjcs "github.com/jackli/frank/internal/worker/jcs"
+	"github.com/The-Frank-Organization/frank/internal/appipc"
+	connectorjcs "github.com/The-Frank-Organization/frank/internal/connector/jcs"
+	workerjcs "github.com/The-Frank-Organization/frank/internal/worker/jcs"
 )
 
 // TestCT_D01 binds CT-D01; selectors r9 D01 and extraction seam; flags MISMATCH, EXTRACT, latent.

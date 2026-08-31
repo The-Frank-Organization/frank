@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jackli/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/record"
 )
 
 type bindingExecutor struct{ verdict CheckVerdict }

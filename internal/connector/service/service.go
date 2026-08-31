@@ -10,17 +10,17 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/jackli/frank/internal/connector/attempt"
-	"github.com/jackli/frank/internal/connector/authorize"
-	"github.com/jackli/frank/internal/connector/control"
-	"github.com/jackli/frank/internal/connector/credentials"
-	"github.com/jackli/frank/internal/connector/frame"
-	"github.com/jackli/frank/internal/connector/freeze"
-	"github.com/jackli/frank/internal/connector/outcome"
-	"github.com/jackli/frank/internal/connector/request"
-	"github.com/jackli/frank/internal/connector/stream"
-	"github.com/jackli/frank/internal/connector/translate"
-	"github.com/jackli/frank/internal/connector/transport"
+	"github.com/The-Frank-Organization/frank/internal/connector/attempt"
+	"github.com/The-Frank-Organization/frank/internal/connector/authorize"
+	"github.com/The-Frank-Organization/frank/internal/connector/control"
+	"github.com/The-Frank-Organization/frank/internal/connector/credentials"
+	"github.com/The-Frank-Organization/frank/internal/connector/frame"
+	"github.com/The-Frank-Organization/frank/internal/connector/freeze"
+	"github.com/The-Frank-Organization/frank/internal/connector/outcome"
+	"github.com/The-Frank-Organization/frank/internal/connector/request"
+	"github.com/The-Frank-Organization/frank/internal/connector/stream"
+	"github.com/The-Frank-Organization/frank/internal/connector/translate"
+	"github.com/The-Frank-Organization/frank/internal/connector/transport"
 )
 
 var ErrDataClosed = errors.New("connector: DATA-P closed")

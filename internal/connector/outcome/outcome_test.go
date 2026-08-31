@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jackli/frank/internal/connector/authorize"
-	"github.com/jackli/frank/internal/connector/request"
+	"github.com/The-Frank-Organization/frank/internal/connector/authorize"
+	"github.com/The-Frank-Organization/frank/internal/connector/request"
 )
 
 const (

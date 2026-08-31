@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackli/frank/internal/appctl/store"
+	"github.com/The-Frank-Organization/frank/internal/appctl/store"
 )
 
 func TestApplyCommitsAndAdvancesStateBeforeEmissionAndReply(t *testing.T) {

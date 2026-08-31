@@ -3,8 +3,8 @@ package fieldspec_test
 import (
 	"testing"
 
-	"github.com/jackli/frank/internal/fieldspec"
-	"github.com/jackli/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/fieldspec"
+	"github.com/The-Frank-Organization/frank/internal/record"
 )
 
 func TestValidateV2SeatScopeAndSystemPayloadGuard(t *testing.T) {

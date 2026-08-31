@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jackli/frank/internal/appctl/store"
-	"github.com/jackli/frank/internal/appipc"
+	"github.com/The-Frank-Organization/frank/internal/appctl/store"
+	"github.com/The-Frank-Organization/frank/internal/appipc"
 )
 
 var (

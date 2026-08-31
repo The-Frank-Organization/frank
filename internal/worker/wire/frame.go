@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/jackli/frank/internal/worker/jcs"
+	"github.com/The-Frank-Organization/frank/internal/worker/jcs"
 )
 
 const (

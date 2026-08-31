@@ -5,10 +5,10 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/jackli/frank/internal/derived"
-	"github.com/jackli/frank/internal/intake"
-	"github.com/jackli/frank/internal/record"
-	"github.com/jackli/frank/internal/store"
+	"github.com/The-Frank-Organization/frank/internal/derived"
+	"github.com/The-Frank-Organization/frank/internal/intake"
+	"github.com/The-Frank-Organization/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/store"
 )
 
 type T struct {

@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jackli/frank/internal/worker/wire"
+	"github.com/The-Frank-Organization/frank/internal/worker/wire"
 )
 
 type Disposition string

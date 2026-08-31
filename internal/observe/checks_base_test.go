@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackli/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/record"
 )
 
 func TestDeclaredNoneOpaqueAcceptFiresHonestlyLabeled(t *testing.T) {

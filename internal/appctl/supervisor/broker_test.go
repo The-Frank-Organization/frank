@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackli/frank/internal/appctl/brokerclient"
+	"github.com/The-Frank-Organization/frank/internal/appctl/brokerclient"
 )
 
 func TestBrokerReadyRecordIsExactAndFailClosed(t *testing.T) {

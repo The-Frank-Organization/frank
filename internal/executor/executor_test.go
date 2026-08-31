@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackli/frank/internal/observe"
+	"github.com/The-Frank-Organization/frank/internal/observe"
 )
 
 func TestSpawnPassesHostModuleCacheWithOfflineReadonlyFlags(t *testing.T) {
@@ -123,7 +123,7 @@ func TestGoModuleCachePathHonorsExplicitRunCache(t *testing.T) {
 
 func TestSpawnNestedExecutorPackageFromZeroExternalClosure(t *testing.T) {
 	source := t.TempDir()
-	writeExecutorTestFile(t, source, "go.mod", `module github.com/jackli/frank
+	writeExecutorTestFile(t, source, "go.mod", `module github.com/The-Frank-Organization/frank
 
 go 1.25.0
 `, 0o600)

@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"slices"
 
-	frankconfig "github.com/jackli/frank/internal/config"
-	"github.com/jackli/frank/internal/fieldspec"
-	"github.com/jackli/frank/internal/record"
-	"github.com/jackli/frank/internal/tables"
+	frankconfig "github.com/The-Frank-Organization/frank/internal/config"
+	"github.com/The-Frank-Organization/frank/internal/fieldspec"
+	"github.com/The-Frank-Organization/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/tables"
 )
 
 type DetectorKey struct {

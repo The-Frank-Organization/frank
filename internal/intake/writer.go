@@ -9,9 +9,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jackli/frank/internal/config"
-	"github.com/jackli/frank/internal/crashpoint"
-	"github.com/jackli/frank/internal/fsio"
+	"github.com/The-Frank-Organization/frank/internal/config"
+	"github.com/The-Frank-Organization/frank/internal/crashpoint"
+	"github.com/The-Frank-Organization/frank/internal/fsio"
 )
 
 var ErrWriterNotReady = errors.New("intake writer requires ready token")

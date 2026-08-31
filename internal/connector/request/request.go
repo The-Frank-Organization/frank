@@ -11,9 +11,9 @@ import (
 	"math"
 	"strconv"
 
-	"github.com/jackli/frank/internal/connector/catalog"
-	"github.com/jackli/frank/internal/connector/frame"
-	"github.com/jackli/frank/internal/connector/jcs"
+	"github.com/The-Frank-Organization/frank/internal/connector/catalog"
+	"github.com/The-Frank-Organization/frank/internal/connector/frame"
+	"github.com/The-Frank-Organization/frank/internal/connector/jcs"
 )
 
 type RejectReason string

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackli/frank/internal/worker/catalog"
+	"github.com/The-Frank-Organization/frank/internal/worker/catalog"
 )
 
 func TestPreparedCallIsInertWithoutAuthorityPath(t *testing.T) {

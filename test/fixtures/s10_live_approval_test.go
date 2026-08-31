@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackli/frank/internal/config"
-	"github.com/jackli/frank/internal/engine"
-	"github.com/jackli/frank/internal/intake"
-	"github.com/jackli/frank/internal/observe"
-	"github.com/jackli/frank/internal/record"
-	"github.com/jackli/frank/internal/store"
+	"github.com/The-Frank-Organization/frank/internal/config"
+	"github.com/The-Frank-Organization/frank/internal/engine"
+	"github.com/The-Frank-Organization/frank/internal/intake"
+	"github.com/The-Frank-Organization/frank/internal/observe"
+	"github.com/The-Frank-Organization/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/store"
 )
 
 const s10LiveApprovalClaimBoundary = "the live-prompt approval channel is proven to the gate; EXECUTION of side-effecting classes remains fail-closed refused at the executor — a future design round when a real side-effecting operation exists"

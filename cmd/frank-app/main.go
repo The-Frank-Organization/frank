@@ -14,16 +14,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackli/frank/internal/appctl/applier"
-	"github.com/jackli/frank/internal/appctl/brokerclient"
-	"github.com/jackli/frank/internal/appctl/manifest"
-	"github.com/jackli/frank/internal/appctl/recovery"
-	"github.com/jackli/frank/internal/appctl/store"
-	"github.com/jackli/frank/internal/appctl/supervisor"
-	"github.com/jackli/frank/internal/appctl/terminal"
-	"github.com/jackli/frank/internal/appipc"
-	connectorcatalog "github.com/jackli/frank/internal/connector/catalog"
-	connectorpolicy "github.com/jackli/frank/internal/connector/policy"
+	"github.com/The-Frank-Organization/frank/internal/appctl/applier"
+	"github.com/The-Frank-Organization/frank/internal/appctl/brokerclient"
+	"github.com/The-Frank-Organization/frank/internal/appctl/manifest"
+	"github.com/The-Frank-Organization/frank/internal/appctl/recovery"
+	"github.com/The-Frank-Organization/frank/internal/appctl/store"
+	"github.com/The-Frank-Organization/frank/internal/appctl/supervisor"
+	"github.com/The-Frank-Organization/frank/internal/appctl/terminal"
+	"github.com/The-Frank-Organization/frank/internal/appipc"
+	connectorcatalog "github.com/The-Frank-Organization/frank/internal/connector/catalog"
+	connectorpolicy "github.com/The-Frank-Organization/frank/internal/connector/policy"
 )
 
 type recoverFunc func(context.Context, *applier.Host, string) error

@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/jackli/frank/internal/engine"
-	"github.com/jackli/frank/internal/intake"
-	"github.com/jackli/frank/internal/record"
-	"github.com/jackli/frank/internal/store"
+	"github.com/The-Frank-Organization/frank/internal/engine"
+	"github.com/The-Frank-Organization/frank/internal/intake"
+	"github.com/The-Frank-Organization/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/store"
 )
 
 func TestNewPanicsWithoutReady(t *testing.T) {

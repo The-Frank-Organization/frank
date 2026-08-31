@@ -1,4 +1,4 @@
-module github.com/jackli/frank
+module github.com/The-Frank-Organization/frank
 
 go 1.25.0
 

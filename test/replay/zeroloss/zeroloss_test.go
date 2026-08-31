@@ -8,12 +8,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jackli/frank/internal/config"
-	"github.com/jackli/frank/internal/migrate"
-	"github.com/jackli/frank/internal/obligation"
-	"github.com/jackli/frank/internal/record"
-	"github.com/jackli/frank/internal/store"
-	"github.com/jackli/frank/test/replay/zeroloss"
+	"github.com/The-Frank-Organization/frank/internal/config"
+	"github.com/The-Frank-Organization/frank/internal/migrate"
+	"github.com/The-Frank-Organization/frank/internal/obligation"
+	"github.com/The-Frank-Organization/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/store"
+	"github.com/The-Frank-Organization/frank/test/replay/zeroloss"
 )
 
 func TestReplayConstructedStoreZeroLossIdentityAndCanonicalWins(t *testing.T) {

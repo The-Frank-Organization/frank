@@ -10,12 +10,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackli/frank/internal/engine"
-	"github.com/jackli/frank/internal/intake"
-	"github.com/jackli/frank/internal/obligation"
-	"github.com/jackli/frank/internal/record"
-	"github.com/jackli/frank/internal/store"
-	"github.com/jackli/frank/internal/tables"
+	"github.com/The-Frank-Organization/frank/internal/engine"
+	"github.com/The-Frank-Organization/frank/internal/intake"
+	"github.com/The-Frank-Organization/frank/internal/obligation"
+	"github.com/The-Frank-Organization/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/store"
+	"github.com/The-Frank-Organization/frank/internal/tables"
 )
 
 func TestH16ClassGDirtyRetryBeforeReplay(t *testing.T) {

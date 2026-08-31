@@ -3,7 +3,7 @@ package appipc
 import (
 	"strings"
 
-	"github.com/jackli/frank/internal/canonicaljson"
+	"github.com/The-Frank-Organization/frank/internal/canonicaljson"
 )
 
 // MarshalJCS encodes the strict-integer JSON data model used by app IPC.

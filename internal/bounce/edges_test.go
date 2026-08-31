@@ -3,7 +3,7 @@ package bounce_test
 import (
 	"testing"
 
-	"github.com/jackli/frank/internal/store"
+	"github.com/The-Frank-Organization/frank/internal/store"
 )
 
 func TestBucketDEdgesExtendAcceptanceBouncesOnlyWithStaleChoiceSet(t *testing.T) {

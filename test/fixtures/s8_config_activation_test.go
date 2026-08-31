@@ -13,10 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackli/frank/internal/config"
-	"github.com/jackli/frank/internal/fieldspec"
-	"github.com/jackli/frank/internal/record"
-	"github.com/jackli/frank/internal/store"
+	"github.com/The-Frank-Organization/frank/internal/config"
+	"github.com/The-Frank-Organization/frank/internal/fieldspec"
+	"github.com/The-Frank-Organization/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/store"
 )
 
 const s8FieldspecV5SHA256 = "1ef6abab4d496b11017f57ca400e8296d63824994ffce8311e4533f70cc92485"

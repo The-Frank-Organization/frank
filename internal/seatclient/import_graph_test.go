@@ -20,11 +20,11 @@ func TestImportGraphAndMappingHome(t *testing.T) {
 	conduct := filepath.Join(root, "internal", "seatclient", "conduct")
 	formschemaImports := packageImports(t, formschema)
 	for imported := range formschemaImports {
-		if strings.HasPrefix(imported, "github.com/jackli/frank/internal/") && imported != "github.com/jackli/frank/internal/fieldspec" && imported != "github.com/jackli/frank/internal/record" {
+		if strings.HasPrefix(imported, "github.com/The-Frank-Organization/frank/internal/") && imported != "github.com/The-Frank-Organization/frank/internal/fieldspec" && imported != "github.com/The-Frank-Organization/frank/internal/record" {
 			t.Fatalf("formschema imports forbidden internal package %s", imported)
 		}
 	}
-	if packageImports(t, conduct)["github.com/jackli/frank/internal/seatclient/formschema"] {
+	if packageImports(t, conduct)["github.com/The-Frank-Organization/frank/internal/seatclient/formschema"] {
 		t.Fatal("conduct imports formschema")
 	}
 	mcpSchema := filepath.Join(root, "cmd", "frank-mcp", "schema.go")

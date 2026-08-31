@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jackli/frank/internal/fieldspec"
+	"github.com/The-Frank-Organization/frank/internal/fieldspec"
 )
 
 const ExpectedFingerprint = "306b3149a002f0648995f659926ba0f985ee771d95bb899c7ecc81adadab28ac"

@@ -19,7 +19,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jackli/frank/internal/observe"
+	"github.com/The-Frank-Organization/frank/internal/observe"
 )
 
 const AmbientResidual = "same-uid ambient filesystem, network, and process access remains possible without an OS sandbox"

@@ -5,10 +5,10 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/jackli/frank/internal/connector/authorize"
-	"github.com/jackli/frank/internal/connector/catalog"
-	connectorrequest "github.com/jackli/frank/internal/connector/request"
-	"github.com/jackli/frank/internal/connector/translate"
+	"github.com/The-Frank-Organization/frank/internal/connector/authorize"
+	"github.com/The-Frank-Organization/frank/internal/connector/catalog"
+	connectorrequest "github.com/The-Frank-Organization/frank/internal/connector/request"
+	"github.com/The-Frank-Organization/frank/internal/connector/translate"
 )
 
 func TestFreezeProducesExactFiveMemberCoreAndDigests(t *testing.T) {

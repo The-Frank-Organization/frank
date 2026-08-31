@@ -13,9 +13,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/jackli/frank/internal/config"
-	"github.com/jackli/frank/internal/fsio"
-	"github.com/jackli/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/config"
+	"github.com/The-Frank-Organization/frank/internal/fsio"
+	"github.com/The-Frank-Organization/frank/internal/record"
 )
 
 var (

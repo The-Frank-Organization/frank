@@ -5,10 +5,10 @@ import (
 	"maps"
 	"strings"
 
-	"github.com/jackli/frank/internal/fieldspec"
-	"github.com/jackli/frank/internal/migrate"
-	"github.com/jackli/frank/internal/obligation"
-	"github.com/jackli/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/fieldspec"
+	"github.com/The-Frank-Organization/frank/internal/migrate"
+	"github.com/The-Frank-Organization/frank/internal/obligation"
+	"github.com/The-Frank-Organization/frank/internal/record"
 )
 
 type ODBChoice struct {

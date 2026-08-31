@@ -15,7 +15,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jackli/frank/internal/appipc"
+	"github.com/The-Frank-Organization/frank/internal/appipc"
 )
 
 type DialFunc func(context.Context, string, string) (net.Conn, error)

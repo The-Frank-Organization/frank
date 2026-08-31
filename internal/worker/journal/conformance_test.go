@@ -11,7 +11,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/jackli/frank/internal/worker/journal"
+	"github.com/The-Frank-Organization/frank/internal/worker/journal"
 )
 
 // voidPendingRegenerationDigest is the SHA-256 of the edit-base substrate

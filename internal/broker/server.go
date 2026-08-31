@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/jackli/frank/internal/appipc"
+	"github.com/The-Frank-Organization/frank/internal/appipc"
 )
 
 const ControlSocketName = "broker-control.sock"

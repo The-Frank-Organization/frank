@@ -9,7 +9,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/jackli/frank/internal/worker/executor"
+	"github.com/The-Frank-Organization/frank/internal/worker/executor"
 )
 
 type Registry struct {

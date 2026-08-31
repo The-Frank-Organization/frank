@@ -13,9 +13,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/jackli/frank/internal/connector/frame"
-	"github.com/jackli/frank/internal/connector/jcs"
-	"github.com/jackli/frank/internal/connector/transport"
+	"github.com/The-Frank-Organization/frank/internal/connector/frame"
+	"github.com/The-Frank-Organization/frank/internal/connector/jcs"
+	"github.com/The-Frank-Organization/frank/internal/connector/transport"
 )
 
 const (

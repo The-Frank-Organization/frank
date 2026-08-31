@@ -1,6 +1,6 @@
 package fixtures
 
-import "github.com/jackli/frank/internal/crashpoint"
+import "github.com/The-Frank-Organization/frank/internal/crashpoint"
 
 func ApplicabilityMap() map[string]map[string]string {
 	classes := []string{

@@ -12,11 +12,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/jackli/frank/internal/appipc"
-	"github.com/jackli/frank/internal/worker/executor"
-	"github.com/jackli/frank/internal/worker/provider"
-	workerruntime "github.com/jackli/frank/internal/worker/runtime"
-	"github.com/jackli/frank/internal/worker/turn"
+	"github.com/The-Frank-Organization/frank/internal/appipc"
+	"github.com/The-Frank-Organization/frank/internal/worker/executor"
+	"github.com/The-Frank-Organization/frank/internal/worker/provider"
+	workerruntime "github.com/The-Frank-Organization/frank/internal/worker/runtime"
+	"github.com/The-Frank-Organization/frank/internal/worker/turn"
 )
 
 type traceEvent struct {

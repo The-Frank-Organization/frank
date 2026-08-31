@@ -14,15 +14,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackli/frank/internal/channel"
-	"github.com/jackli/frank/internal/config"
-	"github.com/jackli/frank/internal/engine"
-	"github.com/jackli/frank/internal/fieldspec"
-	"github.com/jackli/frank/internal/intake"
-	"github.com/jackli/frank/internal/observe"
-	"github.com/jackli/frank/internal/record"
-	"github.com/jackli/frank/internal/seat"
-	"github.com/jackli/frank/internal/store"
+	"github.com/The-Frank-Organization/frank/internal/channel"
+	"github.com/The-Frank-Organization/frank/internal/config"
+	"github.com/The-Frank-Organization/frank/internal/engine"
+	"github.com/The-Frank-Organization/frank/internal/fieldspec"
+	"github.com/The-Frank-Organization/frank/internal/intake"
+	"github.com/The-Frank-Organization/frank/internal/observe"
+	"github.com/The-Frank-Organization/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/seat"
+	"github.com/The-Frank-Organization/frank/internal/store"
 )
 
 func TestS8ExitGateFreshGenesisActivationAndDogfoodLegs(t *testing.T) {

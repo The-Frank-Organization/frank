@@ -7,7 +7,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/jackli/frank/internal/worker/journal"
+	"github.com/The-Frank-Organization/frank/internal/worker/journal"
 )
 
 type fakeGate struct {

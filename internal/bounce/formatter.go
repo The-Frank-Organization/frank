@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jackli/frank/internal/fieldspec"
-	"github.com/jackli/frank/internal/lineage"
+	"github.com/The-Frank-Organization/frank/internal/fieldspec"
+	"github.com/The-Frank-Organization/frank/internal/lineage"
 )
 
 func Format(values ...any) string {

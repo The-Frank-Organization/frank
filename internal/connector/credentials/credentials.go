@@ -15,9 +15,9 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/jackli/frank/internal/connector/authorize"
-	"github.com/jackli/frank/internal/connector/freeze"
-	"github.com/jackli/frank/internal/connector/jcs"
+	"github.com/The-Frank-Organization/frank/internal/connector/authorize"
+	"github.com/The-Frank-Organization/frank/internal/connector/freeze"
+	"github.com/The-Frank-Organization/frank/internal/connector/jcs"
 )
 
 const credentialFileMax = 1024 * 1024

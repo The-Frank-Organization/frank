@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackli/frank/internal/appipc"
+	"github.com/The-Frank-Organization/frank/internal/appipc"
 )
 
 func TestFakeWorkerSpeaksTypedFramesOverRealSocketpair(t *testing.T) {

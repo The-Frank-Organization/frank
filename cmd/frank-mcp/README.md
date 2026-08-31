@@ -1,7 +1,5 @@
 # frank-mcp
 
-transport/provenance only; done-state and `record_integrity` remain `self_reported` until Step-2 observe.
-
 `frank-mcp` is a stdio MCP shim for one host session and one current frank seat credential. It translates MCP `initialize`, `tools/list`, and `tools/call` to the private frank socket dialect and keeps the seat-facing tool set at exactly `submit`, `project`, and `read`. Audit and roster views ride as `project` arguments, not as extra tools.
 
 ## Configuration
@@ -9,7 +7,7 @@ transport/provenance only; done-state and `record_integrity` remain `self_report
 Default configuration uses environment variables:
 
 ```sh
-FRANK_SOCKET=/tmp/frank-s4.sock
+FRANK_SOCKET=/tmp/frank.sock
 FRANK_CREDENTIAL=<seat credential>
 ```
 

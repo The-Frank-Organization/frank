@@ -6,11 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jackli/frank/internal/bounce"
-	"github.com/jackli/frank/internal/egress"
-	"github.com/jackli/frank/internal/fieldspec"
-	"github.com/jackli/frank/internal/migrate"
-	"github.com/jackli/frank/test/replay/zeroloss"
+	"github.com/The-Frank-Organization/frank/internal/bounce"
+	"github.com/The-Frank-Organization/frank/internal/egress"
+	"github.com/The-Frank-Organization/frank/internal/fieldspec"
+	"github.com/The-Frank-Organization/frank/internal/migrate"
+	"github.com/The-Frank-Organization/frank/test/replay/zeroloss"
 )
 
 func TestS5IPHNewSurfacesAreFieldClassOnlyAndPathClean(t *testing.T) {

@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jackli/frank/internal/appctl/applier"
-	"github.com/jackli/frank/internal/appctl/store"
+	"github.com/The-Frank-Organization/frank/internal/appctl/applier"
+	"github.com/The-Frank-Organization/frank/internal/appctl/store"
 )
 
 type FreezeEvent struct {

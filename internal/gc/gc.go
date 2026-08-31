@@ -6,12 +6,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/jackli/frank/internal/config"
-	"github.com/jackli/frank/internal/crashpoint"
-	"github.com/jackli/frank/internal/intake"
-	"github.com/jackli/frank/internal/obligation"
-	"github.com/jackli/frank/internal/record"
-	"github.com/jackli/frank/internal/store"
+	"github.com/The-Frank-Organization/frank/internal/config"
+	"github.com/The-Frank-Organization/frank/internal/crashpoint"
+	"github.com/The-Frank-Organization/frank/internal/intake"
+	"github.com/The-Frank-Organization/frank/internal/obligation"
+	"github.com/The-Frank-Organization/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/store"
 )
 
 func Drained(segs []intake.Segment, tables *obligation.Tables) []intake.Segment {

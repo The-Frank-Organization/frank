@@ -1,11 +1,11 @@
 package engine
 
 import (
-	"github.com/jackli/frank/internal/fieldspec"
-	"github.com/jackli/frank/internal/record"
-	"github.com/jackli/frank/internal/seat"
-	"github.com/jackli/frank/internal/store"
-	"github.com/jackli/frank/internal/tables"
+	"github.com/The-Frank-Organization/frank/internal/fieldspec"
+	"github.com/The-Frank-Organization/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/seat"
+	"github.com/The-Frank-Organization/frank/internal/store"
+	"github.com/The-Frank-Organization/frank/internal/tables"
 )
 
 func stampParent(st *store.Store, tab *tables.T, cand record.Record, meta seat.SeatMeta, env fieldspec.RenderEnv) record.Record {

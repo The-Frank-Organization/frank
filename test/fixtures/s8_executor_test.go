@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackli/frank/internal/executor"
-	"github.com/jackli/frank/internal/observe"
+	"github.com/The-Frank-Organization/frank/internal/executor"
+	"github.com/The-Frank-Organization/frank/internal/observe"
 )
 
 func TestS8FXEXE1ExecutorProvidesOnlyRunScopedHandles(t *testing.T) {

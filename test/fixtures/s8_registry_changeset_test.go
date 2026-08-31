@@ -10,11 +10,11 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/jackli/frank/internal/channel"
-	"github.com/jackli/frank/internal/config"
-	"github.com/jackli/frank/internal/fieldspec"
-	"github.com/jackli/frank/internal/record"
-	"github.com/jackli/frank/internal/store"
+	"github.com/The-Frank-Organization/frank/internal/channel"
+	"github.com/The-Frank-Organization/frank/internal/config"
+	"github.com/The-Frank-Organization/frank/internal/fieldspec"
+	"github.com/The-Frank-Organization/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/store"
 )
 
 func TestS8RegistryChangesetIsExactV7OptionB(t *testing.T) {

@@ -8,15 +8,15 @@ import (
 	"os"
 	"path/filepath"
 
-	frankconfig "github.com/jackli/frank/internal/config"
-	"github.com/jackli/frank/internal/crashpoint"
-	"github.com/jackli/frank/internal/derived"
-	"github.com/jackli/frank/internal/engine"
-	"github.com/jackli/frank/internal/record"
-	frankrecover "github.com/jackli/frank/internal/recover"
-	"github.com/jackli/frank/internal/seat"
-	"github.com/jackli/frank/internal/store"
-	"github.com/jackli/frank/internal/tables"
+	frankconfig "github.com/The-Frank-Organization/frank/internal/config"
+	"github.com/The-Frank-Organization/frank/internal/crashpoint"
+	"github.com/The-Frank-Organization/frank/internal/derived"
+	"github.com/The-Frank-Organization/frank/internal/engine"
+	"github.com/The-Frank-Organization/frank/internal/record"
+	frankrecover "github.com/The-Frank-Organization/frank/internal/recover"
+	"github.com/The-Frank-Organization/frank/internal/seat"
+	"github.com/The-Frank-Organization/frank/internal/store"
+	"github.com/The-Frank-Organization/frank/internal/tables"
 )
 
 var (

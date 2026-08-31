@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jackli/frank/internal/appipc"
+	"github.com/The-Frank-Organization/frank/internal/appipc"
 )
 
 const ConnectorReadyDeadline = 10 * time.Second

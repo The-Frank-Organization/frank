@@ -11,13 +11,13 @@ import (
 	"testing"
 	"time"
 
-	connectorcatalog "github.com/jackli/frank/internal/connector/catalog"
-	"github.com/jackli/frank/internal/connector/outcome"
-	"github.com/jackli/frank/internal/connector/request"
-	"github.com/jackli/frank/internal/worker/executor"
-	"github.com/jackli/frank/internal/worker/journal"
-	"github.com/jackli/frank/internal/worker/provider"
-	"github.com/jackli/frank/internal/worker/turn"
+	connectorcatalog "github.com/The-Frank-Organization/frank/internal/connector/catalog"
+	"github.com/The-Frank-Organization/frank/internal/connector/outcome"
+	"github.com/The-Frank-Organization/frank/internal/connector/request"
+	"github.com/The-Frank-Organization/frank/internal/worker/executor"
+	"github.com/The-Frank-Organization/frank/internal/worker/journal"
+	"github.com/The-Frank-Organization/frank/internal/worker/provider"
+	"github.com/The-Frank-Organization/frank/internal/worker/turn"
 )
 
 // TestCT_B01 binds CT-B01; selectors r9 B01, S-M8v1 §1.2 and A-M8-BE v2; flags MISMATCH, W/MASTER, star.

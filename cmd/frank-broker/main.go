@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/jackli/frank/internal/broker"
+	"github.com/The-Frank-Organization/frank/internal/broker"
 )
 
 func main() {

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackli/frank/internal/channel"
+	"github.com/The-Frank-Organization/frank/internal/channel"
 )
 
 type attachSequence struct {

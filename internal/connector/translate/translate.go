@@ -12,9 +12,9 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/jackli/frank/internal/connector/catalog"
-	"github.com/jackli/frank/internal/connector/jcs"
-	"github.com/jackli/frank/internal/connector/request"
+	"github.com/The-Frank-Organization/frank/internal/connector/catalog"
+	"github.com/The-Frank-Organization/frank/internal/connector/jcs"
+	"github.com/The-Frank-Organization/frank/internal/connector/request"
 )
 
 const OpenAIResponsesProfileVersion = "openai-responses.v1"

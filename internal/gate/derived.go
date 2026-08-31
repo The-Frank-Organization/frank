@@ -1,8 +1,8 @@
 package gate
 
 import (
-	"github.com/jackli/frank/internal/obligation"
-	"github.com/jackli/frank/internal/store"
+	"github.com/The-Frank-Organization/frank/internal/obligation"
+	"github.com/The-Frank-Organization/frank/internal/store"
 )
 
 type OutboxItem struct {

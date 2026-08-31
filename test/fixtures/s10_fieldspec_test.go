@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jackli/frank/internal/config"
-	"github.com/jackli/frank/internal/fieldspec"
-	"github.com/jackli/frank/internal/store"
+	"github.com/The-Frank-Organization/frank/internal/config"
+	"github.com/The-Frank-Organization/frank/internal/fieldspec"
+	"github.com/The-Frank-Organization/frank/internal/store"
 )
 
 func TestS10V7ReaderRefusesV8MarkerBeforeContent(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"sort"
 
-	"github.com/jackli/frank/internal/appipc"
+	"github.com/The-Frank-Organization/frank/internal/appipc"
 )
 
 var (

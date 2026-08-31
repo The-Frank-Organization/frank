@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jackli/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/record"
 )
 
 const HookContractV1 = "1"

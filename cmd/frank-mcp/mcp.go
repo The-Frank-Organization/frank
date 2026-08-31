@@ -10,10 +10,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/jackli/frank/internal/channel"
-	"github.com/jackli/frank/internal/fieldspec"
-	"github.com/jackli/frank/internal/seatclient/conduct"
-	"github.com/jackli/frank/internal/seatclient/formschema"
+	"github.com/The-Frank-Organization/frank/internal/channel"
+	"github.com/The-Frank-Organization/frank/internal/fieldspec"
+	"github.com/The-Frank-Organization/frank/internal/seatclient/conduct"
+	"github.com/The-Frank-Organization/frank/internal/seatclient/formschema"
 )
 
 const (

@@ -3,8 +3,8 @@ package main
 import (
 	"encoding/json"
 
-	"github.com/jackli/frank/internal/fieldspec"
-	"github.com/jackli/frank/internal/seatclient/formschema"
+	"github.com/The-Frank-Organization/frank/internal/fieldspec"
+	"github.com/The-Frank-Organization/frank/internal/seatclient/formschema"
 )
 
 // These compatibility wrappers keep the MCP package a thin consumer while the

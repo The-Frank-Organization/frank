@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackli/frank/internal/config"
-	"github.com/jackli/frank/internal/intake"
+	"github.com/The-Frank-Organization/frank/internal/config"
+	"github.com/The-Frank-Organization/frank/internal/intake"
 )
 
 type writerOutcome struct {

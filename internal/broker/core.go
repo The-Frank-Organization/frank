@@ -9,8 +9,8 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	"github.com/jackli/frank/internal/appipc"
-	"github.com/jackli/frank/internal/channel"
+	"github.com/The-Frank-Organization/frank/internal/appipc"
+	"github.com/The-Frank-Organization/frank/internal/channel"
 )
 
 var (

@@ -11,10 +11,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jackli/frank/internal/appctl/applier"
-	"github.com/jackli/frank/internal/appctl/f59"
-	"github.com/jackli/frank/internal/appctl/store"
-	"github.com/jackli/frank/internal/channel"
+	"github.com/The-Frank-Organization/frank/internal/appctl/applier"
+	"github.com/The-Frank-Organization/frank/internal/appctl/f59"
+	"github.com/The-Frank-Organization/frank/internal/appctl/store"
+	"github.com/The-Frank-Organization/frank/internal/channel"
 )
 
 func TestPerOperationFenceDescribeResidualAndRelaySettlement(t *testing.T) {

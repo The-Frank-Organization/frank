@@ -10,8 +10,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/jackli/frank/internal/connector/control"
-	"github.com/jackli/frank/internal/connector/service"
+	"github.com/The-Frank-Organization/frank/internal/connector/control"
+	"github.com/The-Frank-Organization/frank/internal/connector/service"
 )
 
 var errRuntimeDir = errors.New("connector: invalid private runtime directory")

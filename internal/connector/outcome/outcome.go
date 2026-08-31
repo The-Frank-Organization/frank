@@ -9,10 +9,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jackli/frank/internal/connector/authorize"
-	"github.com/jackli/frank/internal/connector/frame"
-	"github.com/jackli/frank/internal/connector/jcs"
-	"github.com/jackli/frank/internal/connector/request"
+	"github.com/The-Frank-Organization/frank/internal/connector/authorize"
+	"github.com/The-Frank-Organization/frank/internal/connector/frame"
+	"github.com/The-Frank-Organization/frank/internal/connector/jcs"
+	"github.com/The-Frank-Organization/frank/internal/connector/request"
 )
 
 const (

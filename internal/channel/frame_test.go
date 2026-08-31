@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackli/frank/internal/channel"
+	"github.com/The-Frank-Organization/frank/internal/channel"
 )
 
 func TestInboundOversizeFrameTypedRefusal(t *testing.T) {

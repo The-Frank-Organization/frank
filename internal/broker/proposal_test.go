@@ -3,8 +3,8 @@ package broker
 import (
 	"testing"
 
-	"github.com/jackli/frank/internal/appctl/brokerclient"
-	"github.com/jackli/frank/internal/appipc"
+	"github.com/The-Frank-Organization/frank/internal/appctl/brokerclient"
+	"github.com/The-Frank-Organization/frank/internal/appipc"
 )
 
 func TestProposalCorrelationBoundaryAndOrderedTable(t *testing.T) {

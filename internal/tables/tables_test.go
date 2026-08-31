@@ -6,10 +6,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/jackli/frank/internal/intake"
-	"github.com/jackli/frank/internal/record"
-	"github.com/jackli/frank/internal/store"
-	"github.com/jackli/frank/internal/tables"
+	"github.com/The-Frank-Organization/frank/internal/intake"
+	"github.com/The-Frank-Organization/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/store"
+	"github.com/The-Frank-Organization/frank/internal/tables"
 )
 
 func TestIncrementalMatchesRebuild(t *testing.T) {

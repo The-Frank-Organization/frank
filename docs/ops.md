@@ -1,6 +1,8 @@
 # frank operations
 
-transport/provenance only; done-state and `record_integrity` remain `self_reported` until Step-2 observe.
+The observe layer stamps per-field `evidence_integrity` (`observed` vs `self_reported`) at send; fields it does not observe remain `self_reported`.
+
+This doc covers the conductor (`frank`) and the seat-side MCP shim (`frank-mcp`). The other binaries in `cmd/` — `frank-app`, `frank-broker`, `frank-connector`, and `frank-worker` — are the mid-build coding-agent harness; see the root README for what each one is.
 
 ## Store and socket
 
@@ -10,27 +12,28 @@ Use a short Unix socket path. On darwin, long AF_UNIX paths fail at bind time, s
 
 ## Start
 
-Initialize a fresh store with pinned config:
+Initialize a fresh store with pinned config. Init pins three config sources by digest — the FieldSpec registry, the engine config, and the invariant catalog — so all three flags are required. The engine config must be `version: 2` with a `supply` section (lane roots + at least one named check suite) or the store will init but the conductor will refuse to serve (`config-load: supply`); the root README's Quick start derives a minimal working config step by step.
 
 ```sh
-cat > /tmp/frank-engine.json <<'JSON'
-{"gc_enabled":false,"segment_rotate_bytes":4194304}
-JSON
-frank -root /abs/team-store -registry internal/fieldspec/registry.json -engine-config /tmp/frank-engine.json -init
+frank -root /abs/team-store \
+      -registry internal/fieldspec/registry.json \
+      -engine-config /abs/engine.json \
+      -catalog test/invariants/catalog.v1.json \
+      -init
 ```
 
 Mint bootstrap/admin seats before serving. This path is genesis-time only after the initial config record; once the conductor is live, use an operator `record_kind: seat_mint` submit instead.
 
 ```sh
-frank -root /abs/team-store -mint s4-wire.implementer -role implementer
-frank -root /abs/team-store -mint s4-wire.planner -role planner
+frank -root /abs/team-store -mint core.implementer -role implementer
+frank -root /abs/team-store -mint core.planner -role planner
 frank -root /abs/team-store -mint operator -role operator -operator
 ```
 
 Start the conductor:
 
 ```sh
-frank -root /abs/team-store -socket /tmp/frank-s4.sock
+frank -root /abs/team-store -socket /tmp/frank.sock
 ```
 
 Only one conductor may serve a store root. Startup takes an exclusive `flock` on `<root>/conductor.lock` before recovery or reads; a second conductor exits with `root-lock-held` and holder diagnostics.
@@ -47,7 +50,7 @@ After any form re-render bounce, hosted seats must re-read the schema before ret
 
 One seat = one current credential = one host MCP config entry. A session occupies a durable seat by launching `frank-mcp` with that seat credential. Killing the host session or shim closes the socket; relaunching with the same current credential reoccupies the same seat and mailbox.
 
-S4 corrects delivery to the locked TO/CC-mailbox semantics (m-1 §5); S1–S3 delivered to Envelope.To only.
+Delivery follows TO/CC-mailbox semantics: a relay lands in the mailbox of every seat named in TO or CC.
 
 Two blessed wiring patterns:
 

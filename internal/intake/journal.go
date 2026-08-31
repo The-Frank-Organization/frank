@@ -14,10 +14,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jackli/frank/internal/config"
-	"github.com/jackli/frank/internal/crashpoint"
-	"github.com/jackli/frank/internal/fsio"
-	"github.com/jackli/frank/internal/store"
+	"github.com/The-Frank-Organization/frank/internal/config"
+	"github.com/The-Frank-Organization/frank/internal/crashpoint"
+	"github.com/The-Frank-Organization/frank/internal/fsio"
+	"github.com/The-Frank-Organization/frank/internal/store"
 )
 
 const DefaultSegmentRotateBytes int64 = 4 * 1024 * 1024

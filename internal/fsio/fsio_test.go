@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jackli/frank/internal/fsio"
+	"github.com/The-Frank-Organization/frank/internal/fsio"
 )
 
 func TestWriteFileAtomicVisibleAfterCompletion(t *testing.T) {

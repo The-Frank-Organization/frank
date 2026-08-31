@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/jackli/frank/internal/crashpoint"
+	"github.com/The-Frank-Organization/frank/internal/crashpoint"
 )
 
 func WriteFileAtomic(root, rel string, data []byte) error {

@@ -11,9 +11,9 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/jackli/frank/internal/appctl/applier"
-	"github.com/jackli/frank/internal/appctl/store"
-	"github.com/jackli/frank/internal/appipc"
+	"github.com/The-Frank-Organization/frank/internal/appctl/applier"
+	"github.com/The-Frank-Organization/frank/internal/appctl/store"
+	"github.com/The-Frank-Organization/frank/internal/appipc"
 )
 
 var digestPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)

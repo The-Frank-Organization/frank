@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jackli/frank/internal/config"
+	"github.com/The-Frank-Organization/frank/internal/config"
 )
 
 func TestDigestIsStableByMemberNameAndBytes(t *testing.T) {

@@ -9,8 +9,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jackli/frank/internal/migrate"
-	"github.com/jackli/frank/internal/store"
+	"github.com/The-Frank-Organization/frank/internal/migrate"
+	"github.com/The-Frank-Organization/frank/internal/store"
 )
 
 type Report struct {

@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackli/frank/internal/store"
+	"github.com/The-Frank-Organization/frank/internal/store"
 )
 
 func TestAcquireRootExcludesSecondHolderAndReleases(t *testing.T) {

@@ -15,12 +15,12 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/jackli/frank/internal/connector/catalog"
-	"github.com/jackli/frank/internal/connector/credentials"
-	"github.com/jackli/frank/internal/connector/frame"
-	"github.com/jackli/frank/internal/connector/jcs"
-	"github.com/jackli/frank/internal/connector/outcome"
-	"github.com/jackli/frank/internal/connector/policy"
+	"github.com/The-Frank-Organization/frank/internal/connector/catalog"
+	"github.com/The-Frank-Organization/frank/internal/connector/credentials"
+	"github.com/The-Frank-Organization/frank/internal/connector/frame"
+	"github.com/The-Frank-Organization/frank/internal/connector/jcs"
+	"github.com/The-Frank-Organization/frank/internal/connector/outcome"
+	"github.com/The-Frank-Organization/frank/internal/connector/policy"
 )
 
 const (

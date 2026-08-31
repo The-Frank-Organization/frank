@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/jackli/frank/internal/fieldspec"
+	"github.com/The-Frank-Organization/frank/internal/fieldspec"
 )
 
 func TestSchemaStableVolatilePartitionAndOpenAdvertisedHeaders(t *testing.T) {

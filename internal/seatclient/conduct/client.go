@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jackli/frank/internal/channel"
+	"github.com/The-Frank-Organization/frank/internal/channel"
 )
 
 var ErrUnknownVerb = errors.New("conduct: unknown canonical relay verb")

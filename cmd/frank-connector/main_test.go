@@ -17,8 +17,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackli/frank/internal/connector/control"
-	"github.com/jackli/frank/internal/connector/frame"
+	"github.com/The-Frank-Organization/frank/internal/connector/control"
+	"github.com/The-Frank-Organization/frank/internal/connector/frame"
 )
 
 const (

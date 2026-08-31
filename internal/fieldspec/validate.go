@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/jackli/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/record"
 )
 
 func (r *Registry) Validate(cand record.Record, seat SeatMeta, formDigest string, env RenderEnv, grants GrantState) []Violation {

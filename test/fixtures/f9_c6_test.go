@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/jackli/frank/internal/intake"
-	"github.com/jackli/frank/internal/record"
-	"github.com/jackli/frank/internal/store"
+	"github.com/The-Frank-Organization/frank/internal/intake"
+	"github.com/The-Frank-Organization/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/store"
 )
 
 func TestF9RunWholeAndC6ReplayDedupe(t *testing.T) {

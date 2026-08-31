@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jackli/frank/internal/egress"
-	"github.com/jackli/frank/internal/gate"
-	"github.com/jackli/frank/internal/record"
-	"github.com/jackli/frank/internal/store"
+	"github.com/The-Frank-Organization/frank/internal/egress"
+	"github.com/The-Frank-Organization/frank/internal/gate"
+	"github.com/The-Frank-Organization/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/store"
 )
 
 func TestScanClassifiesRenderedFieldValue(t *testing.T) {

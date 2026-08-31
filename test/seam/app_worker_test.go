@@ -18,15 +18,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jackli/frank/internal/appctl/f59"
-	"github.com/jackli/frank/internal/appctl/manifest"
-	"github.com/jackli/frank/internal/appipc"
-	"github.com/jackli/frank/internal/worker/catalog"
-	"github.com/jackli/frank/internal/worker/executor"
-	"github.com/jackli/frank/internal/worker/journal"
-	"github.com/jackli/frank/internal/worker/provider"
-	workerruntime "github.com/jackli/frank/internal/worker/runtime"
-	"github.com/jackli/frank/internal/worker/turn"
+	"github.com/The-Frank-Organization/frank/internal/appctl/f59"
+	"github.com/The-Frank-Organization/frank/internal/appctl/manifest"
+	"github.com/The-Frank-Organization/frank/internal/appipc"
+	"github.com/The-Frank-Organization/frank/internal/worker/catalog"
+	"github.com/The-Frank-Organization/frank/internal/worker/executor"
+	"github.com/The-Frank-Organization/frank/internal/worker/journal"
+	"github.com/The-Frank-Organization/frank/internal/worker/provider"
+	workerruntime "github.com/The-Frank-Organization/frank/internal/worker/runtime"
+	"github.com/The-Frank-Organization/frank/internal/worker/turn"
 )
 
 // TestCT_A01 binds CT-A01; selectors r9 A01 and S-M10/S-D1 §4b/§0C-11; flags UNWIRED, W, star.

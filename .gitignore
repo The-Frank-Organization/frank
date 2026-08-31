@@ -1,0 +1,25 @@
+# Built binaries
+/frank
+/frank-mcp
+/frank-app
+/frank-broker
+/frank-connector
+/frank-worker
+/bin/
+/dist/
+
+# Go cruft
+*.test
+*.out
+/vendor/
+
+# Local runtime state
+*.sock
+.frank-store/
+secrets/
+
+# Editor / OS cruft
+.DS_Store
+.idea/
+.vscode/
+*.swp

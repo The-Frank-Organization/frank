@@ -11,13 +11,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackli/frank/internal/channel"
-	"github.com/jackli/frank/internal/config"
-	"github.com/jackli/frank/internal/fieldspec"
-	"github.com/jackli/frank/internal/gate"
-	"github.com/jackli/frank/internal/record"
-	"github.com/jackli/frank/internal/seat"
-	"github.com/jackli/frank/internal/store"
+	"github.com/The-Frank-Organization/frank/internal/channel"
+	"github.com/The-Frank-Organization/frank/internal/config"
+	"github.com/The-Frank-Organization/frank/internal/fieldspec"
+	"github.com/The-Frank-Organization/frank/internal/gate"
+	"github.com/The-Frank-Organization/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/seat"
+	"github.com/The-Frank-Organization/frank/internal/store"
 )
 
 // These binary-path fixtures prove Step-1 detection exactly for S1 + S2 + S3

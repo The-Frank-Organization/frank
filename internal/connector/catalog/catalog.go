@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackli/frank/internal/connector/endpoint"
-	"github.com/jackli/frank/internal/connector/jcs"
-	"github.com/jackli/frank/internal/connector/nfccheck"
+	"github.com/The-Frank-Organization/frank/internal/connector/endpoint"
+	"github.com/The-Frank-Organization/frank/internal/connector/jcs"
+	"github.com/The-Frank-Organization/frank/internal/connector/nfccheck"
 )
 
 var ErrInvalidCatalog = errors.New("connector: invalid lane catalog")

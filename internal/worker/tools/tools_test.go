@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackli/frank/internal/worker/executor"
+	"github.com/The-Frank-Organization/frank/internal/worker/executor"
 )
 
 var _ executor.Invoker = (*Registry)(nil)

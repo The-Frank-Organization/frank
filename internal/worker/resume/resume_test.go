@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackli/frank/internal/worker/jcs"
-	"github.com/jackli/frank/internal/worker/journal"
+	"github.com/The-Frank-Organization/frank/internal/worker/jcs"
+	"github.com/The-Frank-Organization/frank/internal/worker/journal"
 )
 
 func TestAllFiveFirstActionBranchesAreReachable(t *testing.T) {

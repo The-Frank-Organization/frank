@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jackli/frank/internal/fieldspec"
+	"github.com/The-Frank-Organization/frank/internal/fieldspec"
 )
 
 func TestSchemaStringCarrierAllTypes(t *testing.T) {

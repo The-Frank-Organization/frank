@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackli/frank/internal/executor"
-	"github.com/jackli/frank/internal/observe"
-	"github.com/jackli/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/executor"
+	"github.com/The-Frank-Organization/frank/internal/observe"
+	"github.com/The-Frank-Organization/frank/internal/record"
 )
 
 func TestS8AdversarialSlotInImmutableAgainstRetagEscape(t *testing.T) {

@@ -14,10 +14,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackli/frank/internal/appctl/applier"
-	"github.com/jackli/frank/internal/appctl/store"
-	"github.com/jackli/frank/internal/appctl/testutil"
-	"github.com/jackli/frank/internal/appipc"
+	"github.com/The-Frank-Organization/frank/internal/appctl/applier"
+	"github.com/The-Frank-Organization/frank/internal/appctl/store"
+	"github.com/The-Frank-Organization/frank/internal/appctl/testutil"
+	"github.com/The-Frank-Organization/frank/internal/appipc"
 )
 
 func TestControlLockUsesBoundedPOSIXRecordLockAndOneDescriptor(t *testing.T) {

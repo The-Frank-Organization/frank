@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jackli/frank/internal/bounce"
-	"github.com/jackli/frank/internal/fieldspec"
-	"github.com/jackli/frank/internal/lineage"
+	"github.com/The-Frank-Organization/frank/internal/bounce"
+	"github.com/The-Frank-Organization/frank/internal/fieldspec"
+	"github.com/The-Frank-Organization/frank/internal/lineage"
 )
 
 func TestFormatContainsNoStorePaths(t *testing.T) {

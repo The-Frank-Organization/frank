@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jackli/frank/internal/worker/executor"
-	workerruntime "github.com/jackli/frank/internal/worker/runtime"
+	"github.com/The-Frank-Organization/frank/internal/worker/executor"
+	workerruntime "github.com/The-Frank-Organization/frank/internal/worker/runtime"
 )
 
 func TestM10TicketIsOneShotAndWakeIsDuplicateSafe(t *testing.T) {

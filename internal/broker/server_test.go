@@ -16,8 +16,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackli/frank/internal/appctl/brokerclient"
-	"github.com/jackli/frank/internal/appipc"
+	"github.com/The-Frank-Organization/frank/internal/appctl/brokerclient"
+	"github.com/The-Frank-Organization/frank/internal/appipc"
 )
 
 func TestVerifiedControlHandoverOutcomesAndLiveReplacement(t *testing.T) {

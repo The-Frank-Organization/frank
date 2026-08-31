@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jackli/frank/internal/channel"
-	"github.com/jackli/frank/internal/fieldspec"
-	"github.com/jackli/frank/internal/seatclient/conduct"
-	"github.com/jackli/frank/internal/worker/executor"
+	"github.com/The-Frank-Organization/frank/internal/channel"
+	"github.com/The-Frank-Organization/frank/internal/fieldspec"
+	"github.com/The-Frank-Organization/frank/internal/seatclient/conduct"
+	"github.com/The-Frank-Organization/frank/internal/worker/executor"
 )
 
 type fakeTransport struct {

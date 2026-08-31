@@ -17,8 +17,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/jackli/frank/internal/connector/credentials"
-	"github.com/jackli/frank/internal/connector/freeze"
+	"github.com/The-Frank-Organization/frank/internal/connector/credentials"
+	"github.com/The-Frank-Organization/frank/internal/connector/freeze"
 )
 
 const (

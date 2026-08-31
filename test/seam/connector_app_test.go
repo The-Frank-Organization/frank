@@ -14,17 +14,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackli/frank/internal/appctl/brokerclient"
-	"github.com/jackli/frank/internal/appctl/manifest"
-	"github.com/jackli/frank/internal/appctl/scheduler"
-	"github.com/jackli/frank/internal/appctl/settle"
-	"github.com/jackli/frank/internal/appctl/supervisor"
-	"github.com/jackli/frank/internal/appctl/testutil"
-	"github.com/jackli/frank/internal/appipc"
-	"github.com/jackli/frank/internal/connector/authorize"
-	"github.com/jackli/frank/internal/connector/credentials"
-	"github.com/jackli/frank/internal/connector/outcome"
-	"github.com/jackli/frank/internal/connector/request"
+	"github.com/The-Frank-Organization/frank/internal/appctl/brokerclient"
+	"github.com/The-Frank-Organization/frank/internal/appctl/manifest"
+	"github.com/The-Frank-Organization/frank/internal/appctl/scheduler"
+	"github.com/The-Frank-Organization/frank/internal/appctl/settle"
+	"github.com/The-Frank-Organization/frank/internal/appctl/supervisor"
+	"github.com/The-Frank-Organization/frank/internal/appctl/testutil"
+	"github.com/The-Frank-Organization/frank/internal/appipc"
+	"github.com/The-Frank-Organization/frank/internal/connector/authorize"
+	"github.com/The-Frank-Organization/frank/internal/connector/credentials"
+	"github.com/The-Frank-Organization/frank/internal/connector/outcome"
+	"github.com/The-Frank-Organization/frank/internal/connector/request"
 )
 
 // TestCT_C01 binds CT-C01; selectors r9 C01 and registered A-M10-SEAM amendment; flags MISMATCH, CN/CP, star.

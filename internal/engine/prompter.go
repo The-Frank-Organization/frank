@@ -6,8 +6,8 @@ import (
 	"encoding/hex"
 	"sync"
 
-	"github.com/jackli/frank/internal/intake"
-	"github.com/jackli/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/intake"
+	"github.com/The-Frank-Organization/frank/internal/record"
 )
 
 func promptContentDigest(contentKey string) string {

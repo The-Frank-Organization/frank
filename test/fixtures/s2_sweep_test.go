@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jackli/frank/internal/crashpoint"
-	fixtures "github.com/jackli/frank/test/fixtures"
+	"github.com/The-Frank-Organization/frank/internal/crashpoint"
+	fixtures "github.com/The-Frank-Organization/frank/test/fixtures"
 )
 
 func TestS2ApplicabilityMapCoversEveryClassPointAndReport(t *testing.T) {

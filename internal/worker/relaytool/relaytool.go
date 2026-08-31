@@ -8,10 +8,10 @@ import (
 	"encoding/json"
 	"sync"
 
-	"github.com/jackli/frank/internal/channel"
-	"github.com/jackli/frank/internal/fieldspec"
-	"github.com/jackli/frank/internal/seatclient/formschema"
-	"github.com/jackli/frank/internal/worker/executor"
+	"github.com/The-Frank-Organization/frank/internal/channel"
+	"github.com/The-Frank-Organization/frank/internal/fieldspec"
+	"github.com/The-Frank-Organization/frank/internal/seatclient/formschema"
+	"github.com/The-Frank-Organization/frank/internal/worker/executor"
 )
 
 type Conductor interface {

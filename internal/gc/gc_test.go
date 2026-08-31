@@ -8,12 +8,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jackli/frank/internal/config"
-	frankgc "github.com/jackli/frank/internal/gc"
-	"github.com/jackli/frank/internal/intake"
-	"github.com/jackli/frank/internal/obligation"
-	"github.com/jackli/frank/internal/record"
-	"github.com/jackli/frank/internal/store"
+	"github.com/The-Frank-Organization/frank/internal/config"
+	frankgc "github.com/The-Frank-Organization/frank/internal/gc"
+	"github.com/The-Frank-Organization/frank/internal/intake"
+	"github.com/The-Frank-Organization/frank/internal/obligation"
+	"github.com/The-Frank-Organization/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/store"
 )
 
 func TestPassIsOffByDefault(t *testing.T) {

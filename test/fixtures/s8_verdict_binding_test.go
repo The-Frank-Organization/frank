@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jackli/frank/internal/observe"
-	"github.com/jackli/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/observe"
+	"github.com/The-Frank-Organization/frank/internal/record"
 )
 
 func TestS8VerdictBindingComputesE2RowsAndMetTarget(t *testing.T) {

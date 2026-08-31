@@ -9,7 +9,7 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	"github.com/jackli/frank/internal/appipc"
+	"github.com/The-Frank-Organization/frank/internal/appipc"
 )
 
 type ProposalKind uint8

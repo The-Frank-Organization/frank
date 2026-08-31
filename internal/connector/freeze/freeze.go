@@ -13,11 +13,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jackli/frank/internal/connector/authorize"
-	"github.com/jackli/frank/internal/connector/catalog"
-	"github.com/jackli/frank/internal/connector/jcs"
-	connectorrequest "github.com/jackli/frank/internal/connector/request"
-	"github.com/jackli/frank/internal/connector/translate"
+	"github.com/The-Frank-Organization/frank/internal/connector/authorize"
+	"github.com/The-Frank-Organization/frank/internal/connector/catalog"
+	"github.com/The-Frank-Organization/frank/internal/connector/jcs"
+	connectorrequest "github.com/The-Frank-Organization/frank/internal/connector/request"
+	"github.com/The-Frank-Organization/frank/internal/connector/translate"
 )
 
 var ErrFrozenMutation = errors.New("freeze: frozen request mutation")

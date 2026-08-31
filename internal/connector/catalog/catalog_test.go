@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jackli/frank/internal/connector/jcs"
+	"github.com/The-Frank-Organization/frank/internal/connector/jcs"
 )
 
 func TestLoadAcceptsCanonicalClosedCatalogAndReturnsExactDigest(t *testing.T) {

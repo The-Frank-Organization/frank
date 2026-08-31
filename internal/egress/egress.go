@@ -14,9 +14,9 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/jackli/frank/internal/gate"
-	"github.com/jackli/frank/internal/record"
-	"github.com/jackli/frank/internal/store"
+	"github.com/The-Frank-Organization/frank/internal/gate"
+	"github.com/The-Frank-Organization/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/store"
 )
 
 type Class string

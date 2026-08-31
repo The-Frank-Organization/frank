@@ -3,10 +3,10 @@ package fixtures_test
 import (
 	"testing"
 
-	"github.com/jackli/frank/internal/engine"
-	"github.com/jackli/frank/internal/obligation"
-	"github.com/jackli/frank/internal/record"
-	"github.com/jackli/frank/internal/store"
+	"github.com/The-Frank-Organization/frank/internal/engine"
+	"github.com/The-Frank-Organization/frank/internal/obligation"
+	"github.com/The-Frank-Organization/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/store"
 )
 
 func TestS10OnlyAcceptedAGateEmitsODBAndParksWaitingForHuman(t *testing.T) {

@@ -3,7 +3,7 @@ package fixtures_test
 import (
 	"testing"
 
-	"github.com/jackli/frank/internal/engine"
+	"github.com/The-Frank-Organization/frank/internal/engine"
 )
 
 func TestS10ODBRejectsChoiceOutsideFrozenAgentEnumPickSet(t *testing.T) {

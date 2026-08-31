@@ -15,10 +15,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/jackli/frank/internal/bounce"
-	"github.com/jackli/frank/internal/engine"
-	"github.com/jackli/frank/internal/fieldspec"
-	"github.com/jackli/frank/internal/seat"
+	"github.com/The-Frank-Organization/frank/internal/bounce"
+	"github.com/The-Frank-Organization/frank/internal/engine"
+	"github.com/The-Frank-Organization/frank/internal/fieldspec"
+	"github.com/The-Frank-Organization/frank/internal/seat"
 )
 
 type ToolFunc func(context.Context, json.RawMessage) (json.RawMessage, error)

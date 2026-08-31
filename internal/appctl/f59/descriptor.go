@@ -7,8 +7,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/jackli/frank/internal/appctl/manifest"
-	"github.com/jackli/frank/internal/appipc"
+	"github.com/The-Frank-Organization/frank/internal/appctl/manifest"
+	"github.com/The-Frank-Organization/frank/internal/appipc"
 	"golang.org/x/text/unicode/norm"
 )
 

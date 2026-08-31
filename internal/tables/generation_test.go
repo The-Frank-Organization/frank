@@ -3,8 +3,8 @@ package tables_test
 import (
 	"testing"
 
-	"github.com/jackli/frank/internal/record"
-	"github.com/jackli/frank/internal/tables"
+	"github.com/The-Frank-Organization/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/tables"
 )
 
 func TestActivationRecordRefSetExactlyOnce(t *testing.T) {

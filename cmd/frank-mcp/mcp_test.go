@@ -12,13 +12,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackli/frank/internal/channel"
-	"github.com/jackli/frank/internal/fieldspec"
-	"github.com/jackli/frank/internal/record"
-	"github.com/jackli/frank/internal/seat"
-	"github.com/jackli/frank/internal/seatclient/conduct"
-	"github.com/jackli/frank/internal/worker/executor"
-	"github.com/jackli/frank/internal/worker/relaytool"
+	"github.com/The-Frank-Organization/frank/internal/channel"
+	"github.com/The-Frank-Organization/frank/internal/fieldspec"
+	"github.com/The-Frank-Organization/frank/internal/record"
+	"github.com/The-Frank-Organization/frank/internal/seat"
+	"github.com/The-Frank-Organization/frank/internal/seatclient/conduct"
+	"github.com/The-Frank-Organization/frank/internal/worker/executor"
+	"github.com/The-Frank-Organization/frank/internal/worker/relaytool"
 )
 
 func TestInitializeHandshakeGolden(t *testing.T) {

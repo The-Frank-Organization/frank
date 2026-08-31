@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jackli/frank/internal/appctl/applier"
-	"github.com/jackli/frank/internal/appctl/store"
+	"github.com/The-Frank-Organization/frank/internal/appctl/applier"
+	"github.com/The-Frank-Organization/frank/internal/appctl/store"
 )
 
 func TestWorkspaceRootOrderedRefusalTable(t *testing.T) {

@@ -23,10 +23,10 @@ func TestConnectorTypesHaveNoConductorPayloadRoute(t *testing.T) {
 	repository := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	connectorRoot := filepath.Join(repository, "internal", "connector")
 	forbiddenImports := map[string]bool{
-		"github.com/jackli/frank/internal/egress": true,
-		"github.com/jackli/frank/internal/intake": true,
-		"github.com/jackli/frank/internal/record": true,
-		"github.com/jackli/frank/internal/store":  true,
+		"github.com/The-Frank-Organization/frank/internal/egress": true,
+		"github.com/The-Frank-Organization/frank/internal/intake": true,
+		"github.com/The-Frank-Organization/frank/internal/record": true,
+		"github.com/The-Frank-Organization/frank/internal/store":  true,
 	}
 	walkGo(t, connectorRoot, func(path string, file *ast.File) {
 		for _, imported := range file.Imports {
@@ -48,7 +48,7 @@ func TestConnectorTypesHaveNoConductorPayloadRoute(t *testing.T) {
 				if err != nil {
 					t.Fatalf("%s: invalid import: %v", path, err)
 				}
-				if strings.HasPrefix(value, "github.com/jackli/frank/internal/connector") {
+				if strings.HasPrefix(value, "github.com/The-Frank-Organization/frank/internal/connector") {
 					t.Fatalf("conductor package acquired m8 serializer route %q in %s", value, path)
 				}
 			}

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jackli/frank/internal/config"
+	"github.com/The-Frank-Organization/frank/internal/config"
 )
 
 func TestLaneVCSV3LoadAndClone(t *testing.T) {

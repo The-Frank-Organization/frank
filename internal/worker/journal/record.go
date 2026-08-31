@@ -10,8 +10,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jackli/frank/internal/worker/jcs"
-	"github.com/jackli/frank/internal/worker/wire"
+	"github.com/The-Frank-Organization/frank/internal/worker/jcs"
+	"github.com/The-Frank-Organization/frank/internal/worker/wire"
 )
 
 const (

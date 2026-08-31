@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackli/frank/internal/fieldspec"
+	"github.com/The-Frank-Organization/frank/internal/fieldspec"
 )
 
 var ErrMissingEngine = errors.New("missing engine config member")
